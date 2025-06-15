@@ -4,6 +4,7 @@
 
 #include "BaseVk.h"
 
+
 class CommandPoolManager {
 public:
     CommandPoolManager() = default;
@@ -31,7 +32,7 @@ public:
     ~CommandBuffer() = default;
 
 
-    void createCommandBuffers(VkDevice device, VkCommandPool mCmdPool, int nbBuffers = MAX_FRAMES_IN_FLIGHT);
+    void createCommandBuffers(VkDevice device, VkCommandPool mCmdPool, int nbBuffers = ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
     
     VkCommandBuffer get(int index) const { return mCmdBuffer[index]; }
     VkCommandBuffer *getCmdBufferHandle(int index) { return &(mCmdBuffer[index]); }

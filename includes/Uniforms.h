@@ -11,10 +11,10 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glm/gtc/matrix_transform.hpp>
-//Use alignas
+// Use alignas
 #include <chrono>
 
-//Not convice by the bunuds
+// Not convice by the bunuds
 /*
 whjat's witj thje multiple uniform bueffer again ?
 They areused in renderpass only right ?
@@ -35,12 +35,13 @@ public:
     ~DescriptorManager() = default;
 
     void createDescriptorPool(VkDevice device);
-
-    void createDescriptorSets(VkDevice device, TextureManager& texutreM);
-
+    void createDescriptorSets(VkDevice device, TextureManager &texutreM);
     void createDescriptorSetLayout(VkDevice device);
+
     void createUniformBuffers(VkDevice device, VkPhysicalDevice physDevice);
-    void updateUniformBuffers(uint32_t currentImage, VkExtent2D swapChainExtent);
+
+    // TODO
+    //void updateUniformBuffers(uint32_t currentImage, VkExtent2D swapChainExtent);
 
     void destroyDescriptorPools(VkDevice device)
     {
@@ -48,21 +49,23 @@ public:
     }
 
     void destroyDescriptorLayout(VkDevice device);
-
     void destroyUniformBuffer(VkDevice device);
 
+    void *getMappedPointer(uint32_t frameIndex) const
+    {
+        return mUniformBuffersMapped[frameIndex];
+    }
     const VkDescriptorSetLayout getDescriptorLat() const
     {
 
         return mDescriptorSetLayout;
     }
 
-    const VkDescriptorSet& getSet(int index) const
+    const VkDescriptorSet &getSet(int index) const
     {
 
         return mDescriptorSets[index];
     }
-
 
 private:
     VkDescriptorPool mDescriptorPool;
@@ -83,14 +86,34 @@ private:
 
 Multiple descriptor sets
 
-As some of the structures and function calls hinted at, it is actually 
-possible to bind multiple descriptor sets simultaneously. You need to 
-specify a descriptor layout for each descriptor set when creating the 
-pipeline layout. Shaders can then reference specific descriptor sets like 
+As some of the structures and function calls hinted at, it is actually
+possible to bind multiple descriptor sets simultaneously. You need to
+specify a descriptor layout for each descriptor set when creating the
+pipeline layout. Shaders can then reference specific descriptor sets like
 this:
 
 layout(set = 0, binding = 0) uniform UniformBufferObject { ... }
 
 
-Also there is the array of 
+Also there is the array of
+*/
+
+
+/*
+SSSBO
+//Shoudl Material be 
+struct Material {
+    vec4 baseColorFactor;      
+    float metallicFactor;
+    float roughnessFactor;
+
+    int baseColorTextureID;
+    int normalTextureID;
+    int metallicRoughnessTextureID;
+    int emissiveTextureID;
+
+    vec3 emissiveFactor;
+    int alphaMode; // 0 = opaque, 1 = mask, 2 = blend
+};
+
 */

@@ -36,6 +36,10 @@ ImageData<T> LoadImageTemplate(
 class TextureManager
 {
 public:
+
+  TextureManager() = default;
+    ~TextureManager() = default;
+
     void createTextureImage(VkDevice deviceMdevice, VkPhysicalDevice physDevice,
                             const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM,
                             const QueueFamilyIndices &indices);

@@ -4,6 +4,7 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
 {
     // Logical device manager get the name of it's corresponding physical device
     // Reverse shoudl also be true
+
     mPhysicalDevice = physicalDevice;
 
     std::set<uint32_t> uniqueQueueFamilies = {
@@ -26,6 +27,7 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
+
     VkPhysicalDeviceFeatures deviceFeatures{};
     //OR directly request it
     deviceFeatures.samplerAnisotropy = VK_TRUE;
@@ -38,21 +40,23 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
     createInfo.queueCreateInfoCount =  static_cast<uint32_t>(queueCreateInfos.size());;
     createInfo.pEnabledFeatures = &deviceFeatures;
 
+
     // Extension
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
-    createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(ContextVk::contextInfo.deviceExtensions.size());
+    createInfo.ppEnabledExtensionNames = ContextVk::contextInfo.deviceExtensions.data();
 
     // ValidationLayer
     // Those are actually shared with  instance vlaidation layers hence ignored
-    if (enableValidationLayers)
+    if (ContextVk::contextInfo.enableValidationLayers)
     {
-        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-        createInfo.ppEnabledLayerNames = validationLayers.data();
+        createInfo.enabledLayerCount = static_cast<uint32_t>(ContextVk::contextInfo.validationLayers.size());
+        createInfo.ppEnabledLayerNames = ContextVk::contextInfo.validationLayers.data();
     }
     else
     {
         createInfo.enabledLayerCount = 0;
     }
+
 
     if (vkCreateDevice(mPhysicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
     {
@@ -60,8 +64,8 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
     }
 
     getGraphicsQueue(indices, 0);
-    getPresentQueue(indices, 0);
 
+    getPresentQueue(indices, 0);
 
 }
 

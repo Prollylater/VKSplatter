@@ -70,16 +70,16 @@ VkSurfaceFormatKHR SwapChainManager::chooseSwapSurfaceFormat(const std::vector<V
   return availableFormats[0];
 }
 
-VkPresentModeKHR SwapChainManager::chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes)
+VkPresentModeKHR SwapChainManager::chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablModes, const std::vector<VkPresentModeKHR> &preferredModes)
 {
-  for (const auto &availablePresentMode : availablePresentModes)
+  for (VkPresentModeKHR preferred : preferredModes)
   {
-    // Vulkan tutorial recommendation
-    // Eventually test everything
-    // Introduce a setting sfiels for this
-    if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+    for (VkPresentModeKHR available : availablModes)
     {
-      return availablePresentMode;
+      if (available == preferred)
+      {
+        return preferred;
+      }
     }
   }
 
@@ -110,25 +110,51 @@ VkExtent2D SwapChainManager::chooseSwapExtent(const VkSurfaceCapabilitiesKHR &ca
   }
 }
 
-void SwapChainManager::CreateSwapChain(VkPhysicalDevice device, VkDevice logicalDevice, GLFWwindow *window)
+bool SwapChainManager::aquireNextImage(VkDevice device, VkSemaphore semaphore, uint32_t &imageIndex)
 {
-  SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(device);
 
-  VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-  VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-  VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities, window);
+  VkResult result = vkAcquireNextImageKHR(
+      device,
+      mSwapChain,
+      UINT64_MAX,
+      semaphore,
+      VK_NULL_HANDLE,
+      &imageIndex);
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR)
+  {
+    // recreateSwapChain(); // must exist
+    // Don't return directly since it don't have acces to the Framebuffers
+    return false;
+  }
+  else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+  {
+    throw std::runtime_error("failed to acquire swap chain image!");
+  }
+
+  return true;
+}
+
+void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice logicalDevice, GLFWwindow *window, const SwapChainConfig &config)
+{
+  
+  mSupportDetails = QuerySwapChainSupport(physDevice);
+
+  VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(mSupportDetails.formats);
+  VkPresentModeKHR presentMode = chooseSwapPresentMode(mSupportDetails.presentModes, config.preferredPresentModes);
+  VkExtent2D extent = chooseSwapExtent(mSupportDetails.capabilities, window);
+ 
   mSwapChainExtent = extent;
 
   // Seem like being conservative is better as imageCount will be allocated  an deat vram
   // with image having their own tied element
 
-  //+2 assuming it is 1 to accomodate triple buffeirng
-  uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
-  // std::cout << "Minimum ImageCount is " << imageCount << std::endl;
-  //  max == 0 imply "infinite number"
-  if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount)
+  uint32_t imageCount = std::max(mSupportDetails.capabilities.minImageCount, config.preferredImageCount);
+
+  if (mSupportDetails.capabilities.maxImageCount > 0 &&
+      imageCount > mSupportDetails.capabilities.maxImageCount)
   {
-    imageCount = swapChainSupport.capabilities.maxImageCount;
+    imageCount = mSupportDetails.capabilities.maxImageCount;
   }
 
   // Actual creation
@@ -142,8 +168,9 @@ void SwapChainManager::CreateSwapChain(VkPhysicalDevice device, VkDevice logical
   createInfo.imageArrayLayers = 1; // Not sure
   createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-  QueueFamilyIndices indices = findQueueFamilies(device, mSurface);
+  QueueFamilyIndices indices = findQueueFamilies(physDevice, mSurface);
   uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+
 
   if (indices.graphicsFamily != indices.presentFamily)
   {
@@ -162,10 +189,10 @@ void SwapChainManager::CreateSwapChain(VkPhysicalDevice device, VkDevice logical
     createInfo.queueFamilyIndexCount = 0;
     createInfo.pQueueFamilyIndices = nullptr;
   }
-  // Current choice was only decided to avoid handling owner ship transfer
-  // REVISIT
 
-  createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+  //Need to revisit this
+
+  createInfo.preTransform = mSupportDetails.capabilities.currentTransform;
   createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   createInfo.presentMode = presentMode;
   // True will clip pixels obscured
@@ -173,11 +200,12 @@ void SwapChainManager::CreateSwapChain(VkPhysicalDevice device, VkDevice logical
   createInfo.clipped = VK_TRUE;
   createInfo.oldSwapchain = VK_NULL_HANDLE;
 
+
   if (vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &mSwapChain) != VK_SUCCESS)
   {
     throw std::runtime_error("failed to create swap chain!");
   }
-  mSupportDetails = swapChainSupport;
+
 
   vkGetSwapchainImagesKHR(logicalDevice, mSwapChain, &imageCount, nullptr);
   mSwapChainImages.resize(imageCount);
@@ -202,7 +230,7 @@ VkSwapchainKHR SwapChainManager::GetChain() const
 
 // Just for transition image currently
 
-void SwapChainManager::CreateImageViews(VkDevice device)
+void SwapChainManager::createImageViews(VkDevice device)
 {
   mSChainImageViews.resize(mSwapChainImages.size());
 
@@ -223,6 +251,95 @@ void SwapChainManager::DestroyImageViews(VkDevice device)
   }
   mSChainImageViews.clear();
 }
+
+
+//Passes Ressources
+
+void SwapChainResources::createFramebuffers(VkDevice device, const SwapChainManager &swapChain, const DepthRessources &depthRess, VkRenderPass renderPass)
+{
+  const auto &imageViews = swapChain.GetSwapChainImageViews();
+  VkExtent2D extent = swapChain.getSwapChainExtent();
+
+  mFramebuffers.resize(imageViews.size());
+
+  for (size_t i = 0; i < imageViews.size(); i++)
+  {
+    std::array<VkImageView, 2> attachments = {
+        imageViews[i],
+        depthRess.getView()};
+
+    // Not sure of why sam depth Ressources, seem like a bad idea
+
+    VkFramebufferCreateInfo framebufferInfo{};
+    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebufferInfo.renderPass = renderPass;
+    framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    framebufferInfo.pAttachments = attachments.data();
+    framebufferInfo.width = extent.width;
+    framebufferInfo.height = extent.height;
+    framebufferInfo.layers = 1;
+
+    if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &mFramebuffers[i]) != VK_SUCCESS)
+    {
+      throw std::runtime_error("failed to create framebuffer!");
+    }
+  }
+}
+
+void SwapChainResources::destroyFramebuffers(VkDevice device)
+{
+  for (auto framebuffer : mFramebuffers)
+  {
+    vkDestroyFramebuffer(device, framebuffer, nullptr);
+  }
+  mFramebuffers.clear();
+}
+
+void DepthRessources::createDepthBuffer(const LogicalDeviceManager &logDeviceM,
+                                        const SwapChainManager &swapChain, const PhysicalDeviceManager &physDeviceM, const CommandPoolManager &cmdPoolM)
+{
+  mDepthFormat = physDeviceM.findSupportedFormat(
+      {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+      VK_IMAGE_TILING_OPTIMAL,
+      VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+
+  bool hasStencil = (mDepthFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || mDepthFormat == VK_FORMAT_D24_UNORM_S8_UINT);
+
+  auto swapChainExtent = swapChain.getSwapChainExtent();
+  mDepthImage = vkUtils::createImage(logDeviceM.getLogicalDevice(), physDeviceM.getPhysicalDevice(), mDepthMemory, swapChainExtent.width, swapChainExtent.height,
+                                     mDepthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+  mDepthView = vkUtils::createImageView(logDeviceM.getLogicalDevice(), mDepthImage, mDepthFormat,
+                                        VK_IMAGE_ASPECT_DEPTH_BIT);
+
+  const auto indices = physDeviceM.getIndices();
+  vkUtils::transitionImageLayout(mDepthImage, mDepthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, logDeviceM, cmdPoolM, indices);
+}
+
+void DepthRessources::destroyDepthBuffer(VkDevice device)
+{
+  vkDestroyImageView(device, mDepthView, nullptr);
+  vkDestroyImage(device, mDepthImage, nullptr);
+  vkFreeMemory(device, mDepthMemory, nullptr);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Querying details of swap chain support
 
@@ -274,72 +391,3 @@ That leaves one last field, oldSwapChain.
 With Vulkan it's possible that your swap chain becomes invalid or unoptimized
 while your application is running, for example because the window was resized. In that case the swap chain actually needs to be recreated from scratch and a reference to the old one must be specified in this field.
 */
-
-void SwapChainResources::createFramebuffers(VkDevice device, const SwapChainManager &swapChain,const DepthRessources &depthRess, VkRenderPass renderPass)
-{
-  const auto &imageViews = swapChain.GetSwapChainImageViews();
-  VkExtent2D extent = swapChain.getSwapChainExtent();
-
-  mFramebuffers.resize(imageViews.size());
-
-  for (size_t i = 0; i < imageViews.size(); i++)
-  {
-    std::array<VkImageView, 2> attachments = {
-    imageViews[i],
-    depthRess.getView()
-    };
-
-    //Not sure of why sam depth Ressources, seem like a bad idea
-
-    VkFramebufferCreateInfo framebufferInfo{};
-    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebufferInfo.renderPass = renderPass;
-    framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());;
-    framebufferInfo.pAttachments = attachments.data();
-    framebufferInfo.width = extent.width;
-    framebufferInfo.height = extent.height;
-    framebufferInfo.layers = 1;
-
-    if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &mFramebuffers[i]) != VK_SUCCESS)
-    {
-      throw std::runtime_error("failed to create framebuffer!");
-    }
-  }
-}
-
-void SwapChainResources::destroyFramebuffers(VkDevice device)
-{
-  for (auto framebuffer : mFramebuffers)
-  {
-    vkDestroyFramebuffer(device, framebuffer, nullptr);
-  }
-  mFramebuffers.clear();
-}
-
-void DepthRessources::createDepthBuffer(const LogicalDeviceManager &logDeviceM,
-                                       const SwapChainManager &swapChain, const PhysicalDeviceManager &physDeviceM, const CommandPoolManager &cmdPoolM)
-{
-  mDepthFormat = physDeviceM.findSupportedFormat(
-      {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
-      VK_IMAGE_TILING_OPTIMAL,
-      VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-
-  bool hasStencil = (mDepthFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || mDepthFormat == VK_FORMAT_D24_UNORM_S8_UINT);
-
-  auto swapChainExtent = swapChain.getSwapChainExtent();
-  mDepthImage = vkUtils::createImage(logDeviceM.getLogicalDevice(), physDeviceM.getPhysicalDevice(), mDepthMemory, swapChainExtent.width, swapChainExtent.height,
-                                     mDepthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-  mDepthView = vkUtils::createImageView(logDeviceM.getLogicalDevice(), mDepthImage, mDepthFormat,
-                                        VK_IMAGE_ASPECT_DEPTH_BIT);
-
-  const auto indices = physDeviceM.getIndices();
-  vkUtils::transitionImageLayout(mDepthImage, mDepthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, logDeviceM, cmdPoolM, indices);
-}
-
-void DepthRessources::destroyDepthBuffer(VkDevice device)
-{
-  vkDestroyImageView(device, mDepthView, nullptr);
-  vkDestroyImage(device, mDepthImage, nullptr);
-  vkFreeMemory(device, mDepthMemory, nullptr);
-}

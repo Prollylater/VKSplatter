@@ -4,10 +4,9 @@
 #include <array>
 #include <unordered_map>
 
-
 /*
 [ Px Py Pz Cx Cy Cz | Px Py Pz Cx Cy Cz | ... ]
-→ One buffer, one binding  for ? 
+→ One buffer, one binding  for ?
 
 positions = [ Px Py Pz | Px Py Pz | ... ]
 colors    = [ Cx Cy Cz | Cx Cy Cz | ... ]
@@ -42,6 +41,8 @@ inline VkVertexInputAttributeDescription makeAttr(
     VkFormat format,
     uint32_t offset);
 
+struct Mesh;
+
 struct VertexFormat
 {
     // Attributes and bindins may not always match if we use interleaved format
@@ -53,132 +54,111 @@ struct VertexFormat
     VkPipelineVertexInputStateCreateInfo toCreateInfo() const;
 };
 
+// This is bad as well
 class VertexFormatRegistry
 {
 public:
-    static void registerFormat(const std::string &name, const VertexFormat &format);
-    
-    static const VertexFormat &getFormat(const std::string &name);
+    static void registerFormat(const VertexFlags, const VertexFormat &format);
+
+    static void addFormat(const VertexFlags flags);
+    static void addFormat(const Mesh &mesh);
+    static bool isFormatIn(const VertexFlags flag);
+
+    static const VertexFormat &getFormat(const VertexFlags);
 
     static VertexFormat generateVertexFormat(VertexFlags flags);
 
     static VertexFormat generateInterleavedVertexFormat(VertexFlags flags);
 
-    static void initBase();
-
 private:
-//Todo:
-//Ultimately making it a map of VertexFlag to Vertex Format is safer
-//This should be take care after reworking the pipeline and render pass parrt
-//Mesh should also auomatically be able to find their format through their size matching the position
-    static std::unordered_map<std::string, VertexFormat> &getFormats();
+    // Todo:
+    // Ultimately making it a map of VertexFlag to Vertex Format is safer
+    // This should be take care after reworking the pipeline and render pass parrt
+    // Mesh should also auomatically be able to find their format through their size matching the position
+    static std::unordered_map<VertexFlags, VertexFormat> &getFormats();
 };
 
+struct VertexUnique
+{
+    glm::vec3 position;
+    glm::vec3 normal;
+    glm::vec2 uv;
 
-struct Mesh {
+    bool operator==(const VertexUnique &other) const
+    {
+        return position == other.position &&
+               normal == other.normal &&
+               uv == other.uv;
+    }
+};
+
+struct VertexHash
+{
+    std::size_t operator()(const VertexUnique &v) const
+    {
+        std::size_t h1 = std::hash<float>()(v.position.x) ^ (std::hash<float>()(v.position.y) << 1) ^ (std::hash<float>()(v.position.z) << 2);
+        std::size_t h2 = std::hash<float>()(v.normal.x) ^ (std::hash<float>()(v.normal.y) << 1) ^ (std::hash<float>()(v.normal.z) << 2);
+        std::size_t h3 = std::hash<float>()(v.uv.x) ^ (std::hash<float>()(v.uv.y) << 1);
+        return h1 ^ h2 ^ h3;
+    }
+};
+
+struct Mesh
+{
+    
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;
-    std::vector<glm::vec3> colors;
     std::vector<glm::vec2> uvs;
+    std::vector<glm::vec3> colors;
     std::vector<uint32_t> indices;
 
-    //Awful really
-    std::string vertexFormatName;
-    //BufferHandle vertexBuffer
-    //BufferHandle indexBuffer;
-   // uint32_t indexCount;
-    size_t vertexCount() const {
+    // Awful really
+    VertexFlags inputFlag;
+    // BufferHandle vertexBuffer
+    // BufferHandle indexBuffer;
+    // uint32_t indexCount;
+    size_t vertexCount() const
+    {
         return positions.size(); // assume others match or are empty
     }
 
-     const VertexFormat& getFormat() const {
-        return VertexFormatRegistry::getFormat(vertexFormatName);
+    const VertexFormat &getFormat() const
+    {
+        return VertexFormatRegistry::getFormat(inputFlag);
     }
 
+    bool validateMesh(VertexFlags flags)
+    {
+        size_t count = positions.size();
+        if ((flags & Vertex_Normal) && normals.size() != count)
+            return false;
+        if ((flags & Vertex_Color) && colors.size() != count)
+            return false;
+        if ((flags & Vertex_UV) && uvs.size() != count)
+            return false;
+        return true;
+    }
 
-    bool validateMesh(VertexFlags flags) {
-    size_t count = positions.size();
-    if ((flags & Vertex_Normal) && normals.size() != count) return false;
-    if ((flags & Vertex_Color) && colors.size() != count) return false;
-    if ((flags & Vertex_UV) && uvs.size() != count) return false;
-    return true;
-}
-
+    void loadModel(std::string);
 };
 
-//Actual Vertex data
-struct VertexBufferData {
+// Actual Vertex data
+struct VertexBufferData
+{
     std::vector<std::vector<uint8_t>> mBuffers;
-    //Finally learned that reinterpred cast are cool
+    // Finally learned that reinterpred cast are cool
     template <typename T>
-    void appendToBuffer(size_t bufferIndex, const T& value);
+    void appendToBuffer(size_t bufferIndex, const T &value);
 };
 
-
-
-VertexBufferData buildSeparatedVertexBuffers(const Mesh& mesh, const VertexFormat& format);
-VertexBufferData buildInterleavedVertexBuffer(const Mesh& mesh, const VertexFormat& format);
-
-
-
-
+VertexBufferData buildInterleavedVertexBuffer(const std::vector<Mesh> &meshes, const VertexFormat &format);
+VertexBufferData buildSeparatedVertexBuffers(const Mesh &mesh, const VertexFormat &format);
+VertexBufferData buildInterleavedVertexBuffer(const Mesh &mesh, const VertexFormat &format);
 
 /////////////////////////////////////////////////::
 /*
----
-
-### 2. **Separation of Vertex Input State From Pipeline Creation**
-
-Often, the vertex input state is just one small part of the pipeline creation process, so many engines design:
 
 
-* **Multiple bindings**, for interleaved vertex buffers, instance buffers, etc.
-* API to create and store multiple `VkVertexInputBindingDescription` and `VkVertexInputAttributeDescription`.
-* Configurable input rates per binding (`VERTEX` or `INSTANCE`).
-
----
-
-
-
----
-
-
-# 📄 3. Data-Driven Format Loading
-
-## ✅ Goals
-
-* Define formats in JSON
-* Load + parse into `VertexFormat`
-
-### 🔧 Example JSON Format
-
-```json
-{
-  "name": "PosUVNormal",
-  "binding": {
-    "binding": 0,
-    "stride": 32,
-    "inputRate": "vertex"
-  },
-  "attributes": [
-    { "location": 0, "binding": 0, "format": "R32G32B32_SFLOAT", "offset": 0 },
-    { "location": 1, "binding": 0, "format": "R32G32_SFLOAT", "offset": 12 },
-    { "location": 2, "binding": 0, "format": "R32G32B32_SFLOAT", "offset": 20 }
-  ]
-}
-
-
-# ✅ PART 1: JSON Schema + Loader Utility
-
-## 🎯 Goal
-
-Define vertex formats in JSON and load them into a usable Vulkan-compatible `VertexFormat` struct at runtime.
-
----
-
-### 📄 Example JSON Format
-
-```json
 {
   "name": "PosNormalUV",
   "binding": {
@@ -322,8 +302,8 @@ Yes — **absolutely**. You're on the right track.
 In real engines, the **vertex format isn't just a global thing** — it’s often tightly tied to **assets**, like a `Mesh`, `SubMesh`, or even a `Material`. Here's the big idea:
 
 ---
- 
- 
+
+
 
 
 
@@ -418,4 +398,3 @@ bool validateFormatAgainstShader(const VertexFormat& fmt, const std::vector<Shad
 
 ---
 */
-

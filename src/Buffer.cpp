@@ -20,7 +20,7 @@ void Buffer::destroyIndexBuffer(VkDevice device)
 
 // Very long
 void createBuffer(VkBuffer &buffer, VkDeviceMemory &bufferMemory, const VkDevice &device, const VkPhysicalDevice &physDevice, VkDeviceSize dataSize,
-                          VkBufferUsageFlags usage, VkMemoryPropertyFlags flagsProp)
+                  VkBufferUsageFlags usage, VkMemoryPropertyFlags flagsProp)
 {
 
     // VertexBufferData vbd= buildSeparatedVertexBuffers(mesh, format);
@@ -62,12 +62,6 @@ void createBuffer(VkBuffer &buffer, VkDeviceMemory &bufferMemory, const VkDevice
 
 /*
 
-vkCmdBindVertexBuffers(command, 0,  1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(command, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-    //vkCmdDraw(command, static_cast<uint32_t>(mesh.vertexCount()), 1, 0, 0);
-    vkCmdDrawIndexed(command, static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
-    //vkCmdBindIndexBuffer(command, vertexBuffers, indexOffset, VK_INDEX_TYPE_UINT32);
-
 
 Quick method: memory (CPU) -> staging buffer (bridge) -> vertex buffer (GPU).
 Slow method: memory (CPU) -> vertex buffer (GPU).
@@ -91,6 +85,7 @@ void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice 
 
 {
     const VertexFormat &format = mesh.getFormat();
+
     for (size_t i = 0; i < 1 /*vbd.mBuffers.size()*/; ++i)
     {
         VertexBufferData vbd = buildInterleavedVertexBuffer(mesh, format);
@@ -121,19 +116,18 @@ void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice 
     }
 }
 
-
 void Buffer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM,
                         const QueueFamilyIndices &indices)
 {
     const auto &graphicsQueue = deviceM.getGraphicsQueue();
     const auto &device = deviceM.getLogicalDevice();
     const auto &commandPool = cmdPoolM.createSubCmdPool(device, indices, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-   
+
     CommandBuffer cmdBuffer;
     int uniqueIndex = 0;
     cmdBuffer.createCommandBuffers(deviceM.getLogicalDevice(), commandPool, 1);
-    VkCommandBuffer commandBuffer = cmdBuffer.get(uniqueIndex); 
-    cmdBuffer.beginRecord(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, uniqueIndex); 
+    VkCommandBuffer commandBuffer = cmdBuffer.get(uniqueIndex);
+    cmdBuffer.beginRecord(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, uniqueIndex);
     // Recording
 
     VkBufferCopy copyRegion{};
@@ -143,8 +137,7 @@ void Buffer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize siz
     vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
     cmdBuffer.endRecord(uniqueIndex);
 
-    
-    //Lot of thing to rethink here
+    // Lot of thing to rethink here
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
@@ -158,61 +151,36 @@ void Buffer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize siz
     vkDestroyCommandPool(device, commandPool, nullptr);
 }
 
-/*void Buffer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM,
-                        const QueueFamilyIndices &indices)
-{
-    const auto &graphicsQueue = deviceM.getGraphicsQueue();
-    const auto &device = deviceM.getLogicalDevice();
-    const auto &commandPool = cmdPoolM.createSubCmdPool(device, indices, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = commandPool;
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(deviceM.getLogicalDevice(), &allocInfo, &commandBuffer);
-
-    // Recording
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-    VkBufferCopy copyRegion{};
-    copyRegion.srcOffset = 0; // Optional
-    copyRegion.dstOffset = 0; // Optional
-    copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-    vkEndCommandBuffer(commandBuffer);
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
-
-    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
-
-    vkDestroyCommandPool(device, commandPool, nullptr);
-}
-*/
 // size is  a mix and VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT to create an unique buffer
-void Buffer::createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
+void Buffer::createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const std::vector<Mesh> &meshes,
                                       const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM, const QueueFamilyIndices indice)
 {
-    const VertexFormat &format = mesh.getFormat();
-    VertexBufferData vbd = buildInterleavedVertexBuffer(mesh, format);
+    const VertexFormat &format = meshes[0].getFormat();
+    VertexBufferData vbd = buildInterleavedVertexBuffer(meshes, format);
+
     const auto &data = vbd.mBuffers[0];
-    const auto &indices = mesh.indices;
+    // INdices are used as is
+    // const auto &indices = mesh.indices;
 
-    VkDeviceSize bufferSize = sizeof(uint32_t) * mesh.indices.size() + data.size();
-    VkDeviceSize indicesSize = sizeof(uint32_t) * mesh.indices.size();
+    std::vector<uint32_t> combinedIndices;
+    size_t meshOffset = 0;
+    combinedIndices.reserve(0);
 
+    for (const auto &mesh : meshes)
+    {
+        combinedIndices.reserve(combinedIndices.size() + mesh.indices.size());
+
+        for (uint32_t index : mesh.indices)
+        {
+            combinedIndices.push_back(index + static_cast<uint32_t>(meshOffset));
+        }
+
+        meshOffset += mesh.vertexCount();
+    }
+
+    VkDeviceSize vertexSize = data.size();
+    VkDeviceSize indicesSize = sizeof(uint32_t) * combinedIndices.size();
+    VkDeviceSize bufferSize = vertexSize + indicesSize;
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     createBuffer(stagingBuffer, stagingBufferMemory, device, physDevice, bufferSize,
@@ -224,8 +192,7 @@ void Buffer::createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDe
     void *databuff;
     vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &databuff);
     memcpy(databuff, data.data(), bufferSize);
-    //memcpy(databuff + data.size(), indices.data(), indicesSize);
-    memcpy(static_cast<uint8_t*>(databuff) + data.size(), indices.data(), indicesSize);
+    memcpy(static_cast<uint8_t *>(databuff) + data.size(), combinedIndices.data(), indicesSize);
     vkUnmapMemory(device, stagingBufferMemory);
 
     createBuffer(mVertexBuffer, mVertexBufferMemory, device, physDevice, bufferSize,
@@ -239,6 +206,7 @@ void Buffer::createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDe
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
+
 void Buffer::createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
                                 const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM, const QueueFamilyIndices indice)
 
@@ -246,7 +214,7 @@ void Buffer::createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &
     const VertexFormat &format = mesh.getFormat();
     const auto &indices = mesh.indices;
     VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
-
+    mBufferInfo.indexCount = indices.size();
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     createBuffer(stagingBuffer, stagingBufferMemory, device, physDevice, bufferSize,

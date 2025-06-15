@@ -8,7 +8,7 @@
 ///////////////////////////////////
 
 //Some doubt about the usage of this class
-QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, int dummy) {
+QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
     QueueFamilyIndices indices;
     // Logic to find queue family indices to populate struct with
 

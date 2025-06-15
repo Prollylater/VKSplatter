@@ -13,9 +13,9 @@ public:
     ~VulkanInstanceManager() = default;
 
     // Vulkan instance
-    void CreateInstance();
-    void DestroyInstance();
-    void SetupDebugMessenger();
+    void createInstance();
+    void destroyInstance();
+    void setupDebugMessenger();
 
     VkInstance &getInstance();
     VkInstance *getInstancePtr();
@@ -32,7 +32,7 @@ private:
     VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pDebugMessenger);
     void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator);
 
-    VkInstance instance;
+    VkInstance instance = VK_NULL_HANDLE;
     // Debug Handling could be moved elewhere
     VkDebugUtilsMessengerEXT debugMessenger;
 };

@@ -16,7 +16,7 @@ public:
     bool isDeviceQueueSuitable(VkPhysicalDevice device,VkSurfaceKHR surface);
     int rateDeviceSuitability(VkPhysicalDevice device,const SwapChainManager& );
 
-    bool checkDeviceExtensionSupported(VkPhysicalDevice device);
+    bool checkDeviceExtensionSupported(VkPhysicalDevice );
 
     VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
     VkFormat findDepthFormat() const;

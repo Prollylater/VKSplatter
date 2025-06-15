@@ -6,6 +6,19 @@
 #include "VertexDescriptions.h"
 #include "LogicalDevice.h"
 #include "CommandPool.h"
+
+
+struct MeshBufferInfo {
+    VkDeviceSize vertexOffset;  // in bytes
+    VkDeviceSize indexOffset;   // in bytes
+    uint32_t indexCount;        // for vkCmdDrawIndexed()
+    uint32_t vertexCount;
+
+    bool shared = false;
+    bool interleavec = true;
+    
+};
+
 ///////////////////////////////////
 // Buffer
 ///////////////////////////////////
@@ -14,6 +27,8 @@
 
     uint32_t findMemoryType(const VkPhysicalDevice &device, uint32_t memoryTypeBitsRequirement, const VkMemoryPropertyFlags &requiredProperties);
 
+
+//A class for holding a buffer (principally for Mesh)
 class Buffer
 {
 public:
@@ -24,10 +39,11 @@ public:
 
     //  void createVertexBuffers(const VkDevice& device, const VkPhysicalDevice& physDevice,const Mesh& mesh, const VertexFormat& format);
 
+    
     void createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh, 
                              const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM, const QueueFamilyIndices indice);
 
-    void createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
+    void createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const std::vector<Mesh> &mesh,
     const LogicalDeviceManager& deviceM, const CommandPoolManager& cmdPoolM, const QueueFamilyIndices indice );
 
     void createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh, 
@@ -62,7 +78,7 @@ public:
         return mIndexBufferMemory;
     }
 
-
+    MeshBufferInfo mBufferInfo;
 private:
     VkBuffer mVertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory mVertexBufferMemory = VK_NULL_HANDLE;
@@ -73,3 +89,5 @@ private:
 
 //TOOD: Chang eother at VK_NULL_HANDLE
 // Destroy on not real object nor null handle can have weird conseuqeujces
+
+

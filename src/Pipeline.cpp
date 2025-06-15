@@ -13,13 +13,6 @@
 
 namespace
 {
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-        // VK_DYNAMIC_STATE_POLYGON_MODE
-        // VK_DYNAMIC_STATE_DEPTH_BIAS
-        // VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE
-    };
 
     VkPipelineVertexInputStateCreateInfo createDefaultVertexInputState();
     VkPipelineInputAssemblyStateCreateInfo createDefaultInputAssemblyState();
@@ -27,7 +20,7 @@ namespace
     VkPipelineViewportStateCreateInfo createDynamicViewportState();
 
     VkPipelineDepthStencilStateCreateInfo createDefaultDepthStencilState();
-
+    VkPipelineDepthStencilStateCreateInfo createDisabledDepthStencilState();
     VkPipelineRasterizationStateCreateInfo createDefaultRasterizerState();
     VkPipelineMultisampleStateCreateInfo createDefaultMultisampleState();
     VkPipelineColorBlendStateCreateInfo createDefaultColorBlendState(VkPipelineColorBlendAttachmentState &);
@@ -36,30 +29,29 @@ namespace
 // Pass important variable directly
 bool PipelineManager::initialize(VkDevice device, VkRenderPass renderPass)
 {
-    mDevice = device;
-    mRenderPass = renderPass;
+   // mDevice = device;
+    //mRenderPass = renderPass;
     return true;
 }
 
 void PipelineManager::destroy(VkDevice device)
 {
-    if (mGraphicsPipeline)
+    if (mGraphicsPipeline[0])
     {
-        vkDestroyPipeline(device, mGraphicsPipeline, nullptr);
+        vkDestroyPipeline(device, mGraphicsPipeline[0], nullptr);
     }
     if (mPipelineLayout)
     {
         vkDestroyPipelineLayout(device, mPipelineLayout, nullptr);
     }
 }
-
-bool PipelineManager::createGraphicsPipeline(const std::string &vertPath, const std::string &fragPath, const VkDescriptorSetLayout &descriportSetLayout)
+bool PipelineManager::createGraphicsPipeline(VkDevice device, VkRenderPass renderPass,  const PipelineConfig &config, const VkDescriptorSetLayout &descriportSetLayout)
 {
-    auto vertCode = readShaderFile(vertPath);
-    auto fragCode = readShaderFile(fragPath);
+    auto vertCode = readShaderFile(config.vertShaderPath);
+    auto fragCode = readShaderFile(config.fragShaderPath);
 
-    VkShaderModule vertModule = createShaderModule(vertCode);
-    VkShaderModule fragModule = createShaderModule(fragCode);
+    VkShaderModule vertModule = createShaderModule(device,vertCode);
+    VkShaderModule fragModule = createShaderModule(device,fragCode);
 
     if (!vertModule || !fragModule)
     {
@@ -78,12 +70,12 @@ bool PipelineManager::createGraphicsPipeline(const std::string &vertPath, const 
     // Look into this and where it will be required to change them
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
-    dynamicState.pDynamicStates = dynamicStates.data();
+    dynamicState.dynamicStateCount = static_cast<uint32_t>(config.dynamicStates.size());
+    dynamicState.pDynamicStates = config.dynamicStates.data();
 
     VkPipelineViewportStateCreateInfo viewportState = createDynamicViewportState();
     VkPipelineRasterizationStateCreateInfo rasterizer = createDefaultRasterizerState();
-    VkPipelineDepthStencilStateCreateInfo depthStencil = createDefaultDepthStencilState();
+    VkPipelineDepthStencilStateCreateInfo depthStencil = config.enableDepthTest ? createDefaultDepthStencilState() : createDisabledDepthStencilState();
     VkPipelineMultisampleStateCreateInfo multisampling = createDefaultMultisampleState();
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
     VkPipelineColorBlendStateCreateInfo colorBlending = createDefaultColorBlendState(colorBlendAttachment);
@@ -95,7 +87,7 @@ bool PipelineManager::createGraphicsPipeline(const std::string &vertPath, const 
     pipelineLayoutInfo.setLayoutCount = 1;
 
     // Push constant too ?
-    if (vkCreatePipelineLayout(mDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout) != VK_SUCCESS)
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &mPipelineLayout) != VK_SUCCESS)
         return false;
 
     // Push it to a function with a better way to set the count
@@ -112,22 +104,22 @@ bool PipelineManager::createGraphicsPipeline(const std::string &vertPath, const 
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDepthStencilState = &depthStencil;
     pipelineInfo.layout = mPipelineLayout;
-    pipelineInfo.renderPass = mRenderPass;
+    pipelineInfo.renderPass = renderPass;
     pipelineInfo.subpass = 0;
 
     // Derivated Pipline cocnept nto used
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
     pipelineInfo.basePipelineIndex = -1;              // Optional
 
-    if (vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &mGraphicsPipeline) != VK_SUCCESS)
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &mGraphicsPipeline[0]) != VK_SUCCESS)
     {
-        vkDestroyShaderModule(mDevice, vertModule, nullptr);
-        vkDestroyShaderModule(mDevice, fragModule, nullptr);
+        vkDestroyShaderModule(device, vertModule, nullptr);
+        vkDestroyShaderModule(device, fragModule, nullptr);
         return false;
     }
 
-    vkDestroyShaderModule(mDevice, vertModule, nullptr);
-    vkDestroyShaderModule(mDevice, fragModule, nullptr);
+    vkDestroyShaderModule(device, vertModule, nullptr);
+    vkDestroyShaderModule(device, fragModule, nullptr);
 
     return true;
 }
@@ -143,7 +135,7 @@ VkPipelineShaderStageCreateInfo PipelineManager::createShaderStage(VkShaderStage
     return stageInfo;
 }
 
-VkShaderModule PipelineManager::createShaderModule(const std::vector<char> &code)
+VkShaderModule PipelineManager::createShaderModule(VkDevice device, const std::vector<char> &code)
 {
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -152,7 +144,7 @@ VkShaderModule PipelineManager::createShaderModule(const std::vector<char> &code
     createInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
 
     VkShaderModule shaderModule;
-    if (vkCreateShaderModule(mDevice, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
+    if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to create shader module!");
     }
@@ -191,8 +183,9 @@ namespace
     Bindings: spacing between data and whether the data is per-vertex or per-instance (see instancing)
     Attribute descriptions: type of the attributes passed to the vertex shader, which binding to load them from and at which offset
     */
-        VertexFormatRegistry::initBase();
-        return VertexFormatRegistry::getFormat("pos_color_interleaved").toCreateInfo();
+
+        VertexFlags flag = static_cast<VertexFlags>(Vertex_Pos | Vertex_Normal | Vertex_UV | Vertex_Color);
+        return VertexFormatRegistry::getFormat(flag).toCreateInfo();
     }
 
     VkPipelineInputAssemblyStateCreateInfo createDefaultInputAssemblyState()
@@ -248,18 +241,30 @@ Normally, the vertices are loaded from the vertex buffer by index in sequential 
         depthStencil.depthWriteEnable = VK_TRUE;
 
         depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
-        
-        //Unecessary for now
+
+        // Unecessary for now
         depthStencil.depthBoundsTestEnable = VK_FALSE;
         depthStencil.minDepthBounds = 0.0f; // Optional
         depthStencil.maxDepthBounds = 1.0f;
 
-        //Not for now
+        // Not for now
         depthStencil.stencilTestEnable = VK_FALSE;
-        depthStencil.front = {}; 
-        depthStencil.back = {};   
+        depthStencil.front = {};
+        depthStencil.back = {};
 
         return depthStencil;
+    }
+
+    VkPipelineDepthStencilStateCreateInfo createDisabledDepthStencilState()
+    {
+        VkPipelineDepthStencilStateCreateInfo disabledDepthStencil{};
+        disabledDepthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+        disabledDepthStencil.depthTestEnable = VK_FALSE;
+        disabledDepthStencil.depthWriteEnable = VK_FALSE;
+        disabledDepthStencil.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+        disabledDepthStencil.depthBoundsTestEnable = VK_FALSE;
+        disabledDepthStencil.stencilTestEnable = VK_FALSE;
+        return disabledDepthStencil;
     }
 
     VkPipelineRasterizationStateCreateInfo createDefaultRasterizerState()

@@ -1,11 +1,14 @@
 
 #include "RenderPass.h"
 #include <array>
-void RenderPassManager::create(VkDevice device, const VkFormat colorFormat,
-                               const VkFormat depthFormat)
+
+//This is the basic RenderPass not dealing with Other Attachement type
+void RenderPassManager::createRenderPass(VkDevice device, const RenderPassConfig &configStruct)
 {
+    std::vector<VkAttachmentDescription> attachments;
+    std::vector<VkAttachmentReference> colorAttachmentRefs;
     VkAttachmentDescription colorAttachment{};
-    colorAttachment.format = colorFormat;
+    colorAttachment.format = configStruct.colorFormat;
     colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -13,44 +16,48 @@ void RenderPassManager::create(VkDevice device, const VkFormat colorFormat,
     colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    attachments.push_back(colorAttachment);
 
-    VkAttachmentDescription depthAttachment{};
-    depthAttachment.format = depthFormat;
-    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    /*
-
-    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL: Images used as color attachment
-    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR: Images to be presented in the swap chain
-    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL: Images to be used as destination for a memory copy operation
-
-    */
-    VkAttachmentReference colorAttachmentRef{};
     // Id == 0 and equvialent to location out vec4 outColor
+    VkAttachmentReference colorAttachmentRef{};
     colorAttachmentRef.attachment = 0;
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachmentRefs.push_back(colorAttachmentRef);
 
+    VkAttachmentDescription depthAttachment{};
     VkAttachmentReference depthAttachmentRef{};
-    depthAttachmentRef.attachment = 1;
-    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-    // Subpass REREAD
+    const bool hasDepth = configStruct.enableDepth;
+    if (hasDepth)
+    {
+        depthAttachment.format = configStruct.depthFormat;
+        depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        //Starting right after the color
+        depthAttachmentRef.attachment = static_cast<uint32_t>(attachments.size());
+        depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        attachments.push_back(depthAttachment);
+    }
+
+    // Subpass 
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &colorAttachmentRef;
-    subpass.pDepthStencilAttachment = &depthAttachmentRef;
+    subpass.colorAttachmentCount = static_cast<uint32_t>(colorAttachmentRefs.size());
+    subpass.pColorAttachments = colorAttachmentRefs.data();
+    subpass.pDepthStencilAttachment = hasDepth ? &depthAttachmentRef : nullptr;
 
     VkSubpassDependency dependency{};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL; // Implicit Subpass
     dependency.dstSubpass = 0;
 
-    // Operation to vait and stage
+    // Operation to wait and stage
     dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependency.srcAccessMask = 0;
 
@@ -67,13 +74,11 @@ void RenderPassManager::create(VkDevice device, const VkFormat colorFormat,
     pPreserveAttachments: Attachments that are not used by this subpass, but for which the data must be preserved
     */
 
-    std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
     VkRenderPassCreateInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-    ;
     renderPassInfo.pAttachments = attachments.data();
-    renderPassInfo.subpassCount = 1;
+    renderPassInfo.subpassCount = configStruct.subpassCount;
     renderPassInfo.pSubpasses = &subpass;
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies = &dependency;
@@ -84,11 +89,14 @@ void RenderPassManager::create(VkDevice device, const VkFormat colorFormat,
     }
 }
 
-void RenderPassManager::destroy(VkDevice device)
+void RenderPassManager::destroyRenderPass(VkDevice device)
 {
     vkDestroyRenderPass(device, mRenderPass, nullptr);
 }
 
+
+//TODO:
+//Create A rednderer using mRenderOass
 void RenderPassManager::startPass(const VkCommandBuffer &command, const VkFramebuffer &frameBuffer, const VkExtent2D &extent)
 {
     VkRenderPassBeginInfo renderPassInfo{};

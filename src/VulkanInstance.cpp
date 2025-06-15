@@ -3,14 +3,13 @@
 
 
 //Vulkan instance
-void VulkanInstanceManager::CreateInstance(){
+void VulkanInstanceManager::createInstance(){
 
 
-    if (enableValidationLayers && !checkValidationLayerSupport())
+    if (ContextVk::contextInfo.enableValidationLayers && !checkValidationLayerSupport())
     {
         throw std::runtime_error("validation layers requested, but not available!");
     }
-
     // Optional but potentially useful
     VkApplicationInfo appInfo{};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -32,15 +31,15 @@ void VulkanInstanceManager::CreateInstance(){
     auto extensions = getRequiredExtensions();
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
-
+    
     // Additional debug utils for creation and destroy
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
 
     // Global validation Layers
-    if (enableValidationLayers)
+    if (ContextVk::contextInfo.enableValidationLayers)
     {
-        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-        createInfo.ppEnabledLayerNames = validationLayers.data();
+        createInfo.enabledLayerCount = static_cast<uint32_t>(ContextVk::contextInfo.validationLayers.size());
+        createInfo.ppEnabledLayerNames = ContextVk::contextInfo.validationLayers.data();
         populateDebugMessengerCreateInfo(debugCreateInfo);
         // Create a separate  messenger that can handle create and failure
         createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debugCreateInfo;
@@ -54,16 +53,17 @@ void VulkanInstanceManager::CreateInstance(){
 
     if (result != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create instance!");
+           std::cerr << "vkCreateInstance failed with error code: " << result << std::endl;
+             throw std::runtime_error("failed to create instance!");
     }
 
 
 };
 
 
-void VulkanInstanceManager::DestroyInstance(){
+void VulkanInstanceManager::destroyInstance(){
 
-    if (enableValidationLayers)
+    if (ContextVk::contextInfo.enableValidationLayers)
     {
         DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     }
@@ -89,7 +89,7 @@ std::vector<const char *> VulkanInstanceManager::getRequiredExtensions()
     // Similar to const char*[] and const char**
     std::vector<const char *> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
-    if (enableValidationLayers)
+    if (ContextVk::contextInfo.enableValidationLayers)
     {
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
@@ -156,9 +156,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
 // Fetching an extension function
 
-void VulkanInstanceManager::SetupDebugMessenger()
+void VulkanInstanceManager::setupDebugMessenger()
 {
-    if (!enableValidationLayers)
+    if (!ContextVk::contextInfo.enableValidationLayers)
         return;
 
     // Used to captrue events occuring while creating and destroying an instance of a applicatrion

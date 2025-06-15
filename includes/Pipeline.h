@@ -2,6 +2,34 @@
 #include "BaseVk.h"
 
 
+#include <array>
+
+enum class FragmentShaderType {
+    Basic,
+    Blinn_Phong,
+    PBR
+};
+
+
+struct PipelineConfig {
+    std::string vertShaderPath;
+    std::string fragShaderPath;
+    VkRenderPass renderPass;
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+    uint32_t subpass = 0;
+
+    // Optional: Flags or enums for blending, culling, etc.
+    bool enableDepthTest = true;
+    bool enableAlphaBlend = false;
+
+    // Optional: Dynamic states
+    std::vector<VkDynamicState> dynamicStates = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+    };
+};
+
+
 class PipelineManager {
 public:
     PipelineManager() = default;
@@ -9,19 +37,20 @@ public:
     //Destroy might be followed by a setting object to VK_NULL_Handle
     ~PipelineManager() = default;
 
-    VkPipeline getPipeline() const { return mGraphicsPipeline; }
+    VkPipeline getPipeline() const { return mGraphicsPipeline[0]; }
     VkPipelineLayout getPipelineLayout() const { return mPipelineLayout; }
 
     bool initialize(VkDevice device, VkRenderPass renderPass);
-    bool createGraphicsPipeline(const std::string &vertPath, const std::string &fragPath, const VkDescriptorSetLayout& descriportSetLayout);
+    bool createGraphicsPipeline(VkDevice,VkRenderPass, const PipelineConfig&, const VkDescriptorSetLayout& );
     void destroy(VkDevice device);
-    bool loadShaders(const std::string& vertPath, const std::string& fragPath);
 
 private:
-    VkDevice mDevice = VK_NULL_HANDLE;
-    VkRenderPass mRenderPass = VK_NULL_HANDLE;
+  //  VkDevice mDevice = VK_NULL_HANDLE;
+    //VkRenderPass mRenderPass = VK_NULL_HANDLE;
 
-    VkPipeline mGraphicsPipeline = VK_NULL_HANDLE;
+    std::array<VkPipeline, 1> mGraphicsPipeline = {VK_NULL_HANDLE};
+
+    //Still using a unique render pass
     VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
 
     //Could keep them to rebuild other pipelien ?
@@ -30,7 +59,7 @@ private:
     //VkShaderModule mFragShaderModule = VK_NULL_HANDLE;
     
     
-    VkShaderModule createShaderModule(const std::vector<char>& code);
+    VkShaderModule createShaderModule(VkDevice device,const std::vector<char>& code);
     std::vector<char> readShaderFile(const std::string& path);
     VkPipelineShaderStageCreateInfo createShaderStage(VkShaderStageFlagBits stage, VkShaderModule module);
 

@@ -4,12 +4,6 @@
 
 // Querying details of swap chain support
 // Structure used to query details of a swap chain support
-struct SwapChainSupportDetails
-{
-    VkSurfaceCapabilitiesKHR capabilities;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
-};
 
 class PhysicalDeviceManager;
 class LogicalDeviceManager;
@@ -17,42 +11,46 @@ class CommandPoolManager;
 class DepthRessources;
 class SwapChainRessources;
 
+struct SwapChainSupportDetails
+{
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> presentModes;
+};
+
+struct SwapChainConfig {
+    VkSurfaceFormatKHR preferredFormat = {VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+    std::vector<VkPresentModeKHR> preferredPresentModes = {
+        VK_PRESENT_MODE_MAILBOX_KHR,
+        VK_PRESENT_MODE_FIFO_KHR
+    };
+    // Triple buffering by default
+    const uint32_t preferredImageCount = 3; 
+    // 0 means "derive from window"
+    VkExtent2D preferredExtent = {0, 0}; 
+    bool allowExclusiveSharing = true;
+};
+
 class SwapChainManager
 {
 public:
+ SwapChainManager() = default;
+    ~SwapChainManager() = default;
+
     void CreateSurface(VkInstance instance, GLFWwindow *window);
     void DestroySurface();
     VkSurfaceKHR GetSurface() const;
 
-    void CreateSwapChain(VkPhysicalDevice device, VkDevice logicalDevice, GLFWwindow *window);
+    void createSwapChain(VkPhysicalDevice device, VkDevice logicalDevice, GLFWwindow *window,  const SwapChainConfig& config);
     void DestroySwapChain(VkDevice logicalDevice);
 
-    bool aquireNextImage(VkDevice device, VkSemaphore semaphore, uint32_t& imageIndex) {
-
-    VkResult result = vkAcquireNextImageKHR(
-        device, 
-        mSwapChain, 
-        UINT64_MAX,
-        semaphore,
-        VK_NULL_HANDLE,
-        &imageIndex
-    );
-
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        //recreateSwapChain(); // must exist
-        //Don't return directly since it don't have acces to the Framebuffers
-        return false;
-    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-        throw std::runtime_error("failed to acquire swap chain image!");
-    }
-
-    return true;
-    }
+    bool aquireNextImage(VkDevice device, VkSemaphore semaphore, uint32_t& imageIndex);
     VkSwapchainKHR GetChain() const;
 
     SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device) const;
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
-    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
+    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &, const std::vector<VkPresentModeKHR> &);
+
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities, GLFWwindow *window);
 
     const std::vector<VkImage> &GetSwapChainImages() const
@@ -61,7 +59,7 @@ public:
     }
 
 
-void CreateImageViews(VkDevice device);
+void createImageViews(VkDevice device);
 
 void DestroyImageViews(VkDevice device);
   
@@ -81,10 +79,9 @@ void DestroyImageViews(VkDevice device);
     }
 
 private:
-    VkSurfaceKHR mSurface;
-    VkSwapchainKHR mSwapChain;
-    // Handle to current
-    // Validation function too ?
+    VkSurfaceKHR mSurface = VK_NULL_HANDLE;
+    VkSwapchainKHR mSwapChain = VK_NULL_HANDLE;
+    //Remove
     VkInstance mInstance;
 
     // For now we store it here could also return the std::vector
@@ -98,9 +95,23 @@ private:
 };
 
 
+
+/*
+
+[ Shadow Pass       ] → writes depth-only
+       ↓
+[ G-Buffer Pass     ] → writes to multiple attachments (albedo, normal, etc.)
+       ↓
+[ Lighting Pass     ] → reads G-buffer, outputs lit result
+       ↓
+[ Post-Processing   ] → bloom, tone mapping, etc.
+       ↓
+[ **Swapchain Pass** ] → Single Color Attachment
+
+
+*/
 class SwapChainResources {
 public:
-    //void createFramebuffers(VkDevice device, const SwapChainManager& swapChain, VkRenderPass renderPass);
     void createFramebuffers(VkDevice device, const SwapChainManager &swapChain,const DepthRessources &depthRess, VkRenderPass renderPass);
     
     void destroyFramebuffers(VkDevice device);

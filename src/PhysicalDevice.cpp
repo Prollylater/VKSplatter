@@ -77,7 +77,7 @@ bool PhysicalDeviceManager::checkDeviceExtensionSupported(VkPhysicalDevice devic
     }
 
     // If one required is not found early exist
-    for (const auto &required : deviceExtensions)
+    for (const auto &required : ContextVk::contextInfo.deviceExtensions)
     {
         if (requiredExtensions.find(required) == requiredExtensions.end())
         {

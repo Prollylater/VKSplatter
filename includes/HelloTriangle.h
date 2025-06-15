@@ -1,29 +1,5 @@
-#pragma once
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
-
 #include "BaseVk.h"
-
-#include "QueueFam.h"
-#include <iostream>
-
-#include <stdexcept>
-#include <cstdlib>
-#include <cstring>
-#include <vector>
-#include "VulkanInstance.h"
-#include "LogicalDevice.h"
-#include "PhysicalDevice.h"
-#include "SwapChain.h"
-#include "Pipeline.h"
-#include "RenderPass.h"
-#include "CommandPool.h"
-
-#include "SyncObjects.h"
-#include "Buffer.h"
-#include "Uniforms.h"
-#include "Texture.h"
+#include "ContextController.h"
 
 //Our Application only use one physical device and one logical device
 
@@ -46,9 +22,6 @@ public:
         cleanup();
     }
 
-    void recordCommandBuffer(uint32_t currentFrame, uint32_t imageIndex);
-    void drawFrame();
-
 static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
     auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
     app->framebufferResized = true;
@@ -61,47 +34,12 @@ private:
     void mainLoop();
     void cleanup();
 
-    Mesh mesh;
 
-    void recreateSwapChain(VkDevice device);
-
-    ///////////////////////////
-
-    //std::vector<Buffer> vertexBuffers;
-    //std::vector<Buffer> indexBuffers;
-    //std::vector<Image> textures;
+    VulkanContext context;
+    Renderer renderer; 
 
     bool framebufferResized;
     GLFWwindow *window;
-    // Help setting up the Vulkan APi
-    // Describe App info, Extension and Validation Layer
-    VulkanInstanceManager mInstanceM;
-    SwapChainManager mSwapChainM;
-    SwapChainResources mSwapChainRess;
-    DepthRessources mDepthRessources;
-
-    PhysicalDeviceManager mPhysDeviceM;
-    LogicalDeviceManager mLogDeviceM;
-    PipelineManager mPipelineM;
-    RenderPassManager mRenderPassM;
-    CommandPoolManager mCommandPoolM;
-    CommandBuffer mCommandBuffer;
-    SyncObjects mSyncObjM;
-    Buffer mBufferM;
-    DescriptorManager mDescriptorM;
-    TextureManager mTextureM;
 };
 
 
-
-
-
-/*
-#pragma once
-
-#include "Buffer.h"
-#include "Image.h"
-#include "VulkanUtils.h"
-#include "DeviceExtensions.h"
-
-*/

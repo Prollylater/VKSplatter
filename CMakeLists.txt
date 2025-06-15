@@ -24,6 +24,8 @@ set(SOURCES
     ${SOURCE_DIR}/PhysicalDevice.cpp   
     ${SOURCE_DIR}/Pipeline.cpp   
 
+    ${SOURCE_DIR}/ContextController.cpp   
+
     ${SOURCE_DIR}/Texture.cpp   
 
     ${SOURCE_DIR}/RenderPass.cpp   
