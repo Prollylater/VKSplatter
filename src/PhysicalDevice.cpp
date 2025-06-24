@@ -2,6 +2,10 @@
 #include "SwapChain.h"
 
 #include <unordered_set>
+
+
+
+
 void PhysicalDeviceManager::pickPhysicalDevice(VkInstance instance, const SwapChainManager &swapManager)
 {
     uint32_t deviceCount = 0;
@@ -41,6 +45,7 @@ void PhysicalDeviceManager::pickPhysicalDevice(VkInstance instance, const SwapCh
 
         VkPhysicalDeviceProperties deviceProperties;
         vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+        mMsaaSamples = getMaxUsableSampleCount();
         std::cout << "Selected Device: " << deviceProperties.deviceName << std::endl;
     }
     else
@@ -57,12 +62,11 @@ VkPhysicalDevice PhysicalDeviceManager::getPhysicalDevice() const
 // Concern the suitability Indiices wise
 bool PhysicalDeviceManager::isDeviceQueueSuitable(VkPhysicalDevice device, VkSurfaceKHR surface)
 {
-    // add even if not suitable
-    mIndices = findQueueFamilies(device, surface);
-    return mIndices.isComplete();
+    mIndices = findQueueFamilies(device, surface, ContextCreateInfo::selectionCriteria);
+    return mIndices.isComplete(ContextCreateInfo::selectionCriteria);
 }
 
-bool PhysicalDeviceManager::checkDeviceExtensionSupported(VkPhysicalDevice device)
+bool PhysicalDeviceManager::areRequiredExtensionsSupported(VkPhysicalDevice device)
 {
     // Again double enumerate in a std::vector data pattern
     uint32_t extensionCount;
@@ -102,14 +106,23 @@ int PhysicalDeviceManager::rateDeviceSuitability(VkPhysicalDevice device, const 
         return 0;
     }
 
+     // Must-have features
+    if (ContextCreateInfo::selectionCriteria.requireGeometryShader  && !deviceFeatures.geometryShader)
+        {return 0;}
+    if (ContextCreateInfo::selectionCriteria.requireTessellationShader && !deviceFeatures.tessellationShader)
+        {return 0;}
+    if (ContextCreateInfo::selectionCriteria.requireSamplerAnisotropy && !deviceFeatures.samplerAnisotropy){
+        return 0;}
+
     // deviceFeatures.samplerAnisotropy is optional so something should just carry the option so taht we don't use it later
 
-    // Contorl how are supported some additonal features
-    if (!checkDeviceExtensionSupported(device))
+    // Required extensions
+    if (!areRequiredExtensionsSupported(device))
     {
         return 0;
     };
 
+    // Queue family support
     if (!isDeviceQueueSuitable(device, swapManager.GetSurface()))
     {
         return 0;
@@ -127,7 +140,7 @@ int PhysicalDeviceManager::rateDeviceSuitability(VkPhysicalDevice device, const 
 
     // Rating
 
-    if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+    if (deviceProperties.deviceType == ContextCreateInfo::selectionCriteria.preferredType)
     {
         score += 1000;
     }
@@ -168,6 +181,23 @@ VkFormat PhysicalDeviceManager::findDepthFormat() const
         VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
     );
 }
+
+VkSampleCountFlagBits PhysicalDeviceManager::getMaxUsableSampleCount() {
+    VkPhysicalDeviceProperties physicalDeviceProperties;
+    vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+
+    VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & 
+    physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+    if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+    if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+    if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+    if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+    if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+    if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+
+    return VK_SAMPLE_COUNT_1_BIT;
+}
+
 
 
 // So device may not support, queue we cant , extension we want, featyurse we want

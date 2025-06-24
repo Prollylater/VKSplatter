@@ -15,7 +15,6 @@
 #include "Uniforms.h"
 #include "Texture.h"
 
-void addDeviceExtension(const char *name, bool optional = false, void *featureStruct = nullptr);
 
 class VulkanContext
 {
@@ -66,6 +65,14 @@ public:
 
 private:
     // TODO: Memory allocator, debug messenger, etc.
+    void initInstanceAndSurface(GLFWwindow* window);
+    void initDevice();
+    void initSwapChain(GLFWwindow* window);
+    void initRenderPipeline();
+    void initResources();
+    void initDescriptors();
+    void initCommandBuffers();
+    void initSyncObjects();
 };
 
 class Renderer

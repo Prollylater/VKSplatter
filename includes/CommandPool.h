@@ -4,6 +4,7 @@
 
 #include "BaseVk.h"
 
+#include "QueueFam.h"
 
 class CommandPoolManager {
 public:

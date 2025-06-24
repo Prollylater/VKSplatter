@@ -8,7 +8,6 @@
 #include <cstring>
 #include <vector>
 
-#include "QueueFam.h"
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -19,7 +18,23 @@ const std::string TEXTURE_PATH = "./ressources/models/hearthspring.png";
 
 // Also repass on fucntion while looking into the structure
 
+struct DeviceSelectionCriteria {
+    bool requireGraphics = true;
+    bool requirePresent = true;
+    bool requireCompute = false;
+    bool requireTransferQueue = false; //Not implemented yet
+
+    bool requireGeometryShader = true;
+    bool requireTessellationShader = true;
+    bool requireSamplerAnisotropy = true;
+
+    VkPhysicalDeviceType preferredType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+
+
+};
+
 class VulkanContext;
+//Should eventually not be a variable but just a bunch of static element
 struct ContextCreateInfo
 {
 public:
@@ -30,13 +45,14 @@ public:
     uint32_t versionMinor = 2;
 
     // Configuration
-    std::vector<const char *> validationLayers = {
+    static inline std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"};
 
-    std::vector<const char *> instanceExtensions;
+    static inline std::vector<const char *> instanceExtensions;
 
-    std::vector<const char *> deviceExtensions = {
+    static inline std::vector<const char *> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
     bool enableValidationLayers =
 #ifndef NDEBUG
         true;
@@ -44,6 +60,8 @@ public:
         false;
 #endif
 
+
+    static inline DeviceSelectionCriteria selectionCriteria;
     // Getters
     uint32_t getVersionMajor() const { return versionMajor; }
     uint32_t getVersionMinor() const { return versionMinor; }
@@ -61,8 +79,11 @@ private:
     void setValidationLayers(const std::vector<const char *> &layers) { validationLayers = layers; }
     void setInstanceExtensions(const std::vector<const char *> &extensions) { instanceExtensions = extensions; }
     void setDeviceExtensions(const std::vector<const char *> &extensions) { deviceExtensions = extensions; }
+    
+    void addDeviceExtension(const char *name, bool optional = false, void *featureStruct = nullptr);
+    void addInstanceExtension(const char *name, bool optional = false, void *featureStruct = nullptr);
 
-    void setEnableValidationLayers(bool enable) { enableValidationLayers = enable; }
+    void setEnableValidationLayers(bool enable) { enableValidationLayers = enable; };
 };
 
 // Or have the setter being private only accessible

@@ -20,7 +20,7 @@ void VulkanContext::initAll(GLFWwindow *window)
     // Device
     mPhysDeviceM.pickPhysicalDevice(mInstanceM.getInstance(), mSwapChainM);
     const VkPhysicalDevice &physDevice = mPhysDeviceM.getPhysicalDevice();
-    const QueueFamilyIndices &indicesFamily = findQueueFamilies(physDevice, mSwapChainM.GetSurface());
+    const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
 
     mLogDeviceM.createLogicalDevice(physDevice, indicesFamily);
     const VkDevice &device = mLogDeviceM.getLogicalDevice();
@@ -58,9 +58,9 @@ void VulkanContext::initAll(GLFWwindow *window)
 
     mDepthRessources.createDepthBuffer(mLogDeviceM, mSwapChainM, mPhysDeviceM, mCommandPoolM);
     mSwapChainRess.createFramebuffers(device, mSwapChainM, mDepthRessources, mRenderPassM.getRenderPass());
-    std::cout << "Surface Created123" << std::endl;
 
-    mTextureM.createTextureImage(device, physDevice, mLogDeviceM, mCommandPoolM, indicesFamily);
+    //Texture creation
+    mTextureM.createTextureImage(physDevice, mLogDeviceM, mCommandPoolM, indicesFamily);
     mTextureM.createTextureImageView(device);
     mTextureM.createTextureSampler(device, physDevice);
 
@@ -79,6 +79,16 @@ void VulkanContext::initAll(GLFWwindow *window)
 
     // Render Pass For Drawing
 };
+
+void VulkanContext::initInstanceAndSurface(GLFWwindow *window) {};
+void VulkanContext::initDevice() {};
+void VulkanContext::initSwapChain(GLFWwindow *window) {};
+void VulkanContext::initRenderPipeline() {};
+void VulkanContext::initResources() {};
+void VulkanContext::initDescriptors() {};
+void VulkanContext::initCommandBuffers() {}
+void VulkanContext::initSyncObjects() {};
+
 void VulkanContext::destroyAll()
 {
 
@@ -262,7 +272,7 @@ void Renderer::updateUniformBuffers(uint32_t currentImage, VkExtent2D swapChainE
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f),glm::vec3(1.0f, 0.0f, 0.0f));
+    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
 
@@ -303,21 +313,10 @@ class Scene {
 public:
     std::vector<Mesh> meshes;
     std::vector<Material> materials;
+    std::vector<Material> Textures;
+    std::vector<Lights> lights;
+    Camera camera;
+     `Mesh`, `Textures`, `Materials`, `Camera`, `Lights`.
 };
 
-
-class Renderer {
-public:
-    void init(GLFWwindow* window);
-    void drawFrame();
-    void cleanup();
-
-    void uploadMesh(const Mesh& mesh);
-    // maybe: void setScene(Scene* scene);
-
-private:
-    VulkanInstanceManager mInstance;
-    SwapChainManager mSwapChain;
-    ...
-};
 */

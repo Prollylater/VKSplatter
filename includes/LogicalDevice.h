@@ -1,5 +1,6 @@
 #pragma once
 #include "BaseVk.h"
+#include "QueueFam.h"
 
 ///////////////////////////////////
 //Physical device handling

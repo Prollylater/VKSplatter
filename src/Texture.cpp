@@ -45,7 +45,7 @@ ImageData<T> LoadImageTemplate(
     return {data, width, height, desired_channels ? desired_channels : channels};
 }
 
-void TextureManager::createTextureImage(VkDevice deviceMdevice, VkPhysicalDevice physDevice,
+void TextureManager::createTextureImage( VkPhysicalDevice physDevice,
                                         const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM,
                                         const QueueFamilyIndices &indices)
 {
@@ -53,6 +53,7 @@ void TextureManager::createTextureImage(VkDevice deviceMdevice, VkPhysicalDevice
     ImageData<stbi_uc> texture = LoadImageTemplate<stbi_uc>(TEXTURE_PATH.c_str(), STBI_rgb_alpha);
     VkDeviceSize imageSize = texture.width * texture.height * texture.channels;
 
+    mMipMapLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texture.width, texture.height)))) + 1;
     if (!texture.data)
     {
         throw std::runtime_error("");
@@ -72,9 +73,16 @@ void TextureManager::createTextureImage(VkDevice deviceMdevice, VkPhysicalDevice
     createImage(device, physDevice, texture);
 
     // TODO: BEtter and easier way to implement transaiton
-    vkUtils::transitionImageLayout(mTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, deviceM, cmdPoolM, indices);
+    vkUtils::transitionImageLayout(mTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, deviceM, cmdPoolM, indices, mMipMapLevels);
     copyBufferToImage(stagingBuffer, mTextureImage, texture, deviceM, cmdPoolM, indices);
-    vkUtils::transitionImageLayout(mTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, deviceM, cmdPoolM, indices);
+    if(mMipMapLevels == 1){
+    vkUtils::transitionImageLayout(mTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, deviceM, cmdPoolM, indices , mMipMapLevels);
+    } else {
+    const auto &commandPool = cmdPoolM.createSubCmdPool(device, indices, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+    vkUtils::generateMipmaps(device, physDevice, commandPool, mTextureImage, deviceM.getGraphicsQueue(),VK_FORMAT_R8G8B8A8_SRGB ,
+    texture.width,texture.height, mMipMapLevels);
+    }
+    
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
@@ -89,9 +97,22 @@ void TextureManager::createImage(VkDevice device, VkPhysicalDevice physDevice, c
     // imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 
     // Could also simply pass the Image Info
-    mTextureImage = vkUtils::createImage(device, physDevice, mTextureImageMemory,
-                                         imgData.width, imgData.height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-                                         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vkUtils::ImageCreateConfig config = {
+        .device = device,
+        .physDevice = physDevice,
+        .imageMemory = mTextureImageMemory,
+        .width = imgData.width,
+        .height = imgData.height,
+        .mipLevels = mMipMapLevels,
+        .format = VK_FORMAT_R8G8B8A8_SRGB,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+        // Only override what's needed
+    };
+    //Necessary for blitting and thus for mimaping
+    config.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    mTextureImage = vkUtils::createImage(config);
 }
 
 void TextureManager::destroyTexture(VkDevice device)
@@ -160,13 +181,19 @@ void TextureManager::copyBufferToImage(VkBuffer buffer, VkImage image, const Ima
 
 void TextureManager::createTextureImageView(VkDevice device)
 {
- 
-    mTextureImageView = vkUtils::createImageView(device,
-                                                 mTextureImage,
-                                                 VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    // Could also simply pass the Image Info
+    vkUtils::ImageViewCreateConfig config = {
+        .device = device,
+        .image = mTextureImage,
+        .format = VK_FORMAT_R8G8B8A8_SRGB,
+        .aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
+        .levelCount = mMipMapLevels
+                // Only override what's needed
+    };
+    mTextureImageView = vkUtils::createImageView(config);
     // Change nothing but that'as an example of usage.
     //  I could set everything to red and rgba would be red
-
 }
 
 void TextureManager::createTextureSampler(VkDevice device, VkPhysicalDevice physDevice)
@@ -193,10 +220,14 @@ void TextureManager::createTextureSampler(VkDevice device, VkPhysicalDevice phys
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
 
     // MpipMapping stuff
+    //PSeudo codehttps://vulkan-tutorial.com/Generating_Mipmaps
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = 0.0f;
+    samplerInfo.maxLod = static_cast<float>(mMipMapLevels);
+
+
+
 
     if (vkCreateSampler(device, &samplerInfo, nullptr, &mTextureSampler) != VK_SUCCESS)
     {
@@ -211,6 +242,15 @@ void TextureManager::destroySampler(VkDevice device)
 
     vkDestroySampler(device, mTextureSampler, nullptr);
 }
+
+
+VkImageView vkUtils::createImageView( ImageViewCreateConfig & config)
+{
+    return createImageView(config.device, config.image,
+    config.format, config.aspectFlags, config.viewType, config.baseMipLevel, config.levelCount,
+    config.baseArrayLayer, config.layerCount, config.components);
+}
+
 
 VkImageView vkUtils::createImageView(
     VkDevice device,
@@ -243,6 +283,14 @@ VkImageView vkUtils::createImageView(
     }
 
     return imageView;
+}
+
+VkImage vkUtils::createImage(ImageCreateConfig &config)
+{
+
+    return createImage(config.device, config.physDevice, config.imageMemory, config.width,
+                       config.height, config.format, config.tiling, config.usage, config.properties,
+                       config.imageType, config.initialLayout, config.sharingMode, config.mipLevels, config.arrayLayers, config.samples, config.flags);
 }
 
 VkImage vkUtils::createImage(
@@ -306,8 +354,9 @@ VkImage vkUtils::createImage(
     return image;
 }
 
+//Re do the function
 void vkUtils::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM,
-                                    const QueueFamilyIndices &indices)
+                                    const QueueFamilyIndices &indices , uint32_t mipLevels)
 {
     const auto &graphicsQueue = deviceM.getGraphicsQueue();
     const auto &device = deviceM.getLogicalDevice();
@@ -330,7 +379,7 @@ void vkUtils::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.levelCount = mipLevels;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
@@ -405,3 +454,144 @@ void vkUtils::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
     vkDestroyCommandPool(device, commandPool, nullptr);
 }
+
+void vkUtils::generateMipmaps(VkDevice device,VkPhysicalDevice physicalDevice,  VkCommandPool commandPool, VkImage  image, VkQueue graphicsQueue,
+    VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
+    {
+
+        // Check if image format supports linear blitting
+        VkFormatProperties formatProperties;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, &formatProperties);
+
+        if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+            throw std::runtime_error("texture image format does not support linear blitting!");
+        }
+
+        // Single time record is about this
+        CommandBuffer cmdBuffer;
+        int uniqueIndex = 0;
+        cmdBuffer.createCommandBuffers(device, commandPool, 1);
+        VkCommandBuffer commandBuffer = cmdBuffer.get(uniqueIndex);
+        cmdBuffer.beginRecord(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, uniqueIndex);
+        // Recording
+
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.image = image;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+        barrier.subresourceRange.levelCount = 1;
+
+
+
+        int32_t mipWidth = texWidth;
+        int32_t mipHeight = texHeight;
+
+        for (uint32_t i = 1; i < mipLevels; i++) {
+            barrier.subresourceRange.baseMipLevel = i - 1;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+            vkCmdPipelineBarrier(commandBuffer,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
+
+
+        
+            VkImageBlit blit{};
+            blit.srcOffsets[0] = {0, 0, 0};
+            blit.srcOffsets[1] = {mipWidth, mipHeight, 1};
+            blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.srcSubresource.mipLevel = i - 1;
+            blit.srcSubresource.baseArrayLayer = 0;
+            blit.srcSubresource.layerCount = 1;
+            blit.dstOffsets[0] = {0, 0, 0};
+            blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+            blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.dstSubresource.mipLevel = i;
+            blit.dstSubresource.baseArrayLayer = 0;
+            blit.dstSubresource.layerCount = 1;
+
+            vkCmdBlitImage(commandBuffer,
+                image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                1, &blit,
+                VK_FILTER_LINEAR);
+
+            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            vkCmdPipelineBarrier(commandBuffer,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+                0, nullptr,
+                0, nullptr,
+                1, &barrier);
+
+            if (mipWidth > 1) mipWidth /= 2;
+            if (mipHeight > 1) mipHeight /= 2;
+        }
+
+        barrier.subresourceRange.baseMipLevel = mipLevels - 1;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        vkCmdPipelineBarrier(commandBuffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+            0, nullptr,
+            0, nullptr,
+            1, &barrier);     
+
+        cmdBuffer.endRecord(uniqueIndex);
+
+        // Lot of thing to retrethinkhink here
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+
+        vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(graphicsQueue);
+
+        vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+        vkDestroyCommandPool(device, commandPool, nullptr);
+    }
+
+/*
+
+Something equivalent ?
+
+
+makeImageMemoryBarrier : returns VkImageMemoryBarrier for an image based on provided layouts and access flags.
+
+makeImage2DCreateInfo : aids 2d image creation
+
+makeImage3DCreateInfo : aids 3d descriptor set updating
+
+makeImageCubeCreateInfo : aids cube descriptor set updating
+
+makeImageViewCreateInfo : aids common image view creation, derives info from VkImageCreateInfo
+
+//Soùe 
+cmdGenerateMipmaps : basic mipmap creation for images (meant for one-shot operations)
+
+makeImageMemoryBarrier : returns VkImageMemoryBarrier for an image based on provided layouts and access flags.
+
+mipLevels : return number of mips for 2d/3d extent
+
+accessFlagsForImageLayout : helps resource transtions
+
+pipelineStageForLayout : helps resource transitions
+
+cmdBarrierImageLayout : inserts barrier for image transition
+*/
