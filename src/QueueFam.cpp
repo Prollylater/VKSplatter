@@ -73,11 +73,12 @@ QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surfa
 
     for (uint32_t i = 0; i < queueFamilyCount; ++i) {
         const auto& q = queueFamilies[i];
-
+        //Nothing enforce the Graphics Queue to also have other 
+        //Maybe add that if incompatibility is detected
         if (criteria.requireGraphics && (q.queueFlags & VK_QUEUE_GRAPHICS_BIT) && !indices.graphicsFamily) {
             indices.graphicsFamily = i;
         }
-
+        
         if (criteria.requireCompute && (q.queueFlags & VK_QUEUE_COMPUTE_BIT) && !indices.computeFamily) {
             // Prefer a dedicated compute queue
             if (!(q.queueFlags & VK_QUEUE_GRAPHICS_BIT)) {

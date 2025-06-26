@@ -113,6 +113,8 @@ void TextureManager::createImage(VkDevice device, VkPhysicalDevice physDevice, c
     //Necessary for blitting and thus for mimaping
     config.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     mTextureImage = vkUtils::createImage(config);
+    mTextureImageMemory = config.imageMemory;
+
 }
 
 void TextureManager::destroyTexture(VkDevice device)

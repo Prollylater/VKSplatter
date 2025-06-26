@@ -2,14 +2,8 @@
 
 #include "ContextController.h"
 
-void VulkanContext::initAll(GLFWwindow *window)
+void VulkanContext::initVulkanBase(GLFWwindow *window)
 {
-    // Push to scene
-    mesh.loadModel(MODEL_PATH);
-    mesh.inputFlag = static_cast<VertexFlags>(Vertex_Pos | Vertex_Normal | Vertex_UV | Vertex_Color);
-    // Mesh creation
-    VertexFormatRegistry::addFormat(mesh);
-
     mInstanceM.createInstance();
 
     mInstanceM.setupDebugMessenger();
@@ -29,37 +23,63 @@ void VulkanContext::initAll(GLFWwindow *window)
     SwapChainConfig defConfigSwapChain;
     mSwapChainM.createSwapChain(physDevice, device, window, defConfigSwapChain);
 
-    // Not refactored
+    // Not refactored SwapChain IMage Views
     mSwapChainM.createImageViews(device);
+}
 
-    /*
-    //The graphic Pipeline can  be divided into
-    Shader stages: the shader modules that define the functionality of the programmable stages of the graphics pipeline
-    Fixed-function state: all of the structures that define the fixed-function stages of the pipeline, like input assembly, rasterizer, viewport and color blending
-    Pipeline layout: the uniform and push values referenced by the shader that can be updated at draw time
-    Render pass: the attachments referenced by the pipeline stages and their usage
-    */
+void VulkanContext::initRenderInfrastructure() {
+
+    const VkDevice &device = mLogDeviceM.getLogicalDevice();
+    const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
 
     RenderPassConfig defConfigRenderPass;
     defConfigRenderPass.colorFormat = mSwapChainM.getSwapChainImageFormat();
     defConfigRenderPass.depthFormat = mPhysDeviceM.findDepthFormat();
+    
     mRenderPassM.createRenderPass(device, defConfigRenderPass);
     mDescriptorM.createDescriptorSetLayout(device);
 
-    // Just pass vkDevice in the regular way
-    PipelineConfig defConfigPipeline;
-    defConfigPipeline.fragShaderPath = fragPath;
-    defConfigPipeline.vertShaderPath = vertPath;
-
-    // There's no reason to keep this initialize
-    mPipelineM.createGraphicsPipeline(device, mRenderPassM.getRenderPass(), defConfigPipeline,
-                                      mDescriptorM.getDescriptorLat());
     mCommandPoolM.create(device, indicesFamily);
 
     mDepthRessources.createDepthBuffer(mLogDeviceM, mSwapChainM, mPhysDeviceM, mCommandPoolM);
     mSwapChainRess.createFramebuffers(device, mSwapChainM, mDepthRessources, mRenderPassM.getRenderPass());
 
-    //Texture creation
+};
+void VulkanContext::initPipelineAndDescriptors() {
+    
+     const VkDevice &device = mLogDeviceM.getLogicalDevice();
+    const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
+
+        // Just pass vkDevice in the regular way
+    PipelineConfig defConfigPipeline;
+    defConfigPipeline.fragShaderPath = fragPath;
+    defConfigPipeline.vertShaderPath = vertPath;
+
+    // There's no reason to keep this initialize
+   mPipelineM.createGraphicsPipeline(device, mRenderPassM.getRenderPass(), defConfigPipeline,
+                                      mDescriptorM.getDescriptorLat());
+
+};
+void VulkanContext::initSceneAssets() {};
+
+void VulkanContext::initAll(GLFWwindow *window)
+{
+    initVulkanBase(window);
+
+    const VkPhysicalDevice &physDevice = mPhysDeviceM.getPhysicalDevice();
+    const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
+    const VkDevice &device = mLogDeviceM.getLogicalDevice();
+    // Push to scene
+    mesh.loadModel(MODEL_PATH);
+    mesh.inputFlag = static_cast<VertexFlags>(Vertex_Pos | Vertex_Normal | Vertex_UV | Vertex_Color);
+    // Mesh creation
+    VertexFormatRegistry::addFormat(mesh);
+
+    initRenderInfrastructure();
+    initPipelineAndDescriptors();
+
+   
+    // Texture creation
     mTextureM.createTextureImage(physDevice, mLogDeviceM, mCommandPoolM, indicesFamily);
     mTextureM.createTextureImageView(device);
     mTextureM.createTextureSampler(device, physDevice);
@@ -70,32 +90,27 @@ void VulkanContext::initAll(GLFWwindow *window)
 
     // We are here
     mDescriptorM.createUniformBuffers(device, physDevice);
+
     mDescriptorM.createDescriptorPool(device);
     mDescriptorM.createDescriptorSets(device, mTextureM);
 
     mCommandBuffer.createCommandBuffers(device, mCommandPoolM.get());
-
     mSyncObjM.createSyncObjects(device, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
 
     // Render Pass For Drawing
 };
-
-void VulkanContext::initInstanceAndSurface(GLFWwindow *window) {};
-void VulkanContext::initDevice() {};
-void VulkanContext::initSwapChain(GLFWwindow *window) {};
+/*
 void VulkanContext::initRenderPipeline() {};
 void VulkanContext::initResources() {};
 void VulkanContext::initDescriptors() {};
 void VulkanContext::initCommandBuffers() {}
 void VulkanContext::initSyncObjects() {};
-
+*/
 void VulkanContext::destroyAll()
 {
-
+    //Have destructor call those function 
     VkDevice device = mLogDeviceM.getLogicalDevice();
-
     mSyncObjM.destroy(device, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-    mCommandPoolM.destroy(device);
 
     mBufferM.destroyVertexBuffer(device);
     mBufferM.destroyIndexBuffer(device);
@@ -103,20 +118,24 @@ void VulkanContext::destroyAll()
     mDescriptorM.destroyUniformBuffer(device);
     mDescriptorM.destroyDescriptorPools(device);
 
-    mDescriptorM.destroyDescriptorLayout(device);
+ 
+    mTextureM.destroySampler(device);
+    mTextureM.destroyTextureView(device);
+    mTextureM.destroyTexture(device);
+    mCommandPoolM.destroy(device);
 
     mDepthRessources.destroyDepthBuffer(device);
     mSwapChainRess.destroyFramebuffers(device);
 
+
+    mRenderPassM.destroyRenderPass(device);
+    mDescriptorM.destroyDescriptorLayout(device);
+    mPipelineM.destroy(device);
+
+
     mSwapChainM.DestroyImageViews(device);
     mSwapChainM.DestroySwapChain(device);
-
-    mTextureM.destroySampler(device);
-    mTextureM.destroyTextureView(device);
-    mTextureM.destroyTexture(device);
-
-    mPipelineM.destroy(device);
-    mRenderPassM.destroyRenderPass(device);
+    
 
     mLogDeviceM.DestroyDevice();
     mSwapChainM.DestroySurface();

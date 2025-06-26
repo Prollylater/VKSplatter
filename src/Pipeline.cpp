@@ -4,12 +4,14 @@
 #include "Buffer.h"
 
 // COuld you rewrite it ? IF possible in a most flewible way ?
-// For example separating shaderstage creatop,
-// Makking create grpahicpipleines different ,
-// Making read shader read at anothe stepr. ANything go
-// Just that flexibilitty is the goal so a bigger division mayne
-// NOhtin is set to stone and you're not here to say if it's good or ok enough  you want
-// OPf course it is clear that create and creategrpahic are two beginning of the same function but this again may cahgen
+// For example separating shaderstage creation,
+/*
+//The graphic Pipeline can  be divided into
+Shader stages: the shader modules that define the functionality of the programmable stages of the graphics pipeline
+Fixed-function state: all of the structures that define the fixed-function stages of the pipeline, like input assembly, rasterizer, viewport and color blending
+Pipeline layout: the uniform and push values referenced by the shader that can be updated at draw time
+Render pass: the attachments referenced by the pipeline stages and their usage
+*/
 
 namespace
 {
@@ -29,8 +31,8 @@ namespace
 // Pass important variable directly
 bool PipelineManager::initialize(VkDevice device, VkRenderPass renderPass)
 {
-   // mDevice = device;
-    //mRenderPass = renderPass;
+    // mDevice = device;
+    // mRenderPass = renderPass;
     return true;
 }
 
@@ -45,13 +47,13 @@ void PipelineManager::destroy(VkDevice device)
         vkDestroyPipelineLayout(device, mPipelineLayout, nullptr);
     }
 }
-bool PipelineManager::createGraphicsPipeline(VkDevice device, VkRenderPass renderPass,  const PipelineConfig &config, const VkDescriptorSetLayout &descriportSetLayout)
+bool PipelineManager::createGraphicsPipeline(VkDevice device, VkRenderPass renderPass, const PipelineConfig &config, const VkDescriptorSetLayout &descriportSetLayout)
 {
     auto vertCode = readShaderFile(config.vertShaderPath);
     auto fragCode = readShaderFile(config.fragShaderPath);
 
-    VkShaderModule vertModule = createShaderModule(device,vertCode);
-    VkShaderModule fragModule = createShaderModule(device,fragCode);
+    VkShaderModule vertModule = createShaderModule(device, vertCode);
+    VkShaderModule fragModule = createShaderModule(device, fragCode);
 
     if (!vertModule || !fragModule)
     {

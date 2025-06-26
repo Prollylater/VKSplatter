@@ -5,13 +5,19 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
     // Logical device manager get the name of it's corresponding physical device
     // Reverse shoudl also be true
 
-    mPhysicalDevice = physicalDevice;
-
-    std::set<uint32_t> uniqueQueueFamilies = {
-        indices.graphicsFamily.value(),
-        indices.presentFamily.value()
-    };
-
+    //You could use here the QueueFamilyIndices already existing or get a new one by passing the physmanager
+ 
+    std::set<uint32_t> uniqueQueueFamilies;
+    for (const auto& family : {
+        indices.graphicsFamily,
+        indices.presentFamily,
+        indices.computeFamily,
+        indices.transferFamily
+    }) {
+        if (family.has_value()) {
+            uniqueQueueFamilies.insert(family.value());
+        }
+    }
     float queuePriority = 1.0f;
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -20,8 +26,8 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
         VkDeviceQueueCreateInfo queueCreateInfo{};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         queueCreateInfo.queueFamilyIndex = queueFamily;
-        // Only a small number of queue by queue family
-        // 1 is enough
+        // Only a small number of queue by queue family and some may not support more
+        // 1 is enough for now
         queueCreateInfo.queueCount = 1;
         queueCreateInfo.pQueuePriorities = &queuePriority;
         queueCreateInfos.push_back(queueCreateInfo);
@@ -30,7 +36,7 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
 
     VkPhysicalDeviceFeatures deviceFeatures{};
     //OR directly request it
-    deviceFeatures.samplerAnisotropy = VK_TRUE;
+    deviceFeatures.samplerAnisotropy = ContextCreateInfo::selectionCriteria.requireSamplerAnisotropy;
     // Share idea of vk istance create info
     // Device is then created using physicail device features and queue create
     VkDeviceCreateInfo createInfo{};
@@ -42,15 +48,15 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
 
 
     // Extension
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(ContextVk::contextInfo.deviceExtensions.size());
-    createInfo.ppEnabledExtensionNames = ContextVk::contextInfo.deviceExtensions.data();
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(ContextCreateInfo::deviceExtensions.size());
+    createInfo.ppEnabledExtensionNames = ContextCreateInfo::deviceExtensions.data();
 
     // ValidationLayer
     // Those are actually shared with  instance vlaidation layers hence ignored
     if (ContextVk::contextInfo.enableValidationLayers)
     {
-        createInfo.enabledLayerCount = static_cast<uint32_t>(ContextVk::contextInfo.validationLayers.size());
-        createInfo.ppEnabledLayerNames = ContextVk::contextInfo.validationLayers.data();
+        createInfo.enabledLayerCount = static_cast<uint32_t>(ContextCreateInfo::validationLayers.size());
+        createInfo.ppEnabledLayerNames = ContextCreateInfo::validationLayers.data();
     }
     else
     {
@@ -58,14 +64,28 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
     }
 
 
-    if (vkCreateDevice(mPhysicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
+    if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create logical device!");
     }
 
-    getGraphicsQueue(indices, 0);
+    if( ContextCreateInfo::selectionCriteria.requireGraphics){
+    vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &mGraphicsQueue);
 
-    getPresentQueue(indices, 0);
+    }
+    if( ContextCreateInfo::selectionCriteria.requireTransferQueue){
+    vkGetDeviceQueue(device, indices.transferFamily.value(), 0, &mTransferQueue);
+
+    }
+    if( ContextCreateInfo::selectionCriteria.requirePresent){
+    vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &mPresentQueue);
+
+    }
+    if( ContextCreateInfo::selectionCriteria.requireCompute){
+    vkGetDeviceQueue(device, indices.computeFamily.value(), 0, &mComputeQueue);
+        
+    }
+
 
 }
 
@@ -74,20 +94,14 @@ VkDevice LogicalDeviceManager::getLogicalDevice() const
     return device;
 }
 
-VkQueue LogicalDeviceManager::getGraphicsQueue(QueueFamilyIndices indices, int index)
+VkQueue LogicalDeviceManager::getQueue(uint32_t familyIndex, uint32_t queueIndex )  const{
 {
-    // Store the device queue in more accessible parameter
-    vkGetDeviceQueue(device, indices.graphicsFamily.value(), index, &mGraphicsQueue);
-    return mGraphicsQueue;
+     VkQueue queueRef;
+   // vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &queueRef);
+    return queueRef;
 }
 
-VkQueue LogicalDeviceManager::getPresentQueue(QueueFamilyIndices indices, int index)
-{
-    // Store the device queue in more accessible parameter
-    vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &mPresentQueue);
-    return mPresentQueue;
 }
-
 
 void LogicalDeviceManager::DestroyDevice()
 {

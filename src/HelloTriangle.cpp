@@ -1,6 +1,5 @@
 #include "HelloTriangle.h"
 
-
 #include "LogicalDevice.h"
 
 /*
@@ -10,7 +9,7 @@ Pointer to struct with creation info
 Pointer to custom allocator callbacks, always nullptr in this tutorial
 Pointer to the variable that stores the handle to the new object
 */
- 
+
 // GLFW Functions
 void HelloTriangleApplication::initWindow()
 {
@@ -30,7 +29,6 @@ void HelloTriangleApplication::initVulkan()
     renderer.associateContext(context);
 }
 
-
 void HelloTriangleApplication::mainLoop()
 {
     while (!glfwWindowShouldClose(window))
@@ -45,12 +43,12 @@ void HelloTriangleApplication::mainLoop()
 void HelloTriangleApplication::cleanup()
 {
     context.destroyAll();
-      glfwDestroyWindow(window);
-
-        glfwTerminate();
+    glfwDestroyWindow(window);
+    glfwTerminate();
 }
 
 /*
+
 
 I guess for deferred rendering we would have a configuration with 4 attachement  like albedo, normal depthot create the Gbuffer
 Then we read then

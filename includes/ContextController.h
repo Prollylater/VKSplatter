@@ -65,14 +65,17 @@ public:
 
 private:
     // TODO: Memory allocator, debug messenger, etc.
-    void initInstanceAndSurface(GLFWwindow* window);
-    void initDevice();
-    void initSwapChain(GLFWwindow* window);
+
+    void initVulkanBase(GLFWwindow* window);
+    void initRenderInfrastructure();
+    void initPipelineAndDescriptors();
+    void initSceneAssets();
+    /*
     void initRenderPipeline();
     void initResources();
     void initDescriptors();
     void initCommandBuffers();
-    void initSyncObjects();
+    void initSyncObjects();*/
 };
 
 class Renderer
