@@ -62,8 +62,8 @@ VkPhysicalDevice PhysicalDeviceManager::getPhysicalDevice() const
 // Concern the suitability Indiices wise
 bool PhysicalDeviceManager::isDeviceQueueSuitable(VkPhysicalDevice device, VkSurfaceKHR surface)
 {
-    mIndices = findQueueFamilies(device, surface, ContextCreateInfo::selectionCriteria);
-    return mIndices.isComplete(ContextCreateInfo::selectionCriteria);
+    mIndices = findQueueFamilies(device, surface, ContextVk::contextInfo.getDeviceSelector());
+    return mIndices.isComplete(ContextVk::contextInfo.getDeviceSelector());
 }
 
 bool PhysicalDeviceManager::areRequiredExtensionsSupported(VkPhysicalDevice device)
@@ -101,20 +101,20 @@ int PhysicalDeviceManager::rateDeviceSuitability(VkPhysicalDevice device, const 
     VkPhysicalDeviceFeatures deviceFeatures;
     vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
+    /*
     if (!deviceFeatures.geometryShader || !deviceFeatures.tessellationShader || !deviceFeatures.samplerAnisotropy)
     {
         return 0;
-    }
+    }*/
 
      // Must-have features
-    if (ContextCreateInfo::selectionCriteria.requireGeometryShader  && !deviceFeatures.geometryShader)
+    if (ContextVk::contextInfo.getDeviceSelector().requireGeometryShader  && !deviceFeatures.geometryShader)
         {return 0;}
-    if (ContextCreateInfo::selectionCriteria.requireTessellationShader && !deviceFeatures.tessellationShader)
+    if (ContextVk::contextInfo.getDeviceSelector().requireTessellationShader && !deviceFeatures.tessellationShader)
         {return 0;}
-    if (ContextCreateInfo::selectionCriteria.requireSamplerAnisotropy && !deviceFeatures.samplerAnisotropy){
+    if (ContextVk::contextInfo.getDeviceSelector().requireSamplerAnisotropy && !deviceFeatures.samplerAnisotropy){
         return 0;}
 
-    // deviceFeatures.samplerAnisotropy is optional so something should just carry the option so taht we don't use it later
 
     // Required extensions
     if (!areRequiredExtensionsSupported(device))
@@ -130,7 +130,7 @@ int PhysicalDeviceManager::rateDeviceSuitability(VkPhysicalDevice device, const 
 
     // Swap chain suitability
     bool swapChainAdequate = false;
-    SwapChainSupportDetails swapChainSupport = swapManager.QuerySwapChainSupport(device);
+    SwapChainSupportDetails swapChainSupport = swapManager.querySwapChainSupport(device);
     swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
 
     if (!swapChainAdequate)
@@ -140,7 +140,7 @@ int PhysicalDeviceManager::rateDeviceSuitability(VkPhysicalDevice device, const 
 
     // Rating
 
-    if (deviceProperties.deviceType == ContextCreateInfo::selectionCriteria.preferredType)
+    if (deviceProperties.deviceType == ContextVk::contextInfo.getDeviceSelector().preferredType)
     {
         score += 1000;
     }

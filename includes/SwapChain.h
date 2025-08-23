@@ -7,7 +7,6 @@
 
 class PhysicalDeviceManager;
 class LogicalDeviceManager;
-class CommandPoolManager;
 class DepthRessources;
 class SwapChainRessources;
 
@@ -21,8 +20,9 @@ struct SwapChainSupportDetails
 struct SwapChainConfig {
     VkSurfaceFormatKHR preferredFormat = {VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
     std::vector<VkPresentModeKHR> preferredPresentModes = {
-        VK_PRESENT_MODE_MAILBOX_KHR,
-        VK_PRESENT_MODE_FIFO_KHR
+        VK_PRESENT_MODE_FIFO_KHR,
+        VK_PRESENT_MODE_MAILBOX_KHR
+      
     };
     // Triple buffering by default
     const uint32_t preferredImageCount = 3; 
@@ -37,7 +37,7 @@ public:
  SwapChainManager() = default;
     ~SwapChainManager() = default;
 
-    void CreateSurface(VkInstance instance, GLFWwindow *window);
+    void createSurface(VkInstance instance, GLFWwindow *window);
     void DestroySurface();
     VkSurfaceKHR GetSurface() const;
 
@@ -47,7 +47,7 @@ public:
     bool aquireNextImage(VkDevice device, VkSemaphore semaphore, uint32_t& imageIndex);
     VkSwapchainKHR GetChain() const;
 
-    SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device) const;
+    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) const;
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &, const std::vector<VkPresentModeKHR> &);
 
@@ -81,6 +81,7 @@ void DestroyImageViews(VkDevice device);
 private:
     VkSurfaceKHR mSurface = VK_NULL_HANDLE;
     VkSwapchainKHR mSwapChain = VK_NULL_HANDLE;
+
     //Remove
     VkInstance mInstance;
 
@@ -97,7 +98,6 @@ private:
 
 
 /*
-
 [ Shadow Pass       ] → writes depth-only
        ↓
 [ G-Buffer Pass     ] → writes to multiple attachments (albedo, normal, etc.)
@@ -107,17 +107,17 @@ private:
 [ Post-Processing   ] → bloom, tone mapping, etc.
        ↓
 [ **Swapchain Pass** ] → Single Color Attachment
-
-
 */
+
+    /*
+    a framebuffer references image views that are to be used for color, depth and stencil targets. 
+    */
 class SwapChainResources {
 public:
     void createFramebuffers(VkDevice device, const SwapChainManager &swapChain,const DepthRessources &depthRess, VkRenderPass renderPass);
     
     void destroyFramebuffers(VkDevice device);
-    /*
-    a framebuffer references image views that are to be used for color, depth and stencil targets. 
-    */
+
     const std::vector<VkFramebuffer>& GetFramebuffers() const {
         return mFramebuffers;
     }
@@ -130,7 +130,7 @@ private:
 class DepthRessources {
 public:
     void createDepthBuffer(const LogicalDeviceManager&,
-const SwapChainManager &swapChain, const PhysicalDeviceManager &,  const CommandPoolManager& cmdPoolM);
+const SwapChainManager &swapChain, const PhysicalDeviceManager &);
     void destroyDepthBuffer(VkDevice);
     VkImageView getView() const {
         return mDepthView;

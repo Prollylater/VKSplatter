@@ -25,8 +25,16 @@ void HelloTriangleApplication::initWindow()
 // Very long call so fare as i have yet to decide how to handle to pass so elements
 void HelloTriangleApplication::initVulkan()
 {
-    context.initAll(window);
     renderer.associateContext(context);
+    renderer.registerSceneFormat();
+    
+    context.initVulkanBase(window);
+    context.initRenderInfrastructure();
+    context.initPipelineAndDescriptors();
+
+    renderer.uploadScene();
+
+    context.initAll(window);
 }
 
 void HelloTriangleApplication::mainLoop()

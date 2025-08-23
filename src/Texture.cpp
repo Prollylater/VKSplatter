@@ -46,7 +46,7 @@ ImageData<T> LoadImageTemplate(
 }
 
 void TextureManager::createTextureImage( VkPhysicalDevice physDevice,
-                                        const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM,
+                                        const LogicalDeviceManager &deviceM,
                                         const QueueFamilyIndices &indices)
 {
     // Todo: This implictly move ?
@@ -72,14 +72,14 @@ void TextureManager::createTextureImage( VkPhysicalDevice physDevice,
     ///
     createImage(device, physDevice, texture);
 
-    // TODO: BEtter and easier way to implement transaiton
-    vkUtils::transitionImageLayout(mTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, deviceM, cmdPoolM, indices, mMipMapLevels);
-    copyBufferToImage(stagingBuffer, mTextureImage, texture, deviceM, cmdPoolM, indices);
+    //Todo: Very important look into this again
+    // TODO: BEtter and easier way to implement transition
+    vkUtils::transitionImageLayout(mTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, deviceM, indices, mMipMapLevels);
+    copyBufferToImage(stagingBuffer, mTextureImage, texture, deviceM, indices);
     if(mMipMapLevels == 1){
-    vkUtils::transitionImageLayout(mTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, deviceM, cmdPoolM, indices , mMipMapLevels);
+    vkUtils::transitionImageLayout(mTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, deviceM, indices , mMipMapLevels);
     } else {
-    const auto &commandPool = cmdPoolM.createSubCmdPool(device, indices, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-    vkUtils::generateMipmaps(device, physDevice, commandPool, mTextureImage, deviceM.getGraphicsQueue(),VK_FORMAT_R8G8B8A8_SRGB ,
+    vkUtils::generateMipmaps(device, physDevice, indices, mTextureImage, deviceM.getGraphicsQueue(),VK_FORMAT_R8G8B8A8_SRGB ,
     texture.width,texture.height, mMipMapLevels);
     }
     
@@ -128,20 +128,19 @@ void TextureManager::destroyTextureView(VkDevice device)
     vkDestroyImageView(device, mTextureImageView, nullptr);
 }
 
-void TextureManager::copyBufferToImage(VkBuffer buffer, VkImage image, const ImageData<stbi_uc> &imgData, const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM,
+void TextureManager::copyBufferToImage(VkBuffer buffer, VkImage image, const ImageData<stbi_uc> &imgData, const LogicalDeviceManager &deviceM, 
                                        const QueueFamilyIndices &indices)
 {
     const auto &graphicsQueue = deviceM.getGraphicsQueue();
     const auto &device = deviceM.getLogicalDevice();
-    const auto &commandPool = cmdPoolM.createSubCmdPool(device, indices, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-    CommandBuffer cmdBuffer;
+    
 
-    int uniqueIndex = 0;
-    cmdBuffer.createCommandBuffers(deviceM.getLogicalDevice(), commandPool, 1);
-    VkCommandBuffer commandBuffer = cmdBuffer.get(uniqueIndex);
+       CommandPoolManager cmdPoolM;
+        cmdPoolM.createCommandPool(device,CommandPoolType::Transient, indices.graphicsFamily.value());
+        VkCommandBuffer commandBuffer = cmdPoolM.beginSingleTime();
+
 
     // Recording
-    cmdBuffer.beginRecord(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, uniqueIndex);
     VkBufferImageCopy region{};
     region.bufferOffset = 0;
     region.bufferRowLength = 0;
@@ -166,19 +165,8 @@ void TextureManager::copyBufferToImage(VkBuffer buffer, VkImage image, const Ima
         1,
         &region);
 
-    cmdBuffer.endRecord(uniqueIndex);
-
-    // Lot of thing to rethink here
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
-
-    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
-    vkDestroyCommandPool(device, commandPool, nullptr);
+    cmdPoolM.endSingleTime(commandBuffer,graphicsQueue);
+    cmdPoolM.destroy();
 }
 
 void TextureManager::createTextureImageView(VkDevice device)
@@ -357,19 +345,17 @@ VkImage vkUtils::createImage(
 }
 
 //Re do the function
-void vkUtils::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM,
+void vkUtils::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, const LogicalDeviceManager &deviceM,
                                     const QueueFamilyIndices &indices , uint32_t mipLevels)
 {
     const auto &graphicsQueue = deviceM.getGraphicsQueue();
     const auto &device = deviceM.getLogicalDevice();
-    const auto &commandPool = cmdPoolM.createSubCmdPool(device, indices, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-    CommandBuffer cmdBuffer;
+ 
+       CommandPoolManager cmdPoolM;
+        cmdPoolM.createCommandPool(device,CommandPoolType::Transient, indices.graphicsFamily.value());
+        VkCommandBuffer commandBuffer = cmdPoolM.beginSingleTime();
 
-    int uniqueIndex = 0;
-    cmdBuffer.createCommandBuffers(deviceM.getLogicalDevice(), commandPool, 1);
-    VkCommandBuffer commandBuffer = cmdBuffer.get(uniqueIndex);
-
-    cmdBuffer.beginRecord(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, uniqueIndex);
+      
     // Recording
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -442,22 +428,11 @@ void vkUtils::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
         0, nullptr,
         1, &barrier);
 
-    cmdBuffer.endRecord(uniqueIndex);
-
-    // Lot of thing to rethink here
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
-
-    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
-    vkDestroyCommandPool(device, commandPool, nullptr);
+    cmdPoolM.endSingleTime(commandBuffer,graphicsQueue);
+    cmdPoolM.destroy();
 }
 
-void vkUtils::generateMipmaps(VkDevice device,VkPhysicalDevice physicalDevice,  VkCommandPool commandPool, VkImage  image, VkQueue graphicsQueue,
+void vkUtils::generateMipmaps(VkDevice device,VkPhysicalDevice physicalDevice,const QueueFamilyIndices& indices, VkImage  image, VkQueue graphicsQueue,
     VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
     {
 
@@ -469,12 +444,9 @@ void vkUtils::generateMipmaps(VkDevice device,VkPhysicalDevice physicalDevice,  
             throw std::runtime_error("texture image format does not support linear blitting!");
         }
 
-        // Single time record is about this
-        CommandBuffer cmdBuffer;
-        int uniqueIndex = 0;
-        cmdBuffer.createCommandBuffers(device, commandPool, 1);
-        VkCommandBuffer commandBuffer = cmdBuffer.get(uniqueIndex);
-        cmdBuffer.beginRecord(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, uniqueIndex);
+        CommandPoolManager cmdPoolM;
+        cmdPoolM.createCommandPool(device,CommandPoolType::Transient, indices.graphicsFamily.value());
+        VkCommandBuffer commandBuffer = cmdPoolM.beginSingleTime();
         // Recording
 
         VkImageMemoryBarrier barrier{};
@@ -554,19 +526,9 @@ void vkUtils::generateMipmaps(VkDevice device,VkPhysicalDevice physicalDevice,  
             0, nullptr,
             1, &barrier);     
 
-        cmdBuffer.endRecord(uniqueIndex);
-
-        // Lot of thing to retrethinkhink here
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer;
-
-        vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(graphicsQueue);
-
-        vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
-        vkDestroyCommandPool(device, commandPool, nullptr);
+            
+        cmdPoolM.endSingleTime(commandBuffer,graphicsQueue);
+        cmdPoolM.destroy();
     }
 
 /*

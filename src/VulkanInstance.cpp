@@ -10,6 +10,7 @@ void VulkanInstanceManager::createInstance(){
     {
         throw std::runtime_error("validation layers requested, but not available!");
     }
+    
     // Optional but potentially useful
     VkApplicationInfo appInfo{};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -38,8 +39,9 @@ void VulkanInstanceManager::createInstance(){
     // Global validation Layers
     if (ContextVk::contextInfo.enableValidationLayers)
     {
-        createInfo.enabledLayerCount = static_cast<uint32_t>(ContextVk::contextInfo.validationLayers.size());
-        createInfo.ppEnabledLayerNames = ContextVk::contextInfo.validationLayers.data();
+        
+        createInfo.enabledLayerCount = static_cast<uint32_t>(ContextVk::contextInfo.getValidationLayers().size());
+        createInfo.ppEnabledLayerNames = ContextVk::contextInfo.getValidationLayers().data();
         populateDebugMessengerCreateInfo(debugCreateInfo);
         // Create a separate  messenger that can handle create and failure
         createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debugCreateInfo;
@@ -67,7 +69,10 @@ void VulkanInstanceManager::destroyInstance(){
     {
         DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     }
-    vkDestroyInstance(instance, nullptr);
+    if( instance ) { 
+        vkDestroyInstance( instance, nullptr ); 
+        instance = VK_NULL_HANDLE; 
+    }      
 };
 
 VkInstance& VulkanInstanceManager::getInstance(){

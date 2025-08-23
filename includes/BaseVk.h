@@ -28,10 +28,15 @@ struct DeviceSelectionCriteria {
     bool requireTessellationShader = true;
     bool requireSamplerAnisotropy = true;
 
+
+    //Other features to look into
+
+    //depth Clamp/vias/multiple viewports
     VkPhysicalDeviceType preferredType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
 
 
 };
+
 
 class VulkanContext;
 //Should eventually not be a variable but just a bunch of static element
@@ -40,17 +45,17 @@ struct ContextCreateInfo
 public:
     const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
-    friend VulkanContext;
+    //friend VulkanContext;
     uint32_t versionMajor = 1;
     uint32_t versionMinor = 2;
 
     // Configuration
-    static inline std::vector<const char *> validationLayers = {
+    std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"};
 
-    static inline std::vector<const char *> instanceExtensions;
+    std::vector<const char *> instanceExtensions;
 
-    static inline std::vector<const char *> deviceExtensions = {
+    std::vector<const char *> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
     bool enableValidationLayers =
@@ -61,7 +66,7 @@ public:
 #endif
 
 
-    static inline DeviceSelectionCriteria selectionCriteria;
+    DeviceSelectionCriteria selectionCriteria;
     // Getters
     uint32_t getVersionMajor() const { return versionMajor; }
     uint32_t getVersionMinor() const { return versionMinor; }
@@ -69,6 +74,8 @@ public:
     const std::vector<const char *> &getValidationLayers() const { return validationLayers; }
     const std::vector<const char *> &getInstanceExtensions() const { return instanceExtensions; }
     const std::vector<const char *> &getDeviceExtensions() const { return deviceExtensions; }
+    const DeviceSelectionCriteria &getDeviceSelector() const { return selectionCriteria; }
+
     bool isValidationLayersEnabled() const { return enableValidationLayers; }
 
     // Setters
@@ -88,6 +95,8 @@ private:
 
 // Or have the setter being private only accessible
 
+
+//Should end up being a Variable passed into The context 
 namespace ContextVk
 {
     inline ContextCreateInfo contextInfo;
@@ -109,40 +118,4 @@ A frame in flight refers to a rendering operation that
     OR not ? It's weird wait for the chapter
     Depth Buffer/Stencil Buffer (Only used during rendering. Sent for rendering, consumed there and  ignried)
 */
-
-/*
-
-| Current                                   | Suggestion                                        |
-| ----------------------------------------- | ------------------------------------------------- |
-| `SwapChainManager` + `SwapChainResources` | Merge into `SwapChain`                            |
-| `CommandPoolManager` + `CommandBuffer`    | Combine into a `CommandSystem`                    |
-| `PipelineManager` + `RenderPassManager`   | Abstract into `RenderPipeline`                    |
-| `Buffer`, `Texture`, `DescriptorManager`  | Wrap in `ResourceManager` or split per asset type |
-| `SyncObjects`                             | Embed into `Renderer` or `FrameContext` struct    |
-
-
-
-class Scene {
-public:
-    std::vector<Mesh> meshes;
-    std::vector<Material> materials;
-};
-
-
-class Renderer {
-public:
-    void init(GLFWwindow* window);
-    void drawFrame();
-    void cleanup();
-
-    void uploadMesh(const Mesh& mesh);
-    // maybe: void setScene(Scene* scene);
-
-private:
-    VulkanInstanceManager mInstance;
-    SwapChainManager mSwapChain;
-    ...
-};
-
-
-*/
+ 

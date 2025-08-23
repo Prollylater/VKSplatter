@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include "VertexDescriptions.h"
 #include "LogicalDevice.h"
+#include "PhysicalDevice.h"
+
 #include "CommandPool.h"
 
 
@@ -41,20 +43,19 @@ public:
 
     
     void createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh, 
-                             const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM, const QueueFamilyIndices indice);
+                             const LogicalDeviceManager &deviceM,  const QueueFamilyIndices indice);
 
     void createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const std::vector<Mesh> &mesh,
-    const LogicalDeviceManager& deviceM, const CommandPoolManager& cmdPoolM, const QueueFamilyIndices indice );
+    const LogicalDeviceManager& deviceM, const QueueFamilyIndices indice );
 
     void createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh, 
-                             const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM, const QueueFamilyIndices indice);
+                             const LogicalDeviceManager &deviceM, const QueueFamilyIndices indice);
 
     void destroyVertexBuffer(VkDevice device);
     void destroyIndexBuffer(VkDevice device);
 
 
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM,
-                    const QueueFamilyIndices &indices);
+    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, const LogicalDeviceManager &deviceM, const QueueFamilyIndices &indices);
 
     const VkBuffer getVBuffer() const
     {
@@ -65,7 +66,6 @@ public:
     {
         return mVertexBufferMemory;
     }
-
 
 
     const VkBuffer getIDXBuffer() const
@@ -79,6 +79,22 @@ public:
     }
 
     MeshBufferInfo mBufferInfo;
+
+
+
+    //More highlevel method
+    void uploadMesh(const Mesh& mesh, const LogicalDeviceManager &logDevM, const PhysicalDeviceManager &physDevM) {
+
+    // Some way to know the buffer states
+    const VkPhysicalDevice &physDevice = physDevM.getPhysicalDevice();
+
+    const VkDevice &device = logDevM.getLogicalDevice();
+
+     createVertexBuffers(device, physDevice, mesh, logDevM,  physDevM.getIndices());
+     createIndexBuffers(device, physDevice, mesh, logDevM,  physDevM.getIndices());
+
+    };
+
 private:
     VkBuffer mVertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory mVertexBufferMemory = VK_NULL_HANDLE;
@@ -87,7 +103,7 @@ private:
     VkDeviceMemory mIndexBufferMemory = VK_NULL_HANDLE;
 };
 
-//TOOD: Chang eother at VK_NULL_HANDLE
+//TOOD: Change eother at VK_NULL_HANDLE
 // Destroy on not real object nor null handle can have weird conseuqeujces
 
 

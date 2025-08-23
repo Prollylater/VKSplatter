@@ -12,7 +12,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-void SwapChainManager::CreateSurface(VkInstance instance, GLFWwindow *window)
+void SwapChainManager::createSurface(VkInstance instance, GLFWwindow *window)
 {
   // Thank to glfw we avoid the hardway
   mInstance = instance;
@@ -21,16 +21,18 @@ void SwapChainManager::CreateSurface(VkInstance instance, GLFWwindow *window)
     throw std::runtime_error("failed to create window surface!");
   }
 };
+
 void SwapChainManager::DestroySurface()
 {
   vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
 };
+
 VkSurfaceKHR SwapChainManager::GetSurface() const
 {
   return mSurface;
 };
 
-SwapChainSupportDetails SwapChainManager::QuerySwapChainSupport(VkPhysicalDevice device) const
+SwapChainSupportDetails SwapChainManager::querySwapChainSupport(VkPhysicalDevice device) const
 {
   SwapChainSupportDetails details;
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, mSurface, &details.capabilities);
@@ -138,7 +140,7 @@ bool SwapChainManager::aquireNextImage(VkDevice device, VkSemaphore semaphore, u
 void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice logicalDevice, GLFWwindow *window, const SwapChainConfig &config)
 {
   
-  mSupportDetails = QuerySwapChainSupport(physDevice);
+  mSupportDetails = querySwapChainSupport(physDevice);
 
   VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(mSupportDetails.formats);
   VkPresentModeKHR presentMode = chooseSwapPresentMode(mSupportDetails.presentModes, config.preferredPresentModes);
@@ -168,7 +170,7 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice log
   createInfo.imageArrayLayers = 1; // Not sure
   createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-  QueueFamilyIndices indices = findQueueFamilies(physDevice, mSurface, ContextCreateInfo::selectionCriteria);
+  QueueFamilyIndices indices = findQueueFamilies(physDevice, mSurface, ContextVk::contextInfo.getDeviceSelector());
   uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
 
@@ -296,7 +298,7 @@ void SwapChainResources::destroyFramebuffers(VkDevice device)
 }
 
 void DepthRessources::createDepthBuffer(const LogicalDeviceManager &logDeviceM,
-                                        const SwapChainManager &swapChain, const PhysicalDeviceManager &physDeviceM, const CommandPoolManager &cmdPoolM)
+                                        const SwapChainManager &swapChain, const PhysicalDeviceManager &physDeviceM)
 {
   mDepthFormat = physDeviceM.findSupportedFormat(
       {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
@@ -313,7 +315,7 @@ void DepthRessources::createDepthBuffer(const LogicalDeviceManager &logDeviceM,
                                         VK_IMAGE_ASPECT_DEPTH_BIT);
 
   const auto indices = physDeviceM.getIndices();
-  vkUtils::transitionImageLayout(mDepthImage, mDepthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, logDeviceM, cmdPoolM, indices);
+  vkUtils::transitionImageLayout(mDepthImage, mDepthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, logDeviceM, indices);
 }
 
 void DepthRessources::destroyDepthBuffer(VkDevice device)

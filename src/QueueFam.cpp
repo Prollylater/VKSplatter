@@ -73,10 +73,17 @@ QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surfa
 
     for (uint32_t i = 0; i < queueFamilyCount; ++i) {
         const auto& q = queueFamilies[i];
-        //Nothing enforce the Graphics Queue to also have other 
-        //Maybe add that if incompatibility is detected
+
         if (criteria.requireGraphics && (q.queueFlags & VK_QUEUE_GRAPHICS_BIT) && !indices.graphicsFamily) {
             indices.graphicsFamily = i;
+        }
+
+        if (criteria.requirePresent && !indices.presentFamily) {
+            VkBool32 presentSupport = false;
+            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+            if (presentSupport) {
+                indices.presentFamily = i;
+            }
         }
         
         if (criteria.requireCompute && (q.queueFlags & VK_QUEUE_COMPUTE_BIT) && !indices.computeFamily) {
@@ -93,15 +100,7 @@ QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surfa
             }
         }
 
-        if (criteria.requirePresent && !indices.presentFamily) {
-            VkBool32 presentSupport = false;
-            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
-            if (presentSupport) {
-                indices.presentFamily = i;
-            }
-        }
-
-        // Fallbacks: if not found a dedicated one, take any valid one
+        // If not found a dedicated one, take any valid one
         if (criteria.requireCompute && !indices.computeFamily && (q.queueFlags & VK_QUEUE_COMPUTE_BIT)) {
             indices.computeFamily = i;
         }

@@ -28,7 +28,6 @@ public:
     LogicalDeviceManager mLogDeviceM;
 
     CommandPoolManager mCommandPoolM;
-    CommandBuffer mCommandBuffer;
     RenderPassManager mRenderPassM;
     PipelineManager mPipelineM;
     SwapChainManager mSwapChainM;
@@ -40,7 +39,7 @@ public:
     TextureManager mTextureM;
 
     SyncObjects mSyncObjM;
-    Mesh mesh;
+    //Mesh mesh;
 
     // Getters returning const references
     const VulkanInstanceManager &getInstanceManager() const { return mInstanceM; }
@@ -48,35 +47,66 @@ public:
     const LogicalDeviceManager &getLogicalDeviceManager() const { return mLogDeviceM; }
 
     const CommandPoolManager &getCommandPoolManager() const { return mCommandPoolM; }
-    const CommandBuffer &getCommandBuffer() const { return mCommandBuffer; }
     const RenderPassManager &getRenderPassManager() const { return mRenderPassM; }
     const PipelineManager &getPipelineManager() const { return mPipelineM; }
     const SwapChainManager &getSwapChainManager() const { return mSwapChainM; }
-    const SwapChainResources &getSwapChainResources() const { return mSwapChainRess; }
-    const DepthRessources &getDepthResources() const { return mDepthRessources; }
 
     const Buffer &getBufferManager() const { return mBufferM; }
     const DescriptorManager &getDescriptorManager() const { return mDescriptorM; }
     const TextureManager &getTextureManager() const { return mTextureM; }
+    //
+
+    VulkanInstanceManager &getInstanceManager() { return mInstanceM; }
+PhysicalDeviceManager &getPhysicalDeviceManager() { return mPhysDeviceM; }
+LogicalDeviceManager &getLogicalDeviceManager() { return mLogDeviceM; }
+
+CommandPoolManager &getCommandPoolManager() { return mCommandPoolM; }
+RenderPassManager &getRenderPassManager() { return mRenderPassM; }
+PipelineManager &getPipelineManager() { return mPipelineM; }
+SwapChainManager &getSwapChainManager() { return mSwapChainM; }
+
+    /// @brief 
+    /// @return 
+    const SwapChainResources &getSwapChainResources() const { return mSwapChainRess; }
+    const DepthRessources &getDepthResources() const { return mDepthRessources; }
+
+SwapChainResources &getSwapChainResources() { return mSwapChainRess; }
+DepthRessources &getDepthResources() { return mDepthRessources; }
+
+Buffer &getBufferManager() { return mBufferM; }
+DescriptorManager &getDescriptorManager() { return mDescriptorM; }
+TextureManager &getTextureManager() { return mTextureM; }
+
 
     const SyncObjects &getSyncObjects() const { return mSyncObjM; }
+
+    //Not too sure about what init  or not and in private or not
+
+    void initVulkanBase(GLFWwindow* window);
+    void initRenderInfrastructure();
+    void initPipelineAndDescriptors();
+
+
     void initAll(GLFWwindow *window);
     void destroyAll();
 
 private:
     // TODO: Memory allocator, debug messenger, etc.
 
-    void initVulkanBase(GLFWwindow* window);
-    void initRenderInfrastructure();
-    void initPipelineAndDescriptors();
     void initSceneAssets();
-    /*
-    void initRenderPipeline();
-    void initResources();
-    void initDescriptors();
-    void initCommandBuffers();
-    void initSyncObjects();*/
+
 };
+
+
+
+class Scene {
+public:
+    std::vector<Mesh> meshes;
+    //std::vector<Material> materials;
+    //std::vector<Textures> Textures;
+    //std::vector<Lights> lights;
+};
+
 
 class Renderer
 {
@@ -84,6 +114,8 @@ public:
     Renderer() = default;
     ~Renderer() = default;
 
+    //Todo: This can be brittle, something should make it clear if not associated
+    //It could also do more work ?
     void associateContext(VulkanContext &context)
     {
         mContext = &context;
@@ -98,9 +130,44 @@ public:
     void drawFrame(bool framebufferResized, GLFWwindow * window);
     void recordCommandBuffer(uint32_t currentFrame, uint32_t imageIndex);
 
+
+    void registerSceneFormat(/*const Scene& scene*/) {
+        // Renderer.cpp
+        mScene.meshes.emplace_back(Mesh()); 
+        Mesh& mesh = mScene.meshes.back();
+        mesh.loadModel(MODEL_PATH);
+        mesh.inputFlag = static_cast<VertexFlags>(Vertex_Pos | Vertex_Normal | Vertex_UV | Vertex_Color);
+        VertexFormatRegistry::addFormat(mesh);
+
+    }
+
+
+    void uploadScene(/*const Scene& scene*/) {
+
+    
+        //gpuMesh = context.bufferManager().uploadMesh(mesh, format);
+
+        for (const auto& mesh : mScene.meshes) {
+            mContext->getBufferManager().uploadMesh(mesh, mContext->getLogicalDeviceManager() ,mContext->getPhysicalDeviceManager());
+         //   gpuMeshes.push_back(mContext->bufferManager().uploadMesh(mesh));
+        }
+
+        /*        
+        for (const auto& texture : mScene.textures) {
+            gpuTextures.push_back(context->textureManager().uploadTexture(texture));
+        }*/
+
+        // create per-material descriptor sets
+     //   createMaterialDescriptorSets(scene.materials);
+    }
+    //requestDescriptor text
 private:
     VulkanContext* mContext;
+    Scene mScene;
+    //std::vector<GpuMesh> gpuMeshes;
 };
+
+
 
 /*
 A frame in flight refers to a rendering operation that
@@ -145,11 +212,16 @@ public:
     void cleanup();
 
     void uploadMesh(const Mesh& mesh);
-    // maybe: void setScene(Scene* scene);
 
-private:
-    VulkanInstanceManager mInstance;
-    SwapChainManager mSwapChain;
+
+
+    //With perhaps an Asset Manager class that deakl with Mesh then Texture and materials Not for now.
+    //Then something for The UBO, that change each Frames (We suppose they all do for now)
+    //Descriptor & pipelines
+
+    //Command Buffer logic
+    // Render is the oruiruty
+    // maybe: void setScene(Scene* scene);
     ...
 };
 

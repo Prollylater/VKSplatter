@@ -81,7 +81,7 @@ Copies that data into a DEVICE_LOCAL GPU buffer using a command buffer.
 // Those function are riddled with compromise mainly on the function paramter
 
 void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
-                                 const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM, const QueueFamilyIndices indice)
+                                 const LogicalDeviceManager &deviceM,  const QueueFamilyIndices indice)
 
 {
     const VertexFormat &format = mesh.getFormat();
@@ -108,7 +108,7 @@ void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice 
                      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-        copyBuffer(stagingBuffer, mVertexBuffer, data.size(), deviceM, cmdPoolM, indice);
+        copyBuffer(stagingBuffer, mVertexBuffer, data.size(), deviceM, indice);
 
         // Destro temporary staginf buffer
         vkDestroyBuffer(device, stagingBuffer, nullptr);
@@ -116,18 +116,15 @@ void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice 
     }
 }
 
-void Buffer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM,
+void Buffer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, const LogicalDeviceManager &deviceM,
                         const QueueFamilyIndices &indices)
 {
     const auto &graphicsQueue = deviceM.getGraphicsQueue();
     const auto &device = deviceM.getLogicalDevice();
-    const auto &commandPool = cmdPoolM.createSubCmdPool(device, indices, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-
-    CommandBuffer cmdBuffer;
-    int uniqueIndex = 0;
-    cmdBuffer.createCommandBuffers(deviceM.getLogicalDevice(), commandPool, 1);
-    VkCommandBuffer commandBuffer = cmdBuffer.get(uniqueIndex);
-    cmdBuffer.beginRecord(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, uniqueIndex);
+    
+    CommandPoolManager cmdPoolM;
+    cmdPoolM.createCommandPool(device,CommandPoolType::Transient, indices.graphicsFamily.value());
+    VkCommandBuffer commandBuffer = cmdPoolM.beginSingleTime();
     // Recording
 
     VkBufferCopy copyRegion{};
@@ -135,25 +132,15 @@ void Buffer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize siz
     copyRegion.dstOffset = 0; // Optional
     copyRegion.size = size;
     vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-    cmdBuffer.endRecord(uniqueIndex);
 
-    // Lot of thing to rethink here
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
-
-    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
-
-    vkDestroyCommandPool(device, commandPool, nullptr);
+    cmdPoolM.endSingleTime(commandBuffer,graphicsQueue);
+    cmdPoolM.destroy();
 }
+
 
 // size is  a mix and VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT to create an unique buffer
 void Buffer::createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const std::vector<Mesh> &meshes,
-                                      const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM, const QueueFamilyIndices indice)
+                                      const LogicalDeviceManager &deviceM, const QueueFamilyIndices indice)
 {
     const VertexFormat &format = meshes[0].getFormat();
     VertexBufferData vbd = buildInterleavedVertexBuffer(meshes, format);
@@ -199,7 +186,7 @@ void Buffer::createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDe
                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    copyBuffer(stagingBuffer, mVertexBuffer, bufferSize, deviceM, cmdPoolM, indice);
+    copyBuffer(stagingBuffer, mVertexBuffer, bufferSize, deviceM, indice);
 
     // Destro temporary staginf buffer
     vkDestroyBuffer(device, stagingBuffer, nullptr);
@@ -208,7 +195,7 @@ void Buffer::createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDe
 
 
 void Buffer::createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
-                                const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM, const QueueFamilyIndices indice)
+                                const LogicalDeviceManager &deviceM, const QueueFamilyIndices indice)
 
 {
     const VertexFormat &format = mesh.getFormat();
@@ -232,7 +219,7 @@ void Buffer::createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &
                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    copyBuffer(stagingBuffer, mIndexBuffer, bufferSize, deviceM, cmdPoolM, indice);
+    copyBuffer(stagingBuffer, mIndexBuffer, bufferSize, deviceM, indice);
 
     // Destro temporary staginf buffer
     vkDestroyBuffer(device, stagingBuffer, nullptr);

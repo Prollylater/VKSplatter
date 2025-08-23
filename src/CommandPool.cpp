@@ -1,7 +1,9 @@
 #include "CommandPool.h"
 
 
-void CommandPoolManager::create(VkDevice device, QueueFamilyIndices queueFamilyIndex)
+//Todo: One Pool per family ?  Check in real usage
+//Some suggest one Command Pool per frame in flight
+/*void CommandPoolManager::createCommandPool(VkDevice device, QueueFamilyIndices queueFamilyIndex)
 {
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -37,6 +39,7 @@ VkCommandPool CommandPoolManager::createSubCmdPool(VkDevice device, QueueFamilyI
 void CommandPoolManager::destroy(VkDevice device) {
     if (mCmdPool != VK_NULL_HANDLE) {
         vkDestroyCommandPool(device, mCmdPool, nullptr);
+        //Also wipe the buffers
     }
 }
 
@@ -53,8 +56,10 @@ void CommandBuffer::createCommandBuffers(VkDevice device, VkCommandPool commandP
     mCmdBuffer.resize(nbBuffers);
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    //A short lived command Pool for this ?
     allocInfo.commandPool = commandPool;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    // Todo: Reread about it
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; 
     allocInfo.commandBufferCount = static_cast<uint32_t>(mCmdBuffer.size());
 
     if (vkAllocateCommandBuffers(device, &allocInfo, mCmdBuffer.data()) != VK_SUCCESS) {
@@ -91,7 +96,46 @@ void CommandBuffer::endRecord(uint32_t index) {
     vkQueueWaitIdle(graphicsQueue);
 
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
-    */
+    * /
 }
+*/
 
 
+
+
+
+/*
+
+
+## 🔹 Option B — **One Command Pool per Frame-in-Flight**
+
+* Each frame has its own pool.
+* All command buffers used by that frame come from its pool.
+* On frame recycle: just `vkResetCommandPool(poolForThisFrame)`.
+
+**Pros:**
+
+* Super clean lifecycle: when frame N is finished, reset its pool → all its command buffers are valid for reuse.
+* No risk of accidentally resetting buffers still in use by GPU (since per-frame fences protect them).
+* Cleaner when you add more per-frame data (descriptors, UBOs, etc.), since it all ties to frame index.
+* Easier to isolate debug/profiling issues (per-frame state is self-contained).
+
+**Cons:**
+
+* Slightly more pools to manage (but negligible overhead).
+* You need to track the pool associated with the current frame index.
+
+---
+
+```cpp
+struct FrameResources {
+    VkCommandPool cmdPool;
+    VkCommandBuffer primaryCmd;
+    std::vector<VkCommandBuffer> secondaryCmds;
+    VkFence inFlightFence;
+    VkSemaphore imageAvailable;
+    VkSemaphore renderFinished;
+    // maybe per-frame UBOs too
+};
+
+*/

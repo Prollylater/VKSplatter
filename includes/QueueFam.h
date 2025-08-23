@@ -12,7 +12,10 @@ VK_QUEUE_SPARSE_BINDING_BIT	Can bind sparse resources.
 VK_QUEUE_PROTECTED_BIT	Can handle protected (e.g., DRM) comman
 */
 
-
+//Todo:
+//Currently we priviligieate not sharing compute and transfer family
+//This was a naive design but this should be rethought through
+//Perahps with a way to know when we share or not a family
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> computeFamily;
@@ -35,6 +38,7 @@ struct QueueFamilyIndices {
         return true;
     }
 };
+
 
 
 ///////////////////////////////////

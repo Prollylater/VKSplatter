@@ -40,7 +40,7 @@ public:
     ~TextureManager() = default;
 
     void createTextureImage( VkPhysicalDevice physDevice,
-                            const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM,
+                            const LogicalDeviceManager &deviceM,
                             const QueueFamilyIndices &indices);
 
     void createTextureImageView(VkDevice device);
@@ -53,7 +53,7 @@ public:
 
     void destroyTexture(VkDevice device);
 
-    void copyBufferToImage(VkBuffer buffer, VkImage image, const ImageData<stbi_uc> &imgData, const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM,
+    void copyBufferToImage(VkBuffer buffer, VkImage image, const ImageData<stbi_uc> &imgData, const LogicalDeviceManager &deviceM, 
                            const QueueFamilyIndices &indices);
 
     void destroyTextureView(VkDevice device);
@@ -87,10 +87,10 @@ private:
 namespace vkUtils
 {
     //Too big need to rework
-    void generateMipmaps(VkDevice device,VkPhysicalDevice physicalDevice,  VkCommandPool commandPool, VkImage  image, VkQueue graphicsQueue,
+    void generateMipmaps(VkDevice device,VkPhysicalDevice physicalDevice, const QueueFamilyIndices& indices, VkImage  image, VkQueue graphicsQueue,
     VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, const LogicalDeviceManager &deviceM, const CommandPoolManager &cmdPoolM,
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, const LogicalDeviceManager &deviceM,
                                const QueueFamilyIndices &indices, uint32_t mipLevels = 1);
 
     struct ImageCreateConfig

@@ -33,10 +33,10 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
-
+    //Todo: Explicit activation ? 
     VkPhysicalDeviceFeatures deviceFeatures{};
-    //OR directly request it
-    deviceFeatures.samplerAnisotropy = ContextCreateInfo::selectionCriteria.requireSamplerAnisotropy;
+    deviceFeatures.samplerAnisotropy = ContextVk::contextInfo.getDeviceSelector().requireSamplerAnisotropy;
+   
     // Share idea of vk istance create info
     // Device is then created using physicail device features and queue create
     VkDeviceCreateInfo createInfo{};
@@ -48,15 +48,17 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
 
 
     // Extension
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(ContextCreateInfo::deviceExtensions.size());
-    createInfo.ppEnabledExtensionNames = ContextCreateInfo::deviceExtensions.data();
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(ContextVk::contextInfo.getDeviceExtensions().size());
+    createInfo.ppEnabledExtensionNames = ContextVk::contextInfo.getDeviceExtensions().data();
 
     // ValidationLayer
-    // Those are actually shared with  instance vlaidation layers hence ignored
+    // Those are actually shared with instance validation layers in up to date vulkan standard
+    // It was not the case before and they needed to be set
+    // Even if we set them chance are they are not used 
     if (ContextVk::contextInfo.enableValidationLayers)
     {
-        createInfo.enabledLayerCount = static_cast<uint32_t>(ContextCreateInfo::validationLayers.size());
-        createInfo.ppEnabledLayerNames = ContextCreateInfo::validationLayers.data();
+        createInfo.enabledLayerCount = static_cast<uint32_t>(ContextVk::contextInfo.getValidationLayers().size());
+        createInfo.ppEnabledLayerNames = ContextVk::contextInfo.getValidationLayers().data();
     }
     else
     {
@@ -69,19 +71,19 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
         throw std::runtime_error("failed to create logical device!");
     }
 
-    if( ContextCreateInfo::selectionCriteria.requireGraphics){
+    if( ContextVk::contextInfo.getDeviceSelector().requireGraphics){
     vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &mGraphicsQueue);
 
     }
-    if( ContextCreateInfo::selectionCriteria.requireTransferQueue){
+    if( ContextVk::contextInfo.getDeviceSelector().requireTransferQueue){
     vkGetDeviceQueue(device, indices.transferFamily.value(), 0, &mTransferQueue);
 
     }
-    if( ContextCreateInfo::selectionCriteria.requirePresent){
+    if( ContextVk::contextInfo.getDeviceSelector().requirePresent){
     vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &mPresentQueue);
 
     }
-    if( ContextCreateInfo::selectionCriteria.requireCompute){
+    if( ContextVk::contextInfo.getDeviceSelector().requireCompute){
     vkGetDeviceQueue(device, indices.computeFamily.value(), 0, &mComputeQueue);
         
     }
@@ -105,7 +107,10 @@ VkQueue LogicalDeviceManager::getQueue(uint32_t familyIndex, uint32_t queueIndex
 
 void LogicalDeviceManager::DestroyDevice()
 {
-    vkDestroyDevice(device, nullptr);
+    if( device ) { 
+  vkDestroyDevice( device, nullptr ); 
+  device = VK_NULL_HANDLE; 
+}
 }
 
 
