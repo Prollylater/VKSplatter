@@ -139,7 +139,7 @@ bool SwapChainManager::aquireNextImage(VkDevice device, VkSemaphore semaphore, u
 
 void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice logicalDevice, GLFWwindow *window, const SwapChainConfig &config)
 {
-  
+  mFramesData.resize(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
   mSupportDetails = querySwapChainSupport(physDevice);
 
   VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(mSupportDetails.formats);
@@ -228,6 +228,7 @@ VkSwapchainKHR SwapChainManager::GetChain() const
   return mSwapChain;
 }
 
+
 // ImageViews
 
 // Just for transition image currently
@@ -254,6 +255,63 @@ void SwapChainManager::DestroyImageViews(VkDevice device)
   mSChainImageViews.clear();
 }
 
+//Frame Data Ressources
+
+  const FrameResources &SwapChainManager::getCurrentFrameData() const
+    {
+        return mFramesData[currentFrame];
+    }
+
+    const int SwapChainManager::getCurrentFrameIndex() const
+    {
+        return currentFrame;
+    }
+    
+
+    void SwapChainManager::advanceFrame()
+    {
+        currentFrame++;
+        if (currentFrame >= mFramesData.size())
+        {
+            currentFrame = 0;
+        }
+    }
+
+
+    void SwapChainManager::createFrameData(VkDevice device)
+    {
+        auto &frameData = mFramesData[currentFrame];
+        frameData.mSyncObjects.createSyncObjects(device, 1);
+    };
+
+    void SwapChainManager::destroyFrameData(VkDevice device)
+    {
+        auto &frameData = mFramesData[currentFrame];
+        frameData.mSyncObjects.destroy(device, 1);
+    };
+
+    void SwapChainManager::createFramesData(VkDevice device)
+    {
+        currentFrame = 0;
+
+        for (int i = 0; i < mFramesData.size(); i++)
+        {
+            createFrameData(device);
+            advanceFrame();
+        }
+        currentFrame = 0;
+    };
+    
+    void SwapChainManager::destroyFramesData(VkDevice device)
+    {
+        currentFrame = 0;
+        for (int i = 0; i < mFramesData.size(); i++)
+        {
+            destroyFrameData(device);
+            advanceFrame();
+        }
+        currentFrame = 0;
+    };
 
 //Passes Ressources
 

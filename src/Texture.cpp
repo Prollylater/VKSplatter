@@ -166,7 +166,7 @@ void TextureManager::copyBufferToImage(VkBuffer buffer, VkImage image, const Ima
         &region);
 
     cmdPoolM.endSingleTime(commandBuffer,graphicsQueue);
-    cmdPoolM.destroy();
+    cmdPoolM.destroyCommandPool();
 }
 
 void TextureManager::createTextureImageView(VkDevice device)
@@ -429,7 +429,7 @@ void vkUtils::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
         1, &barrier);
 
     cmdPoolM.endSingleTime(commandBuffer,graphicsQueue);
-    cmdPoolM.destroy();
+    cmdPoolM.destroyCommandPool();
 }
 
 void vkUtils::generateMipmaps(VkDevice device,VkPhysicalDevice physicalDevice,const QueueFamilyIndices& indices, VkImage  image, VkQueue graphicsQueue,
@@ -528,7 +528,7 @@ void vkUtils::generateMipmaps(VkDevice device,VkPhysicalDevice physicalDevice,co
 
             
         cmdPoolM.endSingleTime(commandBuffer,graphicsQueue);
-        cmdPoolM.destroy();
+        cmdPoolM.destroyCommandPool();
     }
 
 /*

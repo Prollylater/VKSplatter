@@ -7,49 +7,6 @@
 #include "QueueFam.h"
 
 // Todo: Error checking
-
-class CommandPosolManager
-{
-public:
-    CommandPosolManager() = default;
-    ~CommandPosolManager() = default;
-
-    void createCommandPool(VkDevice device, QueueFamilyIndices queueFamilyIndices);
-    VkCommandPool createSubCmdPool(VkDevice device, QueueFamilyIndices queueFamilyIndex, VkCommandPoolCreateFlags flags) const;
-
-    void destroy(VkDevice device);
-
-    VkCommandPool get() const { return mCmdPool; }
-
-    void reset(VkDevice) const;
-
-private:
-    VkDevice mDevice = VK_NULL_HANDLE;
-    VkCommandPool mCmdPool = VK_NULL_HANDLE;
-};
-
-class CommandBuffer
-{
-public:
-    CommandBuffer() = default;
-    ~CommandBuffer() = default;
-
-    void createCommandBuffers(VkDevice device, VkCommandPool mCmdPool, int nbBuffers = ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-
-    VkCommandBuffer get(int index) const { return mCmdBuffer[index]; }
-    VkCommandBuffer *getCmdBufferHandle(int index) { return &(mCmdBuffer[index]); }
-
-    void beginRecord(VkCommandBufferUsageFlags flags, uint32_t index);
-    void endRecord(uint32_t index);
-
-private:
-    VkDevice device;
-    VkCommandPool mCmdPool;
-    // Multiples buffer to accomadate multiples flames in flight.
-    //  THe cpu prepare two command while the gpu is rendering
-    std::vector<VkCommandBuffer> mCmdBuffer;
-};
-
 // Free should be a mode that allow creation of both Frame and Transient
 enum class CommandPoolType
 {
@@ -79,6 +36,7 @@ public:
         }
         else
         {
+            // Allow individual reset of command buffer created (explictly and implicitly)
             info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
         }
 
@@ -103,12 +61,35 @@ public:
         }
     }
 
-    void reset(VkDevice device) const
+    void resetCommandBuffer(int index) const
     {
-        vkResetCommandPool(device, mCmdPool, 0);
+        //    VK_COMMAND_BUFFER_RESET_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+        // Explicit individual reset
+
+        bool releaseRessources = false;
+        VkCommandBufferResetFlags resetFlag = VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT;
+
+        // 0 let the command buffer keep the allocated ressources (drive ressources and cache stuff ?)
+        // else, we need to reallocatememory. IT is different from free
+
+        if (vkResetCommandBuffer(mCmdBuffers.at(index), releaseRessources ? resetFlag : 0))
+        {
+            throw std::runtime_error("Failed to reset command buffer");
+        }
     }
 
-    void destroy()
+    void resetCommandPool() const
+    {
+        // Explicit reset
+        bool releaseRessources = false;
+        VkCommandPoolResetFlags resetFlag = VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT;
+        if (vkResetCommandPool(mDevice, mCmdPool, releaseRessources ? resetFlag : 0))
+        {
+            throw std::runtime_error("Failed to reset pool");
+        }
+    }
+
+    void destroyCommandPool()
     {
         if (!mCmdBuffers.empty())
         {
@@ -128,6 +109,10 @@ public:
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = flags;
+
+        // Todo: Look into secondary command buffer as nullptr lock it into onnly primary
+        // Same thing for level at creation
+        // VkCommandBufferInheritanceInfo * secondaryCommandBufferInfo;
         beginInfo.pInheritanceInfo = nullptr;
 
         if (vkBeginCommandBuffer(mCmdBuffers[index], &beginInfo) != VK_SUCCESS)
@@ -216,5 +201,34 @@ private:
     VkCommandPool mCmdPool = VK_NULL_HANDLE;
     CommandPoolType mType;
     VkCommandPool mPool;
+    // Multiples buffer to accomadate multiples flames in flight.
+    //  THe cpu prepare two command while the gpu is rendering
     std::vector<VkCommandBuffer> mCmdBuffers;
 };
+
+/*
+Life cycle ?
+vkAllocateCommandBuffers -> handle exists
+vkBeginCommandBuffer -> recording allocates internal storage
+... record commands ...
+vkEndCommandBuffer -> recording finalized
+vkQueueSubmit -> buffer executed
+vkResetCommandBuffer(..., RELEASE_RESOURCES) -> handle valid, storage freed
+vkBeginCommandBuffer -> storage reallocated internally, ready to record again (also stand for a reset but at 0)
+
+
+
+
+//Record flags
+  /*Flags
+    VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT = 0x00000001,
+    VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT = 0x00000002,
+    VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT = 0x00000004,
+    VK_COMMAND_BUFFER_USAGE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+
+
+    VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT: The command buffer will be rerecorded right after executing it once.
+    VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT: This is a secondary command buffer that will be entirely within a single render pass.
+    VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT: The command buffer can be resubmitted while it is also already executed on a device (avoid)
+
+*/

@@ -1,5 +1,7 @@
 #include "LogicalDevice.h"
 #include <set>
+
+
 void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices indices)
 {
     // Logical device manager get the name of it's corresponding physical device

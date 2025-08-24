@@ -38,8 +38,6 @@ public:
     DescriptorManager mDescriptorM;
     TextureManager mTextureM;
 
-    SyncObjects mSyncObjM;
-    //Mesh mesh;
 
     // Getters returning const references
     const VulkanInstanceManager &getInstanceManager() const { return mInstanceM; }
@@ -78,7 +76,6 @@ DescriptorManager &getDescriptorManager() { return mDescriptorM; }
 TextureManager &getTextureManager() { return mTextureM; }
 
 
-    const SyncObjects &getSyncObjects() const { return mSyncObjM; }
 
     //Not too sure about what init  or not and in private or not
 

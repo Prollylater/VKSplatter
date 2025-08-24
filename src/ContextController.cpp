@@ -64,7 +64,7 @@ void VulkanContext::initPipelineAndDescriptors()
 };
 
 void VulkanContext::initSceneAssets() {};
-//All the rest
+//All the rest or fram eressourees
 void VulkanContext::initAll(GLFWwindow *window)
 {
 
@@ -74,34 +74,36 @@ void VulkanContext::initAll(GLFWwindow *window)
     const VkDevice &device = mLogDeviceM.getLogicalDevice();
 
     // Texture creation
+     // Should be global and scene tied
     mTextureM.createTextureImage(physDevice, mLogDeviceM, indicesFamily);
     mTextureM.createTextureImageView(device);
     mTextureM.createTextureSampler(device, physDevice);
 
-    // Some way to know the buffer states
-    // mBufferM.createVertexBuffers(device, physDevice, mesh, mLogDeviceM, mCommandPoolM, mPhysDeviceM.getIndices());
-    // mBufferM.createIndexBuffers(device, physDevice, mesh, mLogDeviceM, mCommandPoolM, mPhysDeviceM.getIndices());
-
-    // We are here
+    //Frame rssoources bait  for some of them
     mDescriptorM.createUniformBuffers(device, physDevice);
 
-    mDescriptorM.createDescriptorPool(device);
+    mDescriptorM.createDescriptorPool(device); // Coould be global
+
+    //Frame rssoources bait 
     mDescriptorM.createDescriptorSets(device, mTextureM);
 
-    //Frame Ressource
+    //Frame Ressources potential
     mCommandPoolM.createCommandPool(device, CommandPoolType::Frame, indicesFamily.graphicsFamily.value());
     mCommandPoolM.createCommandBuffers(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-    mSyncObjM.createSyncObjects(device, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
+
+    
+    mSwapChainM.createFramesData(device);
 
     // Render Pass For Drawing
 };
 
 void VulkanContext::destroyAll()
 {
+    
     // Have destructor call those function
     //Also why am i still passing device everywhere ?
     VkDevice device = mLogDeviceM.getLogicalDevice();
-    mSyncObjM.destroy(device, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
+    mSwapChainM.destroyFramesData(device);
 
     mBufferM.destroyVertexBuffer(device);
     mBufferM.destroyIndexBuffer(device);
@@ -119,7 +121,7 @@ void VulkanContext::destroyAll()
     mSwapChainRess.destroyFramebuffers(device);
 
 
-    mCommandPoolM.destroy();
+    mCommandPoolM.destroyCommandPool();
 
     mRenderPassM.destroyRenderPass(device);
     mDescriptorM.destroyDescriptorLayout(device);
@@ -177,17 +179,24 @@ void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
 
 // Vulkan Function
 
-uint32_t currentFrame = 0;
 
 // Semaphore and command buffer tied to frames
 void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
 {
+    //Handle fetching
     VkDevice device = mContext->mLogDeviceM.getLogicalDevice();
-    mContext->mSyncObjM.waitForFence(device, currentFrame);
+    SwapChainManager& chain= mContext->getSwapChainManager();
+    const FrameResources& frameRess = chain.getCurrentFrameData();
+    const uint32_t currentFrame = chain.getCurrentFrameIndex();
+
+
+    frameRess.mSyncObjects.waitForFence(device);
+    //mContext->mSyncObjM.waitForFence(device, currentFrame);
 
     uint32_t imageIndex;
     // UINTMAX disable timeout
-    bool resultAcq = mContext->mSwapChainM.aquireNextImage(device, mContext->mSyncObjM.getImageAvailableSemaphore(currentFrame),
+    bool resultAcq = mContext->mSwapChainM.aquireNextImage(device,
+         frameRess.mSyncObjects.getImageAvailableSemaphore(),
                                                            imageIndex);
     if (!resultAcq)
     {
@@ -196,7 +205,7 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
         return;
     }
     // The reset Fence happen
-    mContext->mSyncObjM.resetFence(device, currentFrame);
+    frameRess.mSyncObjects.resetFence(device);
 
     // We draw after this once an image is available
     vkResetCommandBuffer(mContext->mCommandPoolM.get(currentFrame), 0);
@@ -209,14 +218,16 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
 
     mContext->mLogDeviceM.submitToGraphicsQueue(
         mContext->mCommandPoolM.getCmdBufferHandle(currentFrame),
-        mContext->mSyncObjM.getImageAvailableSemaphore(currentFrame),
-        mContext->mSyncObjM.getRenderFinishedSemaphore(currentFrame),
-        mContext->mSyncObjM.getInFlightFence(currentFrame));
+        frameRess.mSyncObjects.getImageAvailableSemaphore(),
+        frameRess.mSyncObjects.getRenderFinishedSemaphore(),
+        frameRess.mSyncObjects.getInFlightFence());
 
-    VkResult result = mContext->mLogDeviceM.presentImage(mContext->mSwapChainM.GetChain(), mContext->mSyncObjM.getRenderFinishedSemaphore(currentFrame),
+    VkResult result = mContext->mLogDeviceM.presentImage(chain.GetChain(), 
+    frameRess.mSyncObjects.getRenderFinishedSemaphore(),
                                                          imageIndex);
 
     // Recreate the Swap Chain if suboutptimal
+
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
     {
         framebufferResized = false;
@@ -228,7 +239,7 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
     }
 
     // Go to the next index
-    currentFrame = (currentFrame + 1) % ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT;
+    chain.advanceFrame();
 }
 
 void Renderer::recordCommandBuffer(uint32_t currentFrame, uint32_t imageIndex)

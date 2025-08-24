@@ -134,7 +134,7 @@ void Buffer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize siz
     vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
     cmdPoolM.endSingleTime(commandBuffer,graphicsQueue);
-    cmdPoolM.destroy();
+    cmdPoolM.destroyCommandPool();
 }
 
 

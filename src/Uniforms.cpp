@@ -67,7 +67,7 @@ void DescriptorManager::createDescriptorSets(VkDevice device, TextureManager &te
         descriptorWrites[0].descriptorCount = 1;
         descriptorWrites[0].pBufferInfo = &bufferInfo;
 
-        // Some way to directtly connect the binding
+        // Some way to directtly connect the binding ., this should be optional
           VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfo.imageView = texutreM.getTextureView();

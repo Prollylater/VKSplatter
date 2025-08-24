@@ -1,11 +1,11 @@
 #include "SyncObjects.h"
 
 
-void SyncObjects::createSyncObjects(VkDevice device, uint32_t maxFramesInFlight) {
+void FrameSyncObjects::createSyncObjects(VkDevice device, uint32_t maxFramesInFlight) {
     imageAvailableSemaphores.resize(maxFramesInFlight);
     renderFinishedSemaphores.resize(maxFramesInFlight);
     inFlightFences.resize(maxFramesInFlight);
-
+    
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -25,7 +25,7 @@ void SyncObjects::createSyncObjects(VkDevice device, uint32_t maxFramesInFlight)
 }
 
 
-void SyncObjects::destroy(VkDevice device, uint32_t maxFramesInFlight) {
+void FrameSyncObjects::destroy(VkDevice device, uint32_t maxFramesInFlight) {
     for (size_t i = 0; i < maxFramesInFlight; i++) {
         vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
         vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
@@ -37,23 +37,23 @@ void SyncObjects::destroy(VkDevice device, uint32_t maxFramesInFlight) {
 
 }
 
-VkSemaphore SyncObjects::getImageAvailableSemaphore(uint32_t frameIndex) const {
+VkSemaphore FrameSyncObjects::getImageAvailableSemaphore(uint32_t frameIndex) const {
     return imageAvailableSemaphores[frameIndex];
 }
 
-VkSemaphore SyncObjects::getRenderFinishedSemaphore(uint32_t frameIndex) const {
+VkSemaphore FrameSyncObjects::getRenderFinishedSemaphore(uint32_t frameIndex) const {
     return renderFinishedSemaphores[frameIndex];
 }
 
-VkFence SyncObjects::getInFlightFence(uint32_t frameIndex) const {
+VkFence FrameSyncObjects::getInFlightFence(uint32_t frameIndex) const {
     return inFlightFences[frameIndex];
 }
 
-void SyncObjects::waitForFence(VkDevice device, uint32_t frameIndex) const {
+void FrameSyncObjects::waitForFence(VkDevice device, uint32_t frameIndex) const {
     vkWaitForFences(device, 1, &inFlightFences[frameIndex], VK_TRUE, UINT64_MAX);
 }
 
-void SyncObjects::resetFence(VkDevice device, uint32_t frameIndex) const {
+void FrameSyncObjects::resetFence(VkDevice device, uint32_t frameIndex) const {
     vkResetFences(device, 1, &inFlightFences[frameIndex]);
 }
 
