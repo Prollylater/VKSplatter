@@ -30,7 +30,7 @@ void VulkanContext::initVulkanBase(GLFWwindow *window)
 // Work on this
 void VulkanContext::initRenderInfrastructure()
 {
-    std::cout<<"initRenderInfrastructure" <<std::endl;
+    std::cout << "initRenderInfrastructure" << std::endl;
 
     const VkDevice &device = mLogDeviceM.getLogicalDevice();
     const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
@@ -48,7 +48,7 @@ void VulkanContext::initRenderInfrastructure()
 
 void VulkanContext::initPipelineAndDescriptors()
 {
-    std::cout<<"initPipelineAndDescriptors" <<std::endl;
+    std::cout << "initPipelineAndDescriptors" << std::endl;
 
     const VkDevice &device = mLogDeviceM.getLogicalDevice();
     const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
@@ -64,46 +64,41 @@ void VulkanContext::initPipelineAndDescriptors()
 };
 
 void VulkanContext::initSceneAssets() {};
-//All the rest or fram eressourees
+// All the rest or fram eressourees
 void VulkanContext::initAll(GLFWwindow *window)
 {
 
-    std::cout<<"InitALl" <<std::endl;
+    std::cout << "InitALl" << std::endl;
     const VkPhysicalDevice &physDevice = mPhysDeviceM.getPhysicalDevice();
     const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
     const VkDevice &device = mLogDeviceM.getLogicalDevice();
 
     // Texture creation
-     // Should be global and scene tied
+    // Should be global and scene tied
     mTextureM.createTextureImage(physDevice, mLogDeviceM, indicesFamily);
     mTextureM.createTextureImageView(device);
     mTextureM.createTextureSampler(device, physDevice);
 
-    //Frame rssoources bait  for some of them
+    // Frame rssoources bait  for some of them
     mDescriptorM.createUniformBuffers(device, physDevice);
 
     mDescriptorM.createDescriptorPool(device); // Coould be global
 
-    //Frame rssoources bait 
+    // Frame rssoources bait
     mDescriptorM.createDescriptorSets(device, mTextureM);
 
-    //Frame Ressources potential
-    mCommandPoolM.createCommandPool(device, CommandPoolType::Frame, indicesFamily.graphicsFamily.value());
-    mCommandPoolM.createCommandBuffers(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-
-    
-    mSwapChainM.createFramesData(device);
+    // Frame Ressources potential
+    mSwapChainM.createFramesData(device, indicesFamily.graphicsFamily.value());
 
     // Render Pass For Drawing
 };
 
 void VulkanContext::destroyAll()
 {
-    
+
     // Have destructor call those function
-    //Also why am i still passing device everywhere ?
+    // Also why am i still passing device everywhere ?
     VkDevice device = mLogDeviceM.getLogicalDevice();
-    mSwapChainM.destroyFramesData(device);
 
     mBufferM.destroyVertexBuffer(device);
     mBufferM.destroyIndexBuffer(device);
@@ -115,13 +110,10 @@ void VulkanContext::destroyAll()
     mTextureM.destroyTextureView(device);
     mTextureM.destroyTexture(device);
 
-
-
     mDepthRessources.destroyDepthBuffer(device);
     mSwapChainRess.destroyFramebuffers(device);
 
-
-    mCommandPoolM.destroyCommandPool();
+    mSwapChainM.destroyFramesData(device);
 
     mRenderPassM.destroyRenderPass(device);
     mDescriptorM.destroyDescriptorLayout(device);
@@ -146,11 +138,10 @@ void VulkanContext::destroyAll()
 ////////////////////////////////////////////////////:
 ////////////////////////////////////////////////////:
 
-// Should be handled by the swapchain
+// Todo:  Should be handled by the swapchain
 void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
 {
-
-    // Handle minimization
+    // Todo: Reintroduce this
     int width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
     while (width == 0 || height == 0)
@@ -163,6 +154,7 @@ void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
     mContext->mSwapChainRess.destroyFramebuffers(device);
     mContext->mSwapChainM.DestroyImageViews(device);
     mContext->mSwapChainM.DestroySwapChain(device);
+    mContext->mSwapChainM.destroyFramesData(device);
 
     // Swap Chain M should be able to handle this
     // But this would imply mswapCHainRess would be owned by it
@@ -170,6 +162,7 @@ void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
     SwapChainConfig defConfigSwapChain;
     mContext->mSwapChainM.createSwapChain(mContext->mPhysDeviceM.getPhysicalDevice(), device, window, defConfigSwapChain);
     mContext->mSwapChainM.createImageViews(device);
+    mContext->mSwapChainM.createFramesData(device, mContext->mPhysDeviceM.getIndices().graphicsFamily.value());
     mContext->mSwapChainRess.createFramebuffers(device, mContext->mSwapChainM, mContext->mDepthRessources, mContext->mRenderPassM.getRenderPass());
 }
 
@@ -179,37 +172,39 @@ void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
 
 // Vulkan Function
 
-
 // Semaphore and command buffer tied to frames
 void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
 {
-    //Handle fetching
+    // Handle fetching
     VkDevice device = mContext->mLogDeviceM.getLogicalDevice();
-    SwapChainManager& chain= mContext->getSwapChainManager();
-    const FrameResources& frameRess = chain.getCurrentFrameData();
+    SwapChainManager &chain = mContext->getSwapChainManager();
+
+    // Todo: Not sure about exposing this
+    FrameResources &frameRess = chain.getCurrentFrameData();
     const uint32_t currentFrame = chain.getCurrentFrameIndex();
 
-
     frameRess.mSyncObjects.waitForFence(device);
-    //mContext->mSyncObjM.waitForFence(device, currentFrame);
 
     uint32_t imageIndex;
     // UINTMAX disable timeout
-    bool resultAcq = mContext->mSwapChainM.aquireNextImage(device,
-         frameRess.mSyncObjects.getImageAvailableSemaphore(),
-                                                           imageIndex);
+    bool resultAcq = chain.aquireNextImage(device,
+                                           frameRess.mSyncObjects.getImageAvailableSemaphore(),
+                                           imageIndex);
+
     if (!resultAcq)
     {
-        // Could be own by context ANd be called as usual
+        // Todo: Should be own by context ANd be called as usual
         recreateSwapChain(device, window);
         return;
     }
-    // The reset Fence happen
+    // The reset of the Fence happen
     frameRess.mSyncObjects.resetFence(device);
 
     // We draw after this once an image is available
-    vkResetCommandBuffer(mContext->mCommandPoolM.get(currentFrame), 0);
-    recordCommandBuffer(currentFrame, imageIndex);
+    // Todo: Why are we ressetting here ?
+    frameRess.mCommandPool.resetCommandBuffer();
+    // vkResetCommandBuffer(frameRess.mCommandPool.get(), 0);
+    recordCommandBuffer(imageIndex);
 
     // Update the Uniform Buffers
     updateUniformBuffers(currentFrame, mContext->mSwapChainM.getSwapChainExtent());
@@ -217,13 +212,13 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
     // Lot of thing to rethink here
 
     mContext->mLogDeviceM.submitToGraphicsQueue(
-        mContext->mCommandPoolM.getCmdBufferHandle(currentFrame),
+        frameRess.mCommandPool.getCmdBufferHandle(),
         frameRess.mSyncObjects.getImageAvailableSemaphore(),
         frameRess.mSyncObjects.getRenderFinishedSemaphore(),
         frameRess.mSyncObjects.getInFlightFence());
 
-    VkResult result = mContext->mLogDeviceM.presentImage(chain.GetChain(), 
-    frameRess.mSyncObjects.getRenderFinishedSemaphore(),
+    VkResult result = mContext->mLogDeviceM.presentImage(chain.GetChain(),
+                                                         frameRess.mSyncObjects.getRenderFinishedSemaphore(),
                                                          imageIndex);
 
     // Recreate the Swap Chain if suboutptimal
@@ -242,13 +237,18 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
     chain.advanceFrame();
 }
 
-void Renderer::recordCommandBuffer(uint32_t currentFrame, uint32_t imageIndex)
+void Renderer::recordCommandBuffer(uint32_t imageIndex)
 {
-    mContext->mCommandPoolM.beginRecord(0, currentFrame);
+       // Handle fetching
+    // Todo: Not sure about exposing this
+    FrameResources &frameRess =  mContext->getSwapChainManager().getCurrentFrameData();
+    auto &commandPoolM =  frameRess.mCommandPool;
+
+   commandPoolM.beginRecord(0);
 
     VkExtent2D frameExtent = mContext->mSwapChainM.getSwapChainExtent();
 
-    const VkCommandBuffer command = mContext->mCommandPoolM.get(currentFrame);
+    const VkCommandBuffer command = commandPoolM.get();
     mContext->mRenderPassM.startPass(command, mContext->mSwapChainRess.GetFramebuffers()[imageIndex], frameExtent);
 
     vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, mContext->mPipelineM.getPipeline());
@@ -290,13 +290,18 @@ ertex buffer, defines the lowest value of gl_VertexIndex.
     vkCmdBindVertexBuffers(command, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(command, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     // vkCmdDraw(command, static_cast<uint32_t>(mesh.vertexCount()), 1, 0, 0);
-    vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, mContext->mPipelineM.getPipelineLayout(), 0, 1, &mContext->mDescriptorM.getSet(currentFrame), 0, nullptr);
+
+    const uint32_t currentFrame =   mContext->getSwapChainManager().getCurrentFrameIndex();
+    vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                            mContext->mPipelineM.getPipelineLayout(), 0, 1, 
+                            &mContext->mDescriptorM.getSet(currentFrame), 0, 
+                            nullptr);
     size_t bufferSize = mContext->mBufferM.mBufferInfo.indexCount;
     vkCmdDrawIndexed(command, static_cast<uint32_t>(bufferSize), 1, 0, 0, 0);
 
     // vkCmdBindIndexBuffer(command, vertexBuffers, indexOffset, VK_INDEX_TYPE_UINT32);
     mContext->mRenderPassM.endPass(command);
-    mContext->mCommandPoolM.endRecord(currentFrame);
+    commandPoolM.endRecord();
 }
 
 void Renderer::updateUniformBuffers(uint32_t currentImage, VkExtent2D swapChainExtent)

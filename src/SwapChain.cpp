@@ -192,13 +192,12 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice log
     createInfo.pQueueFamilyIndices = nullptr;
   }
 
-  //Need to revisit this
-
+  //Todo: Need to revisit this
   createInfo.preTransform = mSupportDetails.capabilities.currentTransform;
   createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   createInfo.presentMode = presentMode;
   // True will clip pixels obscured
-  // Wouldn"t work with some offscreen rendeirng ?
+  // Wouldn"t work with some offscreen rendering ?
   createInfo.clipped = VK_TRUE;
   createInfo.oldSwapchain = VK_NULL_HANDLE;
 
@@ -257,7 +256,7 @@ void SwapChainManager::DestroyImageViews(VkDevice device)
 
 //Frame Data Ressources
 
-  const FrameResources &SwapChainManager::getCurrentFrameData() const
+  /*const*/ FrameResources &SwapChainManager::getCurrentFrameData() //const
     {
         return mFramesData[currentFrame];
     }
@@ -278,25 +277,29 @@ void SwapChainManager::DestroyImageViews(VkDevice device)
     }
 
 
-    void SwapChainManager::createFrameData(VkDevice device)
+    void SwapChainManager::createFrameData(VkDevice device, uint32_t queueIndice)
     {
         auto &frameData = mFramesData[currentFrame];
-        frameData.mSyncObjects.createSyncObjects(device, 1);
+        frameData.mSyncObjects.createSyncObjects(device);
+        frameData.mCommandPool.createCommandPool(device, CommandPoolType::Frame, queueIndice);
+        frameData.mCommandPool.createCommandBuffers(1);
     };
 
     void SwapChainManager::destroyFrameData(VkDevice device)
     {
         auto &frameData = mFramesData[currentFrame];
-        frameData.mSyncObjects.destroy(device, 1);
+        frameData.mSyncObjects.destroy(device);
+        frameData.mCommandPool.destroyCommandPool();
+
     };
 
-    void SwapChainManager::createFramesData(VkDevice device)
+    void SwapChainManager::createFramesData(VkDevice device, uint32_t queueIndice)
     {
         currentFrame = 0;
 
         for (int i = 0; i < mFramesData.size(); i++)
         {
-            createFrameData(device);
+            createFrameData(device, queueIndice);
             advanceFrame();
         }
         currentFrame = 0;

@@ -15,7 +15,6 @@
 #include "Uniforms.h"
 #include "Texture.h"
 
-
 class VulkanContext
 {
 public:
@@ -27,7 +26,6 @@ public:
     PhysicalDeviceManager mPhysDeviceM;
     LogicalDeviceManager mLogDeviceM;
 
-    CommandPoolManager mCommandPoolM;
     RenderPassManager mRenderPassM;
     PipelineManager mPipelineM;
     SwapChainManager mSwapChainM;
@@ -38,13 +36,11 @@ public:
     DescriptorManager mDescriptorM;
     TextureManager mTextureM;
 
-
     // Getters returning const references
     const VulkanInstanceManager &getInstanceManager() const { return mInstanceM; }
     const PhysicalDeviceManager &getPhysicalDeviceManager() const { return mPhysDeviceM; }
     const LogicalDeviceManager &getLogicalDeviceManager() const { return mLogDeviceM; }
 
-    const CommandPoolManager &getCommandPoolManager() const { return mCommandPoolM; }
     const RenderPassManager &getRenderPassManager() const { return mRenderPassM; }
     const PipelineManager &getPipelineManager() const { return mPipelineM; }
     const SwapChainManager &getSwapChainManager() const { return mSwapChainM; }
@@ -52,37 +48,30 @@ public:
     const Buffer &getBufferManager() const { return mBufferM; }
     const DescriptorManager &getDescriptorManager() const { return mDescriptorM; }
     const TextureManager &getTextureManager() const { return mTextureM; }
-    //
 
     VulkanInstanceManager &getInstanceManager() { return mInstanceM; }
-PhysicalDeviceManager &getPhysicalDeviceManager() { return mPhysDeviceM; }
-LogicalDeviceManager &getLogicalDeviceManager() { return mLogDeviceM; }
+    PhysicalDeviceManager &getPhysicalDeviceManager() { return mPhysDeviceM; }
+    LogicalDeviceManager &getLogicalDeviceManager() { return mLogDeviceM; }
 
-CommandPoolManager &getCommandPoolManager() { return mCommandPoolM; }
-RenderPassManager &getRenderPassManager() { return mRenderPassM; }
-PipelineManager &getPipelineManager() { return mPipelineM; }
-SwapChainManager &getSwapChainManager() { return mSwapChainM; }
+    RenderPassManager &getRenderPassManager() { return mRenderPassM; }
+    PipelineManager &getPipelineManager() { return mPipelineM; }
+    SwapChainManager &getSwapChainManager() { return mSwapChainM; }
 
-    /// @brief 
-    /// @return 
     const SwapChainResources &getSwapChainResources() const { return mSwapChainRess; }
     const DepthRessources &getDepthResources() const { return mDepthRessources; }
 
-SwapChainResources &getSwapChainResources() { return mSwapChainRess; }
-DepthRessources &getDepthResources() { return mDepthRessources; }
+    SwapChainResources &getSwapChainResources() { return mSwapChainRess; }
+    DepthRessources &getDepthResources() { return mDepthRessources; }
 
-Buffer &getBufferManager() { return mBufferM; }
-DescriptorManager &getDescriptorManager() { return mDescriptorM; }
-TextureManager &getTextureManager() { return mTextureM; }
+    Buffer &getBufferManager() { return mBufferM; }
+    DescriptorManager &getDescriptorManager() { return mDescriptorM; }
+    TextureManager &getTextureManager() { return mTextureM; }
 
+    // Not too sure about what init  or not and in private or not
 
-
-    //Not too sure about what init  or not and in private or not
-
-    void initVulkanBase(GLFWwindow* window);
+    void initVulkanBase(GLFWwindow *window);
     void initRenderInfrastructure();
     void initPipelineAndDescriptors();
-
 
     void initAll(GLFWwindow *window);
     void destroyAll();
@@ -91,19 +80,16 @@ private:
     // TODO: Memory allocator, debug messenger, etc.
 
     void initSceneAssets();
-
 };
 
-
-
-class Scene {
+class Scene
+{
 public:
     std::vector<Mesh> meshes;
-    //std::vector<Material> materials;
-    //std::vector<Textures> Textures;
-    //std::vector<Lights> lights;
+    // std::vector<Material> materials;
+    // std::vector<Textures> Textures;
+    // std::vector<Lights> lights;
 };
-
 
 class Renderer
 {
@@ -111,8 +97,8 @@ public:
     Renderer() = default;
     ~Renderer() = default;
 
-    //Todo: This can be brittle, something should make it clear if not associated
-    //It could also do more work ?
+    // Todo: This can be brittle, something should make it clear if not associated
+    // It could also do more work ?
     void associateContext(VulkanContext &context)
     {
         mContext = &context;
@@ -120,51 +106,46 @@ public:
     // WHo should actually handle this ?
     void recreateSwapChain(VkDevice device, GLFWwindow *window);
 
-    uint32_t currentFrame = 0;
-
     void updateUniformBuffers(uint32_t currentImage, VkExtent2D swapChainExtent);
 
-    void drawFrame(bool framebufferResized, GLFWwindow * window);
-    void recordCommandBuffer(uint32_t currentFrame, uint32_t imageIndex);
+    void drawFrame(bool framebufferResized, GLFWwindow *window);
+    void recordCommandBuffer(uint32_t imageIndex);
 
-
-    void registerSceneFormat(/*const Scene& scene*/) {
+    void registerSceneFormat(/*const Scene& scene*/)
+    {
         // Renderer.cpp
-        mScene.meshes.emplace_back(Mesh()); 
-        Mesh& mesh = mScene.meshes.back();
+        mScene.meshes.emplace_back(Mesh());
+        Mesh &mesh = mScene.meshes.back();
         mesh.loadModel(MODEL_PATH);
         mesh.inputFlag = static_cast<VertexFlags>(Vertex_Pos | Vertex_Normal | Vertex_UV | Vertex_Color);
         VertexFormatRegistry::addFormat(mesh);
-
     }
 
+    void uploadScene(/*const Scene& scene*/)
+    {
 
-    void uploadScene(/*const Scene& scene*/) {
+        // gpuMesh = context.bufferManager().uploadMesh(mesh, format);
 
-    
-        //gpuMesh = context.bufferManager().uploadMesh(mesh, format);
-
-        for (const auto& mesh : mScene.meshes) {
-            mContext->getBufferManager().uploadMesh(mesh, mContext->getLogicalDeviceManager() ,mContext->getPhysicalDeviceManager());
-         //   gpuMeshes.push_back(mContext->bufferManager().uploadMesh(mesh));
+        for (const auto &mesh : mScene.meshes)
+        {
+            mContext->getBufferManager().uploadMesh(mesh, mContext->getLogicalDeviceManager(), mContext->getPhysicalDeviceManager());
+            //   gpuMeshes.push_back(mContext->bufferManager().uploadMesh(mesh));
         }
 
-        /*        
+        /*
         for (const auto& texture : mScene.textures) {
             gpuTextures.push_back(context->textureManager().uploadTexture(texture));
         }*/
 
         // create per-material descriptor sets
-     //   createMaterialDescriptorSets(scene.materials);
+        //   createMaterialDescriptorSets(scene.materials);
     }
-    //requestDescriptor text
+    // requestDescriptor text
 private:
-    VulkanContext* mContext;
+    VulkanContext *mContext;
     Scene mScene;
-    //std::vector<GpuMesh> gpuMeshes;
+    // std::vector<GpuMesh> gpuMeshes;
 };
-
-
 
 /*
 A frame in flight refers to a rendering operation that

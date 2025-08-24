@@ -28,27 +28,27 @@ public:
 
     //Todo: Important
     //MaxFrames iN Flight should disappear
-    void createSyncObjects(VkDevice device, uint32_t maxFramesInFlight);
-    void destroy(VkDevice, uint32_t maxFramesInFlight);
+    void createSyncObjects(VkDevice device);
+    void destroy(VkDevice);
     // Called every frame to get the current sync primitives
-    VkSemaphore getImageAvailableSemaphore(uint32_t frameIndex = 0) const;
-    VkSemaphore getRenderFinishedSemaphore(uint32_t frameIndex = 0) const;
-    VkFence getInFlightFence(uint32_t frameIndex = 0) const;
+    VkSemaphore getImageAvailableSemaphore() const;
+    VkSemaphore getRenderFinishedSemaphore() const;
+    VkFence getInFlightFence() const;
 
     // Wait for current frame to finish
-    void waitForFence(VkDevice, uint32_t frameIndex = 0) const;
+    void waitForFence(VkDevice ) const;
 
     // Reset fence before using it again
-    void resetFence(VkDevice, uint32_t frameIndex = 0) const;
+    void resetFence(VkDevice) const;
 
 private:
     VkDevice mDevice;
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-    std::vector<VkFence> inFlightFences;
+    VkSemaphore imageAvailableSemaphores;
+    VkSemaphore renderFinishedSemaphores;
+    VkFence inFlightFences;
 };
 
-/////For "adhoc semaphore", Fence are not  added yet
+/////Todo: For "adhoc semaphore", in passes and so on Fence are not added yet
 /*
 class SyncObjectManager
 {

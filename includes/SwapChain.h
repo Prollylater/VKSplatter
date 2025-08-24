@@ -94,13 +94,17 @@ public:
         return mSwapChainExtent;
     }
 
-    const FrameResources &getCurrentFrameData() const;
+    //const FrameResources &getCurrentFrameData() const;
+    
+    //Todo: Not too sure about  exposing this
+    FrameResources & getCurrentFrameData() ;
+
 
     const int getCurrentFrameIndex() const;
 
     void advanceFrame();
 
-    void createFramesData(VkDevice device);
+    void createFramesData(VkDevice device, uint32_t queueIndice);
     void destroyFramesData(VkDevice device);
 
 
@@ -119,7 +123,7 @@ private:
     uint32_t currentFrame = 0;
     std::vector<FrameResources> mFramesData;
 
-    void createFrameData(VkDevice device);
+    void createFrameData(VkDevice device, uint32_t queueIndice);
     void destroyFrameData(VkDevice device);
   };
 

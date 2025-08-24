@@ -1,11 +1,7 @@
 #include "SyncObjects.h"
 
 
-void FrameSyncObjects::createSyncObjects(VkDevice device, uint32_t maxFramesInFlight) {
-    imageAvailableSemaphores.resize(maxFramesInFlight);
-    renderFinishedSemaphores.resize(maxFramesInFlight);
-    inFlightFences.resize(maxFramesInFlight);
-    
+void FrameSyncObjects::createSyncObjects(VkDevice device) {
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -14,47 +10,55 @@ void FrameSyncObjects::createSyncObjects(VkDevice device, uint32_t maxFramesInFl
     // Start signaled so we don't wait on first use
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; 
 
-    for (size_t i = 0; i < maxFramesInFlight; i++) {
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-            vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
+        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores) != VK_SUCCESS ||
+            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores) != VK_SUCCESS ||
+            vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create synchronization objects for a frame!");
         } 
+}
+
+
+void FrameSyncObjects::destroy(VkDevice device) {
+    if (imageAvailableSemaphores != VK_NULL_HANDLE) {
+        vkDestroySemaphore(device, imageAvailableSemaphores, nullptr);
+        imageAvailableSemaphores = VK_NULL_HANDLE;
     }
-
-}
-
-
-void FrameSyncObjects::destroy(VkDevice device, uint32_t maxFramesInFlight) {
-    for (size_t i = 0; i < maxFramesInFlight; i++) {
-        vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
-        vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
-        vkDestroyFence(device, inFlightFences[i], nullptr);
+    if (renderFinishedSemaphores != VK_NULL_HANDLE) {
+        vkDestroySemaphore(device, renderFinishedSemaphores, nullptr);
+        renderFinishedSemaphores = VK_NULL_HANDLE;
     }
-    imageAvailableSemaphores.clear();
-    renderFinishedSemaphores.clear();
-    inFlightFences.clear();
-
+    if (inFlightFences != VK_NULL_HANDLE) {
+        vkDestroyFence(device, inFlightFences, nullptr);
+        inFlightFences = VK_NULL_HANDLE;
+    }
 }
 
-VkSemaphore FrameSyncObjects::getImageAvailableSemaphore(uint32_t frameIndex) const {
-    return imageAvailableSemaphores[frameIndex];
+VkSemaphore FrameSyncObjects::getImageAvailableSemaphore() const {
+    return imageAvailableSemaphores;
 }
 
-VkSemaphore FrameSyncObjects::getRenderFinishedSemaphore(uint32_t frameIndex) const {
-    return renderFinishedSemaphores[frameIndex];
+VkSemaphore FrameSyncObjects::getRenderFinishedSemaphore() const {
+    return renderFinishedSemaphores;
 }
 
-VkFence FrameSyncObjects::getInFlightFence(uint32_t frameIndex) const {
-    return inFlightFences[frameIndex];
+VkFence FrameSyncObjects::getInFlightFence() const {
+    return inFlightFences;
 }
 
-void FrameSyncObjects::waitForFence(VkDevice device, uint32_t frameIndex) const {
-    vkWaitForFences(device, 1, &inFlightFences[frameIndex], VK_TRUE, UINT64_MAX);
+void FrameSyncObjects::waitForFence(VkDevice device) const {
+    uint64_t timeout = UINT64_MAX;
+    VkResult result = vkWaitForFences( device, 1, &inFlightFences, VK_TRUE, timeout ); 
+    if( VK_SUCCESS != result ) { 
+        throw std::runtime_error("Waiting on fence failed!");
+
+    } 
 }
 
-void FrameSyncObjects::resetFence(VkDevice device, uint32_t frameIndex) const {
-    vkResetFences(device, 1, &inFlightFences[frameIndex]);
+void FrameSyncObjects::resetFence(VkDevice device) const {
+    VkResult result = vkResetFences( device, 1, &inFlightFences); 
+    if( VK_SUCCESS != result ) { 
+        throw std::runtime_error("Reseting fence failed!");
+    } 
 }
 
 /*
