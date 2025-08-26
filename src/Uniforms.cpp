@@ -52,7 +52,7 @@ void DescriptorManager::createDescriptorSets(VkDevice device, TextureManager &te
     {
         //Set UBO
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = mUniformBuffers[i];
+        bufferInfo.buffer = mUniformBuffers[i].getBuffer();
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
@@ -95,40 +95,21 @@ void DescriptorManager::createUniformBuffers(VkDevice device, VkPhysicalDevice p
 
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-    mUniformBuffers.resize(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-    mUniformBuffersMemory.resize(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
+    //mUniformBuffers.resize(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
+    //mUniformBuffersMemory.resize(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
     mUniformBuffersMapped.resize(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
+
+    mUniformBuffers.resize(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT; i++)
     {
-        createBuffer(mUniformBuffers[i], mUniformBuffersMemory[i], device, physDevice, bufferSize,
-                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
+        mUniformBuffers[i].createBuffer(device, physDevice, bufferSize,VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ,
+             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         // Persistent Mapping
-        vkMapMemory(device, mUniformBuffersMemory[i], 0, bufferSize, 0, &mUniformBuffersMapped[i]);
+        vkMapMemory(device, mUniformBuffers[i].getMemory(), 0, bufferSize, 0, &mUniformBuffersMapped[i]);
     }
 }
 
-//Should be in scene i guess
-/*
-void DescriptorManager::updateUniformBuffers(uint32_t currentImage, VkExtent2D swapChainExtent)
-{
-    static auto startTime = std::chrono::high_resolution_clock::now();
-
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-    UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
-
-    ubo.proj[1][1] *= -1;
-
-    memcpy(mUniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
-};
-*/
 void DescriptorManager::createDescriptorSetLayout(VkDevice device)
 {
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
@@ -161,17 +142,28 @@ void DescriptorManager::destroyDescriptorLayout(VkDevice device)
 {
 
     vkDestroyDescriptorSetLayout(device, mDescriptorSetLayout, nullptr);
+    mDescriptorSetLayout= VK_NULL_HANDLE;
 }
+
 
 void DescriptorManager::destroyUniformBuffer(VkDevice device)
 {
 
     for (size_t i = 0; i < ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT; i++)
     {
-        vkDestroyBuffer(device, mUniformBuffers[i], nullptr);
-        vkFreeMemory(device, mUniformBuffersMemory[i], nullptr);
+        mUniformBuffers[i].destroyBuffer();
     }
 }
 
 // TOOD: Chang eother at VK_NULL_HANDLE
 //  Destroy on not real object nor null handle can have weird conseuqeujces
+
+
+/*
++ default init to VK_NULL_HANDLE
+Todo: Add this pattern where needed
+if( VK_NULL_HANDLE != fence ) { 
+  vkDestroyFence( logical_device, fence, nullptr ); 
+  fence = VK_NULL_HANDLE; 
+}
+*/

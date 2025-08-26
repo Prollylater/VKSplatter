@@ -13,7 +13,7 @@ We use semaphores for swapchain operations because they happen on the GPU.
 For waiting on the previous frame to finish, we use fences.
 This is so we don't draw more than one frame at a time.
 
-Semaphores are used to synchronize submitted command buffers with each other. 
+Semaphores are used to synchronize submitted command buffers with each other.
 Fences are used to synchronize an application with submitted commands.
 
  */
@@ -26,8 +26,8 @@ public:
     FrameSyncObjects() = default;
     ~FrameSyncObjects() = default;
 
-    //Todo: Important
-    //MaxFrames iN Flight should disappear
+    // Todo: Important
+    // MaxFrames iN Flight should disappear
     void createSyncObjects(VkDevice device);
     void destroy(VkDevice);
     // Called every frame to get the current sync primitives
@@ -36,9 +36,9 @@ public:
     VkFence getInFlightFence() const;
 
     // Wait for current frame to finish
-    void waitForFence(VkDevice ) const;
+    void waitFenceSignal(VkDevice) const;
 
-    // Reset fence before using it again
+    // Reset fence to unsignaled state
     void resetFence(VkDevice) const;
 
 private:
@@ -76,15 +76,16 @@ SyncObjectManager::SyncObjectManager(VkDevice device)
 
 SyncObjectManager::~SyncObjectManager()
 {
-    for (auto sem : mPool)
+    for (auto sem : mSemaphorePool)
     {
         vkDestroySemaphore(mDevice, sem, nullptr);
     }
     for (auto sem : mInUse)
     {
-        vkDestroySemaphore(mDevice, sem, nullptr);
+        vkDestroyFence(mDevice, sem, nullptr);
     }
 }
+
 
 VkSemaphore SyncObjectManager::acquire()
 {
@@ -120,60 +121,51 @@ void SyncObjectManager::release(VkSemaphore sem)
 }
 
 
-void FrameSyncObjects::createSyncObjects(VkDevice device, uint32_t maxFramesInFlight) {
-    imageAvailableSemaphores.resize(maxFramesInFlight);
-    renderFinishedSemaphores.resize(maxFramesInFlight);
-    inFlightFences.resize(maxFramesInFlight);
-
+VkSemaphore FrameSyncObjects::acquireSemaphore(VkDevice device) {
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
     VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    // Start signaled so we don't wait on first use
-    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; 
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    for (size_t i = 0; i < maxFramesInFlight; i++) {
         if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-            vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create synchronization objects for a frame!");
-        } 
-    }
+        }
+
+}
+
+VkFence FrameSyncObjects::acquireFence(VkDevice device, VkFenceCreateFlags flag = 0) {
+    VkSemaphoreCreateInfo semaphoreInfo{};
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = flag;
+    //fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+        if (vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create synchronization objects for a frame!");
+        }
 
 }
 
 
-void FrameSyncObjects::destroy(VkDevice device, uint32_t maxFramesInFlight) {
-    for (size_t i = 0; i < maxFramesInFlight; i++) {
-        vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
-        vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
-        vkDestroyFence(device, inFlightFences[i], nullptr);
-    }
-    imageAvailableSemaphores.clear();
-    renderFinishedSemaphores.clear();
-    inFlightFences.clear();
 
+VkSemaphore FrameSyncObjects::acquireSemaphore(uint32_t index) const {
+    return mSemaphorePool[frameIndex];
 }
 
-VkSemaphore FrameSyncObjects::getImageAvailableSemaphore(uint32_t frameIndex) const {
-    return imageAvailableSemaphores[frameIndex];
-}
-
-VkSemaphore FrameSyncObjects::getRenderFinishedSemaphore(uint32_t frameIndex) const {
-    return renderFinishedSemaphores[frameIndex];
-}
-
-VkFence FrameSyncObjects::getInFlightFence(uint32_t frameIndex) const {
-    return inFlightFences[frameIndex];
+VkFence FrameSyncObjects::acquireFence(uint32_t frameIndex) const {
+    return mFencePool[frameIndex];
 }
 
 void FrameSyncObjects::waitForFence(VkDevice device, uint32_t frameIndex) const {
-    vkWaitForFences(device, 1, &inFlightFences[frameIndex], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(device, 1, &mFencePool[frameIndex], VK_TRUE, UINT64_MAX);
 }
 
 void FrameSyncObjects::resetFence(VkDevice device, uint32_t frameIndex) const {
-    vkResetFences(device, 1, &inFlightFences[frameIndex]);
+    vkResetFences(device, 1, &mFencePool[frameIndex]);
 }
 
 */

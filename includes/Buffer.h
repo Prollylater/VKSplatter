@@ -9,101 +9,109 @@
 
 #include "CommandPool.h"
 
+struct GPUBufferView
+{
+    VkBuffer mBuffer = VK_NULL_HANDLE;
+    VkDeviceSize mOffset = 0;
+    //This behave so far as a count
+    VkDeviceSize mSize = 0;
+};
 
-struct MeshBufferInfo {
-    VkDeviceSize vertexOffset;  // in bytes
-    VkDeviceSize indexOffset;   // in bytes
-    uint32_t indexCount;        // for vkCmdDrawIndexed()
-    uint32_t vertexCount;
+struct AttributeStream
+{
+    GPUBufferView mView;
+    uint32_t mStride = 0;
+    // Todo:
+    // Decide how to handle it in regard to the actual buffer
+    // Specifally with the build interleaved and so on
+    // This is only really fine due to how we construct our stuff but it render the whole MeshGPuRessources abstraction useless
+    // Since the descriptor handle everything well enough
+    // Using Attributes just assume everything is neatly deferred to the descriptor
+    // Main use so far is for non interleaved and to allow us to drop the Buffer once created
+    enum class Type
+    {
+        Attributes,/*Pos, Normal, UV, Color,*/ Index
+    } mType;
+};
 
-    bool shared = false;
-    bool interleavec = true;
-    
+class MeshGPUResources
+{
+public:
+    void addStream(GPUBufferView view, uint32_t stride, AttributeStream::Type type)
+    {
+        mStreams.push_back({view, stride, type});
+    };
+
+    AttributeStream getStream(uint32_t index)
+    {
+        return mStreams[index];
+    }
+
+    VkBuffer getStreamBuffer(uint32_t index)
+    {
+        return mStreams[index].mView.mBuffer;
+    }
+
+private:
+    std::vector<AttributeStream> mStreams;
 };
 
 ///////////////////////////////////
 // Buffer
 ///////////////////////////////////
-        void createBuffer(VkBuffer &buffer, VkDeviceMemory &bufferMemory,const VkDevice &device, const VkPhysicalDevice &physDevice, VkDeviceSize data,
-                      VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
 
-    uint32_t findMemoryType(const VkPhysicalDevice &device, uint32_t memoryTypeBitsRequirement, const VkMemoryPropertyFlags &requiredProperties);
+uint32_t findMemoryType(const VkPhysicalDevice &device, uint32_t memoryTypeBitsRequirement, const VkMemoryPropertyFlags &requiredProperties);
 
-
-//A class for holding a buffer (principally for Mesh)
+// A class for holding a buffer (principally for Mesh)
 class Buffer
 {
 public:
     Buffer() = default;
     ~Buffer() = default;
 
-    // void createVertexBuffer();
+    void createBuffer(VkDevice device,
+                      VkPhysicalDevice physDevice,
+                      VkDeviceSize data,
+                      VkBufferUsageFlags usage,
+                      VkMemoryPropertyFlags properties);
+    void destroyBuffer();
 
-    //  void createVertexBuffers(const VkDevice& device, const VkPhysicalDevice& physDevice,const Mesh& mesh, const VertexFormat& format);
-
-    
-    void createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh, 
-                             const LogicalDeviceManager &deviceM,  const QueueFamilyIndices indice);
-
-    void createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const std::vector<Mesh> &mesh,
-    const LogicalDeviceManager& deviceM, const QueueFamilyIndices indice );
-
-    void createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh, 
-                             const LogicalDeviceManager &deviceM, const QueueFamilyIndices indice);
-
-    void destroyVertexBuffer(VkDevice device);
-    void destroyIndexBuffer(VkDevice device);
-
+    void uploadBuffer(const void *data, VkDeviceSize dataSize,
+                      VkDeviceSize dstOffset,
+                      VkPhysicalDevice physDevice,
+                      const LogicalDeviceManager &physDev,
+                      const QueueFamilyIndices &indices);
 
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, const LogicalDeviceManager &deviceM, const QueueFamilyIndices &indices);
 
-    const VkBuffer getVBuffer() const
-    {
-        return mVertexBuffer;
-    }
+    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
+                    VkDeviceSize size, VkDeviceSize srcOffset,
+                    VkDeviceSize dstOffset, const LogicalDeviceManager &deviceM, const QueueFamilyIndices &indices);
 
-    const VkDeviceMemory getVBufferMemory() const
-    {
-        return mVertexBufferMemory;
-    }
+    // Todo: Should this be directly returned from an upload ?
+    GPUBufferView getView(VkDeviceSize offset = 0, VkDeviceSize range = VK_WHOLE_SIZE);
 
-
-    const VkBuffer getIDXBuffer() const
-    {
-        return mIndexBuffer;
-    }
-
-    const VkDeviceMemory getIDXBufferMemory() const
-    {
-        return mIndexBufferMemory;
-    }
-
-    MeshBufferInfo mBufferInfo;
-
-
-
-    //More highlevel method
-    void uploadMesh(const Mesh& mesh, const LogicalDeviceManager &logDevM, const PhysicalDeviceManager &physDevM) {
-
-    // Some way to know the buffer states
-    const VkPhysicalDevice &physDevice = physDevM.getPhysicalDevice();
-
-    const VkDevice &device = logDevM.getLogicalDevice();
-
-     createVertexBuffers(device, physDevice, mesh, logDevM,  physDevM.getIndices());
-     createIndexBuffers(device, physDevice, mesh, logDevM,  physDevM.getIndices());
-
-    };
+    VkBuffer getBuffer() const { return mBuffer; }
+    VkDeviceMemory getMemory() const { return mMemory; }
+    VkDeviceSize getSize() const { return mSize; }
 
 private:
-    VkBuffer mVertexBuffer = VK_NULL_HANDLE;
-    VkDeviceMemory mVertexBufferMemory = VK_NULL_HANDLE;
+    VkDevice mDevice = VK_NULL_HANDLE;
+    VkBuffer mBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory mMemory = VK_NULL_HANDLE;
 
-    VkBuffer mIndexBuffer = VK_NULL_HANDLE;
-    VkDeviceMemory mIndexBufferMemory = VK_NULL_HANDLE;
+    //Find a better way to set it
+    VkDeviceSize mSize = 0;
+
+public:
+    void createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const std::vector<Mesh> &mesh,
+                                  const LogicalDeviceManager &deviceM, const QueueFamilyIndices indice);
+
+    void createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
+                             const LogicalDeviceManager &deviceM, const QueueFamilyIndices indice);
+    void createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
+                            const LogicalDeviceManager &deviceM, const QueueFamilyIndices indice);
 };
 
-//TOOD: Change eother at VK_NULL_HANDLE
-// Destroy on not real object nor null handle can have weird conseuqeujces
-
-
+// TOOD: Change eother at VK_NULL_HANDLE
+//  Destroy on not real object nor null handle can have weird conseuqeujces

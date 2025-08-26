@@ -14,6 +14,12 @@ enum class CommandPoolType
     Transient,
     Free
 };
+
+enum class CmdBufferType {
+    Primary,
+    Secondary
+};
+
 // Design = One Command Pool and Multiple Command Buffer vs Multiples
 class CommandPoolManager
 {
@@ -33,7 +39,9 @@ public:
 
     // Only available for transient
 
-    void beginRecord(VkCommandBufferUsageFlags flags = 0, uint32_t index = 0);
+    void beginRecord( uint32_t index = 0,VkCommandBufferUsageFlags flags = 0,
+        CmdBufferType bufferType = CmdBufferType::Primary,
+        VkCommandBufferInheritanceInfo* inheritance = nullptr);
 
     void endRecord(uint32_t index = 0);
 

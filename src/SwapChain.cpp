@@ -119,7 +119,7 @@ bool SwapChainManager::aquireNextImage(VkDevice device, VkSemaphore semaphore, u
       device,
       mSwapChain,
       UINT64_MAX,
-      semaphore,
+      semaphore, //To signal
       VK_NULL_HANDLE,
       &imageIndex);
 
@@ -265,7 +265,6 @@ void SwapChainManager::DestroyImageViews(VkDevice device)
     {
         return currentFrame;
     }
-    
 
     void SwapChainManager::advanceFrame()
     {
@@ -275,7 +274,6 @@ void SwapChainManager::DestroyImageViews(VkDevice device)
             currentFrame = 0;
         }
     }
-
 
     void SwapChainManager::createFrameData(VkDevice device, uint32_t queueIndice)
     {

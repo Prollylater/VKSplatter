@@ -142,7 +142,7 @@ struct Mesh
     void loadModel(std::string);
 };
 
-// Actual Vertex data
+// Vertex Data used for creation
 struct VertexBufferData
 {
     std::vector<std::vector<uint8_t>> mBuffers;

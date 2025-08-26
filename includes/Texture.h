@@ -86,6 +86,7 @@ private:
 // Utility related to textures
 namespace vkUtils
 {
+    //Second namespace here 
     //Too big need to rework
     void generateMipmaps(VkDevice device,VkPhysicalDevice physicalDevice, const QueueFamilyIndices& indices, VkImage  image, VkQueue graphicsQueue,
     VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);

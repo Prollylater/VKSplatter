@@ -60,22 +60,36 @@ void TextureManager::createTextureImage( VkPhysicalDevice physDevice,
     }
 
     VkDevice device = deviceM.getLogicalDevice();
+
+    Buffer stagingBuffer;
+    stagingBuffer.createBuffer(device, physDevice,imageSize,
+    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | 
+    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+    
+    void *data;
+    vkMapMemory(device, stagingBuffer.getMemory(), 0, imageSize, 0, &data);
+    memcpy(data, texture.data, static_cast<size_t>(imageSize));
+    vkUnmapMemory(device, stagingBuffer.getMemory());
+
     // Transfer the image data
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    createBuffer(stagingBuffer, stagingBufferMemory, device, physDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    //VkBuffer stagingBuffer;
+    //VkDeviceMemory stagingBufferMemory;
+    /*Todo: Delete
+    createBuffer(stagingBuffer, stagingBufferMemory, device, physDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     void *data;
     vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
     memcpy(data, texture.data, static_cast<size_t>(imageSize));
-    vkUnmapMemory(device, stagingBufferMemory);
+    vkUnmapMemory(device, stagingBufferMemory);*/
     texture.freeImage();
-    ///
+
+    //Texture is freed here, what is actually used in creation are the dimensions
     createImage(device, physDevice, texture);
 
     //Todo: Very important look into this again
     // TODO: BEtter and easier way to implement transition
     vkUtils::transitionImageLayout(mTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, deviceM, indices, mMipMapLevels);
-    copyBufferToImage(stagingBuffer, mTextureImage, texture, deviceM, indices);
+    copyBufferToImage(stagingBuffer.getBuffer(), mTextureImage, texture, deviceM, indices);
     if(mMipMapLevels == 1){
     vkUtils::transitionImageLayout(mTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, deviceM, indices , mMipMapLevels);
     } else {
@@ -83,8 +97,7 @@ void TextureManager::createTextureImage( VkPhysicalDevice physDevice,
     texture.width,texture.height, mMipMapLevels);
     }
     
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
+    stagingBuffer.destroyBuffer();
 }
 
 void TextureManager::createImage(VkDevice device, VkPhysicalDevice physDevice, const ImageData<stbi_uc> &imgData)
@@ -128,6 +141,8 @@ void TextureManager::destroyTextureView(VkDevice device)
     vkDestroyImageView(device, mTextureImageView, nullptr);
 }
 
+
+//Should be usable by everything ?
 void TextureManager::copyBufferToImage(VkBuffer buffer, VkImage image, const ImageData<stbi_uc> &imgData, const LogicalDeviceManager &deviceM, 
                                        const QueueFamilyIndices &indices)
 {

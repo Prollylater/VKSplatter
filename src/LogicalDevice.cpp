@@ -132,30 +132,55 @@ vkGetDeviceQueue() → retrieve the actual VkQueue handles from the logical devi
 */
 
 
-
-
-
-VkResult LogicalDeviceManager::submitToGraphicsQueue(
-    VkCommandBuffer * cmdBuffer,
+VkResult LogicalDeviceManager::submitFrameToGQueue(
+    VkCommandBuffer cmdBuffer,
     VkSemaphore waitSemaphore,
     VkSemaphore signalSemaphore,
     VkFence fence)
 {
+    std::vector<VkCommandBuffer> cmdBuffers = { cmdBuffer };
+
+    std::vector<VkSemaphore> waitSemaphores   = { waitSemaphore };
+    // Wait for semaphore "confirmation" during the color stage after vertexshader
+    std::vector<VkPipelineStageFlags> waitStages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+
+    std::vector<VkSemaphore> signalSemaphores = { signalSemaphore };
+
+    return submitToQueue(mGraphicsQueue, 
+                         cmdBuffers, 
+                         waitSemaphores, 
+                         waitStages, 
+                         signalSemaphores, 
+                         fence);
+}
+
+
+VkResult LogicalDeviceManager::submitToQueue(
+    VkQueue queue,
+    const std::vector<VkCommandBuffer>& cmdBuffers,
+    const std::vector<VkSemaphore>& waitSemaphores,
+    const std::vector<VkPipelineStageFlags>& waitStages,
+    const std::vector<VkSemaphore>& signalSemaphores,
+    VkFence fence)
+{
+    //Todo:
+    //Check if commmand buffer are used, from the correct type of queue
+    //, or were recorded with a VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT flag
+    //Could be done above this function
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = &waitSemaphore;
-    // Wait for semaphore "confirmation" during the color stage after vertexshader
 
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.pWaitDstStageMask = waitStages;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = cmdBuffer;
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &signalSemaphore;
-    
-    // Specify the semapgore to signal
-    return vkQueueSubmit(mGraphicsQueue, 1, &submitInfo, fence);
+    submitInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
+    submitInfo.pWaitSemaphores    = waitSemaphores.data();
+    submitInfo.pWaitDstStageMask  = waitStages.data();
+
+    submitInfo.commandBufferCount = static_cast<uint32_t>(cmdBuffers.size());
+    submitInfo.pCommandBuffers    = cmdBuffers.data();
+
+    submitInfo.signalSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size());
+    submitInfo.pSignalSemaphores    = signalSemaphores.data();
+
+    return vkQueueSubmit(queue, 1, &submitInfo, fence);
 }
 
 
@@ -174,3 +199,4 @@ VkResult LogicalDeviceManager::presentImage(
     presentInfo.pResults = nullptr;
     return vkQueuePresentKHR(mPresentQueue, &presentInfo);
 }
+

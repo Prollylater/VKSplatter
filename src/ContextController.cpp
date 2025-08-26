@@ -100,8 +100,10 @@ void VulkanContext::destroyAll()
     // Also why am i still passing device everywhere ?
     VkDevice device = mLogDeviceM.getLogicalDevice();
 
-    mBufferM.destroyVertexBuffer(device);
-    mBufferM.destroyIndexBuffer(device);
+    for (auto &buffer : mBufferM)
+    {
+        buffer.destroyBuffer();
+    }
 
     mDescriptorM.destroyUniformBuffer(device);
     mDescriptorM.destroyDescriptorPools(device);
@@ -131,14 +133,8 @@ void VulkanContext::destroyAll()
 ////////////////////////////////////////////////////:
 ////////////////////////////////////////////////////:
 ////////////////////////////////////////////////////:
-////////////////////////////////////////////////////:
-////////////////////////////////////////////////////:
-////////////////////////////////////////////////////:
-////////////////////////////////////////////////////:
-////////////////////////////////////////////////////:
-////////////////////////////////////////////////////:
 
-// Todo:  Should be handled by the swapchain
+// Todo:  Should be handled by the swapchain also check in SwapChain Recreation
 void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
 {
     // Todo: Reintroduce this
@@ -150,7 +146,8 @@ void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
         glfwWaitEvents();
     }
 
-    vkDeviceWaitIdle(device);
+    // Pause application until gpu is done before recreating everything
+    mContext->mLogDeviceM.waitIdle();
     mContext->mSwapChainRess.destroyFramebuffers(device);
     mContext->mSwapChainM.DestroyImageViews(device);
     mContext->mSwapChainM.DestroySwapChain(device);
@@ -179,40 +176,39 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
     VkDevice device = mContext->mLogDeviceM.getLogicalDevice();
     SwapChainManager &chain = mContext->getSwapChainManager();
 
-    // Todo: Not sure about exposing this
+    // Todo: Not sure about exposing this as non const
     FrameResources &frameRess = chain.getCurrentFrameData();
     const uint32_t currentFrame = chain.getCurrentFrameIndex();
 
-    frameRess.mSyncObjects.waitForFence(device);
+    // In a real app we could do other stuff while waiting on Fence
+    // Or maybe multiple submitted task with each their own fence they get so that they can move unto a specific task
+    frameRess.mSyncObjects.waitFenceSignal(device);
 
     uint32_t imageIndex;
-    // UINTMAX disable timeout
+
     bool resultAcq = chain.aquireNextImage(device,
                                            frameRess.mSyncObjects.getImageAvailableSemaphore(),
                                            imageIndex);
 
     if (!resultAcq)
     {
-        // Todo: Should be own by context ANd be called as usual
+        // Todo: Should be in swapchain
         recreateSwapChain(device, window);
         return;
     }
-    // The reset of the Fence happen
+
     frameRess.mSyncObjects.resetFence(device);
 
-    // We draw after this once an image is available
-    // Todo: Why are we ressetting here ?
-    frameRess.mCommandPool.resetCommandBuffer();
-    // vkResetCommandBuffer(frameRess.mCommandPool.get(), 0);
+    // frameRess.mCommandPool.resetCommandBuffer();
     recordCommandBuffer(imageIndex);
 
     // Update the Uniform Buffers
+    // Todo: HHHHHHHHHHHHHHHHHHHHHHHHHH
     updateUniformBuffers(currentFrame, mContext->mSwapChainM.getSwapChainExtent());
-    // Submit Info set up
-    // Lot of thing to rethink here
 
-    mContext->mLogDeviceM.submitToGraphicsQueue(
-        frameRess.mCommandPool.getCmdBufferHandle(),
+    // Submit Info set up
+    mContext->mLogDeviceM.submitFrameToGQueue(
+        frameRess.mCommandPool.get(),
         frameRess.mSyncObjects.getImageAvailableSemaphore(),
         frameRess.mSyncObjects.getRenderFinishedSemaphore(),
         frameRess.mSyncObjects.getInFlightFence());
@@ -221,7 +217,7 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
                                                          frameRess.mSyncObjects.getRenderFinishedSemaphore(),
                                                          imageIndex);
 
-    // Recreate the Swap Chain if suboutptimal
+    // Recreate the Swap Chain if suboptimal
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
     {
@@ -239,16 +235,15 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
 
 void Renderer::recordCommandBuffer(uint32_t imageIndex)
 {
-       // Handle fetching
+    // Handle fetching
     // Todo: Not sure about exposing this
-    FrameResources &frameRess =  mContext->getSwapChainManager().getCurrentFrameData();
-    auto &commandPoolM =  frameRess.mCommandPool;
-
-   commandPoolM.beginRecord(0);
+    FrameResources &frameRess = mContext->getSwapChainManager().getCurrentFrameData();
+    auto &commandPoolM = frameRess.mCommandPool;
 
     VkExtent2D frameExtent = mContext->mSwapChainM.getSwapChainExtent();
-
     const VkCommandBuffer command = commandPoolM.get();
+
+    commandPoolM.beginRecord();
     mContext->mRenderPassM.startPass(command, mContext->mSwapChainRess.GetFramebuffers()[imageIndex], frameExtent);
 
     vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, mContext->mPipelineM.getPipeline());
@@ -271,17 +266,15 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
     /*
     vertexCount: Even though we don't have a vertex buffer, we technically still have 3 vertices to draw.
     instanceCount: Used for instanced rendering, use 1 if you're not doing that.
-    firstVertex: Used as an offset into the v
-
-
-
-
-ertex buffer, defines the lowest value of gl_VertexIndex.
+    firstVertex: Used as an offset into the vertex buffer, defines the lowest value of gl_VertexIndex.
     firstInstance: Used as an offset for instanced rendering, defines the lowest value of gl_InstanceIndex.
     */
 
-    VkBuffer vertexBuffers[] = {mContext->mBufferM.getVBuffer()};
-    VkBuffer indexBuffer = mContext->mBufferM.getIDXBuffer();
+    auto &uniqueMesh = gpuMeshes[0];
+    // Currently this is the vertexBuffer
+    VkBuffer vertexBuffers[] = {uniqueMesh.getStreamBuffer(0)};
+    // Currently this is the index Buffer
+    VkBuffer indexBuffer = uniqueMesh.getStreamBuffer(1);
 
     VkDeviceSize offsets[] = {0};
     // 0 is not quite right
@@ -291,15 +284,14 @@ ertex buffer, defines the lowest value of gl_VertexIndex.
     vkCmdBindIndexBuffer(command, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     // vkCmdDraw(command, static_cast<uint32_t>(mesh.vertexCount()), 1, 0, 0);
 
-    const uint32_t currentFrame =   mContext->getSwapChainManager().getCurrentFrameIndex();
-    vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                            mContext->mPipelineM.getPipelineLayout(), 0, 1, 
-                            &mContext->mDescriptorM.getSet(currentFrame), 0, 
+    const uint32_t currentFrame = mContext->getSwapChainManager().getCurrentFrameIndex();
+    vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            mContext->mPipelineM.getPipelineLayout(), 0, 1,
+                            &mContext->mDescriptorM.getSet(currentFrame), 0,
                             nullptr);
-    size_t bufferSize = mContext->mBufferM.mBufferInfo.indexCount;
+    size_t bufferSize = uniqueMesh.getStream(1).mView.mSize;
     vkCmdDrawIndexed(command, static_cast<uint32_t>(bufferSize), 1, 0, 0, 0);
 
-    // vkCmdBindIndexBuffer(command, vertexBuffers, indexOffset, VK_INDEX_TYPE_UINT32);
     mContext->mRenderPassM.endPass(command);
     commandPoolM.endRecord();
 }
@@ -322,6 +314,41 @@ void Renderer::updateUniformBuffers(uint32_t currentImage, VkExtent2D swapChainE
     memcpy(mContext->mDescriptorM.getMappedPointer(currentImage), &ubo, sizeof(ubo));
 };
 
+void Renderer::uploadScene(/*const Scene& scene*/)
+{
+
+    const auto &deviceM = mContext->getLogicalDeviceManager();
+    const auto &physDevice = mContext->getPhysicalDeviceManager().getPhysicalDevice();
+    const auto &indice = mContext->getPhysicalDeviceManager().getIndices();
+    std::cout << "InitMesh" << std::endl;
+    for (const auto &mesh : mScene.meshes)
+    {
+        mContext->getBufferManager().reserve(2);
+        mContext->getBufferManager().push_back(Buffer());
+        auto &vertexBuffer = mContext->getBufferManager().back();
+        vertexBuffer.createVertexBuffers(deviceM.getLogicalDevice(), physDevice,
+                                         mesh, deviceM, indice);
+
+        mContext->getBufferManager().push_back(Buffer());
+        auto &indexBuffer = mContext->getBufferManager().back();
+        indexBuffer.createIndexBuffers(deviceM.getLogicalDevice(), physDevice,
+                                       mesh, deviceM, indice);
+
+        gpuMeshes.push_back(MeshGPUResources());
+        auto &meshGpu = gpuMeshes.back();
+
+        meshGpu.addStream(vertexBuffer.getView(), sizeof(glm::vec3), AttributeStream::Type::Attributes);
+        meshGpu.addStream(indexBuffer.getView(), sizeof(uint32_t), AttributeStream::Type::Index);
+    }
+
+    /*
+    for (const auto& texture : mScene.textures) {
+        gpuTextures.push_back(context->textureManager().uploadTexture(texture));
+    }*/
+
+    // create per-material descriptor sets
+    //   createMaterialDescriptorSets(scene.materials);
+}
 /*
 A frame in flight refers to a rendering operation that
  has been submitted to the GPU but has not yet finished rendering in flight

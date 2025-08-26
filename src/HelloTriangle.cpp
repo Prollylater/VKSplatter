@@ -45,7 +45,8 @@ void HelloTriangleApplication::mainLoop()
         renderer.drawFrame(framebufferResized, window);
     }
     // Make sure the program exit properly once windows is closed
-    vkDeviceWaitIdle(context.mLogDeviceM.getLogicalDevice());
+    context.mLogDeviceM.waitIdle();
+    //Remove: vkDeviceWaitIdle(context.mLogDeviceM.getLogicalDevice());
 }
 
 void HelloTriangleApplication::cleanup()

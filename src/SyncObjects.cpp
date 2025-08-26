@@ -45,7 +45,7 @@ VkFence FrameSyncObjects::getInFlightFence() const {
     return inFlightFences;
 }
 
-void FrameSyncObjects::waitForFence(VkDevice device) const {
+void FrameSyncObjects::waitFenceSignal(VkDevice device) const {
     uint64_t timeout = UINT64_MAX;
     VkResult result = vkWaitForFences( device, 1, &inFlightFences, VK_TRUE, timeout ); 
     if( VK_SUCCESS != result ) { 

@@ -4,6 +4,9 @@
 #include <unordered_map>
 #include "VertexDescriptions.h"
 #include "LogicalDevice.h"
+#include "Buffer.h"
+
+//Todo: Definitly clean all the include
 ///////////////////////////////////
 // Buffer
 ///////////////////////////////////
@@ -40,9 +43,6 @@ public:
 
     void createUniformBuffers(VkDevice device, VkPhysicalDevice physDevice);
 
-    // TODO
-    //void updateUniformBuffers(uint32_t currentImage, VkExtent2D swapChainExtent);
-
     void destroyDescriptorPools(VkDevice device)
     {
         vkDestroyDescriptorPool(device, mDescriptorPool, nullptr);
@@ -74,8 +74,9 @@ private:
     // Buffer
     std::vector<VkDescriptorSet> mDescriptorSets;
 
-    std::vector<VkBuffer> mUniformBuffers;
-    std::vector<VkDeviceMemory> mUniformBuffersMemory;
+    std::vector<Buffer> mUniformBuffers;
+    //std::vector<VkBuffer> mUniformBuffers;
+    //std::vector<VkDeviceMemory> mUniformBuffersMemory;
     std::vector<void *> mUniformBuffersMapped;
 };
 

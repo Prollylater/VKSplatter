@@ -23,6 +23,7 @@ void CommandPoolManager::createCommandPool(VkDevice device, CommandPoolType type
         throw std::runtime_error("Failed to create command pool");
 }
 
+//Toodoo:: Add secondary
 void CommandPoolManager::createCommandBuffers(size_t nbBuffers)
 {
     // Allocate primary buffers if this is a frame pool or free
@@ -70,6 +71,7 @@ void CommandPoolManager::resetCommandPool() const
 
 void CommandPoolManager::destroyCommandPool()
 {
+    //Should vkWaitOn the creation queue here ?
     if (!mCmdBuffers.empty())
     {
         vkFreeCommandBuffers(mDevice, mPool, static_cast<uint32_t>(mCmdBuffers.size()), mCmdBuffers.data());
@@ -81,16 +83,16 @@ void CommandPoolManager::destroyCommandPool()
     }
 }
 
-// Only available for transient
-
-void CommandPoolManager::beginRecord(VkCommandBufferUsageFlags flags , uint32_t index )
+void CommandPoolManager::beginRecord( uint32_t index,VkCommandBufferUsageFlags flags,
+        CmdBufferType bufferType ,
+        VkCommandBufferInheritanceInfo* inheritance )
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = flags;
 
     // Todo: Look into secondary command buffer as nullptr lock it into onnly primary
-    // Same thing for level at creation
+    // Same thing for level at creation to make this more flexible
     // VkCommandBufferInheritanceInfo * secondaryCommandBufferInfo;
     beginInfo.pInheritanceInfo = nullptr;
 
@@ -106,20 +108,6 @@ void CommandPoolManager::endRecord(uint32_t index)
     {
         throw std::runtime_error("Failed to record command buffer!");
     }
-
-    /*
-    THis always precede this
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
-
-    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
-    */
 }
 
 // Transient helpers

@@ -15,6 +15,7 @@
 #include "Uniforms.h"
 #include "Texture.h"
 
+// Todo: Which heap allocation are absolutely needed
 class VulkanContext
 {
 public:
@@ -32,7 +33,8 @@ public:
     SwapChainResources mSwapChainRess;
     DepthRessources mDepthRessources;
 
-    Buffer mBufferM;
+    // Todo: Buffer should not be kept
+    std::vector<Buffer> mBufferM;
     DescriptorManager mDescriptorM;
     TextureManager mTextureM;
 
@@ -45,7 +47,7 @@ public:
     const PipelineManager &getPipelineManager() const { return mPipelineM; }
     const SwapChainManager &getSwapChainManager() const { return mSwapChainM; }
 
-    const Buffer &getBufferManager() const { return mBufferM; }
+    const std::vector<Buffer> &getBufferManager() const { return mBufferM; }
     const DescriptorManager &getDescriptorManager() const { return mDescriptorM; }
     const TextureManager &getTextureManager() const { return mTextureM; }
 
@@ -63,7 +65,7 @@ public:
     SwapChainResources &getSwapChainResources() { return mSwapChainRess; }
     DepthRessources &getDepthResources() { return mDepthRessources; }
 
-    Buffer &getBufferManager() { return mBufferM; }
+    std::vector<Buffer> &getBufferManager() { return mBufferM; }
     DescriptorManager &getDescriptorManager() { return mDescriptorM; }
     TextureManager &getTextureManager() { return mTextureM; }
 
@@ -121,30 +123,11 @@ public:
         VertexFormatRegistry::addFormat(mesh);
     }
 
-    void uploadScene(/*const Scene& scene*/)
-    {
-
-        // gpuMesh = context.bufferManager().uploadMesh(mesh, format);
-
-        for (const auto &mesh : mScene.meshes)
-        {
-            mContext->getBufferManager().uploadMesh(mesh, mContext->getLogicalDeviceManager(), mContext->getPhysicalDeviceManager());
-            //   gpuMeshes.push_back(mContext->bufferManager().uploadMesh(mesh));
-        }
-
-        /*
-        for (const auto& texture : mScene.textures) {
-            gpuTextures.push_back(context->textureManager().uploadTexture(texture));
-        }*/
-
-        // create per-material descriptor sets
-        //   createMaterialDescriptorSets(scene.materials);
-    }
-    // requestDescriptor text
+    void uploadScene(/*const Scene& scene*/);
 private:
     VulkanContext *mContext;
     Scene mScene;
-    // std::vector<GpuMesh> gpuMeshes;
+    std::vector<MeshGPUResources> gpuMeshes;
 };
 
 /*
@@ -173,35 +156,5 @@ A frame in flight refers to a rendering operation that
 | `PipelineManager` + `RenderPassManager`   | Abstract into `RenderPipeline`                    |
 | `Buffer`, `Texture`, `DescriptorManager`  | Wrap in `ResourceManager` or split per asset type |
 | `SyncObjects`                             | Embed into `Renderer` or `FrameContext` struct    |
-
-
-
-class Scene {
-public:
-    std::vector<Mesh> meshes;
-    std::vector<Material> materials;
-};
-
-
-class Renderer {
-public:
-    void init(GLFWwindow* window);
-    void drawFrame();
-    void cleanup();
-
-    void uploadMesh(const Mesh& mesh);
-
-
-
-    //With perhaps an Asset Manager class that deakl with Mesh then Texture and materials Not for now.
-    //Then something for The UBO, that change each Frames (We suppose they all do for now)
-    //Descriptor & pipelines
-
-    //Command Buffer logic
-    // Render is the oruiruty
-    // maybe: void setScene(Scene* scene);
-    ...
-};
-
 
 */
