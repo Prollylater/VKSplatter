@@ -96,7 +96,6 @@ void RenderPassManager::destroyRenderPass(VkDevice device)
 
 
 //TODO:
-//Create A rednderer using mRenderOass
 void RenderPassManager::startPass(const VkCommandBuffer &command, const VkFramebuffer &frameBuffer, const VkExtent2D &extent)
 {
     VkRenderPassBeginInfo renderPassInfo{};

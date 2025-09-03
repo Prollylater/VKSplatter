@@ -30,12 +30,12 @@ enum VertexFlags : uint32_t
     Vertex_Indices = 1 << 4,
 
 };
-
-inline VkVertexInputBindingDescription makeBinding(
+//Namespace
+inline VkVertexInputBindingDescription makeVtxInputBinding(
     uint32_t binding,
     uint32_t stride,
     VkVertexInputRate inputRate = VK_VERTEX_INPUT_RATE_VERTEX);
-inline VkVertexInputAttributeDescription makeAttr(
+inline VkVertexInputAttributeDescription makeVtxInputAttr(
     uint32_t location,
     uint32_t binding,
     VkFormat format,
@@ -45,7 +45,7 @@ struct Mesh;
 
 struct VertexFormat
 {
-    // Attributes and bindins may not always match if we use interleaved format
+    // Attributes and bindins may not always match in size if we use interleaved format
     std::vector<VkVertexInputBindingDescription> bindings;
     std::vector<VkVertexInputAttributeDescription> attributes;
     bool mInterleaved = true;
@@ -78,6 +78,7 @@ private:
     static std::unordered_map<VertexFlags, VertexFormat> &getFormats();
 };
 
+//Help for loading Vertex
 struct VertexUnique
 {
     glm::vec3 position;
@@ -187,19 +188,6 @@ VertexBufferData buildInterleavedVertexBuffer(const Mesh &mesh, const VertexForm
     }
   ]
 }
-```
-
----
-
-### 🔧 Schema (Documented)
-
-| Field               | Type   | Description                    |
-| ------------------- | ------ | ------------------------------ |
-| `name`              | string | Unique name/ID for the format  |
-| `binding.binding`   | int    | Vulkan binding index           |
-| `binding.stride`    | int    | Total size of vertex           |
-| `binding.inputRate` | string | `"vertex"` or `"instance"`     |
-| `attributes`        | array  | List of attribute descriptions |
 
 ---
 

@@ -65,7 +65,8 @@ private:
 
 };
 
-
+//Shader Module Abstraction ?
+//ShaderModule → wraps VkShaderModule.
 
 
 

@@ -11,6 +11,9 @@
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
+
+//TODO: This should definitly change
+//TODO: Important
 const std::string vertPath = "./ressources/shaders/vert.spv";
 const std::string fragPath = "./ressources/shaders/frag.spv";
 const std::string MODEL_PATH = "./ressources/models/hearthspring.obj";
@@ -43,7 +46,7 @@ class VulkanContext;
 struct ContextCreateInfo
 {
 public:
-    const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+    const uint32_t MAX_FRAMES_IN_FLIGHT = 3;
 
     //friend VulkanContext;
     uint32_t versionMajor = 1;

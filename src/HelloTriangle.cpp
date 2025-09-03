@@ -10,6 +10,7 @@ Pointer to custom allocator callbacks, always nullptr in this tutorial
 Pointer to the variable that stores the handle to the new object
 */
 
+
 // GLFW Functions
 void HelloTriangleApplication::initWindow()
 {

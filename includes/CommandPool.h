@@ -6,6 +6,7 @@
 
 #include "QueueFam.h"
 
+// Todo: Capacity to combine multiple buffer into one.
 // Todo: Error checking
 // Free should be a mode that allow creation of both Frame and Transient
 enum class CommandPoolType

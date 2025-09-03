@@ -8,173 +8,10 @@
 //   This is pretty bad      if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
 // Check if you will use one buffer https://vulkan-tutorial.com/en/Vertex_buffers/Index_buffer for everything
 
-void Buffer::createBuffer(VkDevice device,
-                          VkPhysicalDevice physDevice,
-                          VkDeviceSize dataSize,
-                          VkBufferUsageFlags usage,
-                          VkMemoryPropertyFlags properties)
-{
-
-    mDevice = device;
-
-    // In binary so the size is equal to the number of elements
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = dataSize;
-    bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    if (vkCreateBuffer(device, &bufferInfo, nullptr, &mBuffer) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create vertex buffer!");
-    }
-
-    // Memory allocation
-    // Todo: Take a look again at this
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device, mBuffer, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(physDevice, memRequirements.memoryTypeBits, properties);
-
-    if (vkAllocateMemory(device, &allocInfo, nullptr, &mMemory) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to allocate vertex buffer memory!");
-    }
-
-    vkBindBufferMemory(device, mBuffer, mMemory, 0);
-}
-
-void Buffer::destroyBuffer()
-{
-    // Error check
-    vkDestroyBuffer(mDevice, mBuffer, nullptr);
-    vkFreeMemory(mDevice, mMemory, nullptr);
-    mBuffer = VK_NULL_HANDLE;
-    mMemory = VK_NULL_HANDLE;
-}
-
-// Separateing staging mapping and copying maybe ?
-void Buffer::uploadBuffer(const void *data, VkDeviceSize dataSize, VkDeviceSize dstOffset,
-                          VkPhysicalDevice physDevice,
-                          const LogicalDeviceManager &logDev,
-                          const QueueFamilyIndices &indices)
-{
-
-    const auto &device = logDev.getLogicalDevice();
-
-    // Filling the vertex Buffer
-    // VK_MEMORY_PROPERTY_HOST_COHERENT_BIT imply using a heap equivalent
-    Buffer stagingBuffer;
-    // Todo: Do we need Allow flexibility on this ? Look into tutorial again
-    // VK_BUFFER_USAGE_TRANSFER_SRC_BIT,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-
-    stagingBuffer.createBuffer(device, physDevice, dataSize,
-                               VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    // Create util
-    void *databuff;
-    // Make buffer and databuff host Mapped to allow a memcpy
-    vkMapMemory(device, stagingBuffer.getMemory(), 0, dataSize, 0, &databuff);
-    // Now stagingBufferMemory == dataBuff
-    memcpy(databuff, data, dataSize);
-    vkUnmapMemory(device, stagingBuffer.getMemory());
-
-    copyBuffer(stagingBuffer.getBuffer(), mBuffer, dataSize, 0, dstOffset, logDev, indices);
-
-    stagingBuffer.destroyBuffer();
-};
-
-// Should be usable by everything like create buffer
-void Buffer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, const LogicalDeviceManager &deviceM,
-                        const QueueFamilyIndices &indices)
-{
-    copyBuffer(srcBuffer, dstBuffer, size, 0, 0, deviceM, indices);
-}
-
-void Buffer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size,
-                        VkDeviceSize srcOffset,
-                        VkDeviceSize dstOffset,
-                        const LogicalDeviceManager &deviceM,
-                        const QueueFamilyIndices &indices)
-{
-    const auto &graphicsQueue = deviceM.getGraphicsQueue();
-    const auto &device = deviceM.getLogicalDevice();
-
-    CommandPoolManager cmdPoolM;
-    // Todo: Should use a dedicated transfer queue ?
-    cmdPoolM.createCommandPool(device, CommandPoolType::Transient, indices.graphicsFamily.value());
-    VkCommandBuffer commandBuffer = cmdPoolM.beginSingleTime();
-    // Recording
-    VkBufferCopy copyRegion{};
-    copyRegion.srcOffset = srcOffset; // Optional
-    copyRegion.dstOffset = dstOffset; // Optional
-    copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-    cmdPoolM.endSingleTime(commandBuffer, graphicsQueue);
-    cmdPoolM.destroyCommandPool();
-}
-
-GPUBufferView Buffer::getView(VkDeviceSize offset, VkDeviceSize range)
-{
-    return GPUBufferView{mBuffer, offset, (range == VK_WHOLE_SIZE ? mSize : range)};
-}
-/*
-
-Quick method: memory (CPU) -> staging buffer (bridge) -> vertex buffer (GPU).
-Slow method: memory (CPU) -> vertex buffer (GPU).
-
-vkMapMemory: Gives us a CPU-accessible pointer to the staging buffer's memoryin GPU.
-memcpy: Copies the vertex data from CPU memory to GPU memory.
-vkUnmapMemory: Basically confirm that the writing is done
-
-VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT memory is not host-visible (CPU) so the CPu can directly access it
-
-CPU writes data into a HOST_VISIBLE staging buffer.
-Copies that data into a DEVICE_LOCAL GPU buffer using a command buffer.
-
-
-//It allow to refill the vertix easily and to use it faster
-*/
-
-void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
-                                 const LogicalDeviceManager &deviceM, const QueueFamilyIndices indice)
-{
-    const VertexFormat &format = mesh.getFormat();
-
-    VertexBufferData vbd = buildInterleavedVertexBuffer(mesh, format);
-    mSize = mesh.vertexCount();
-
-    const auto &data = vbd.mBuffers[0];
-
-    createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-                 
-    uploadBuffer(data.data(), data.size(), 0, physDevice, deviceM, indice);
-}
-
-void Buffer::createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
-                                const LogicalDeviceManager &deviceM, const QueueFamilyIndices indice)
-
-{
-    const VertexFormat &format = mesh.getFormat();
-    const auto &indices = mesh.indices;
-    mSize = mesh.indices.size();
-
-    VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
-    createBuffer(device, physDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    uploadBuffer(indices.data(), bufferSize, 0, physDevice, deviceM, indice);
-}
-
 uint32_t findMemoryType(const VkPhysicalDevice &physDevice, uint32_t memoryTypeBitsRequirement, const VkMemoryPropertyFlags &requiredProperties)
 {
 
+    // Todo: Could we keep this around in a variable somewhere ? But where
     VkPhysicalDeviceMemoryProperties pMemoryProperties;
     vkGetPhysicalDeviceMemoryProperties(physDevice, &pMemoryProperties);
 
@@ -202,9 +39,144 @@ uint32_t findMemoryType(const VkPhysicalDevice &physDevice, uint32_t memoryTypeB
     throw std::runtime_error("failed to find suitable memory type!");
 }
 
+void Buffer::createBuffer(VkDevice device,
+                          VkPhysicalDevice physDevice,
+                          VkDeviceSize dataSize,
+                          VkBufferUsageFlags usage,
+                          VkMemoryPropertyFlags properties)
+{
+
+    mDevice = device;
+    mSize = dataSize;
+
+    // In binary so the size is equal to the number of elements
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = dataSize;
+    bufferInfo.usage = usage;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(device, &bufferInfo, nullptr, &mBuffer) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create vertex buffer!");
+    }
+
+    // Memory allocation
+    // Todo: Take a look again at this
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(device, mBuffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    //Could be passed as uint32 directly
+    allocInfo.memoryTypeIndex = findMemoryType(physDevice, memRequirements.memoryTypeBits, properties);
+
+    if (vkAllocateMemory(device, &allocInfo, nullptr, &mMemory) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to allocate vertex buffer memory!");
+    }
+
+    if (vkBindBufferMemory(device, mBuffer, mMemory, 0))
+    {
+        throw std::runtime_error("failed to bind buffer memory!");
+    }
+}
+
+void Buffer::destroyBuffer()
+{
+    // Error check
+    vkDestroyBuffer(mDevice, mBuffer, nullptr);
+    vkFreeMemory(mDevice, mMemory, nullptr);
+    mBuffer = VK_NULL_HANDLE;
+    mMemory = VK_NULL_HANDLE;
+}
+
+// Separateing staging mapping and copying maybe ?
+void Buffer::uploadBuffer(const void *data, VkDeviceSize dataSize, VkDeviceSize dstOffset,
+                          VkPhysicalDevice physDevice,
+                          const LogicalDeviceManager &logDev,
+                          uint32_t queueIndice)
+{
+
+    const auto &device = logDev.getLogicalDevice();
+
+    Buffer stagingBuffer;
+    stagingBuffer.createBuffer(device, physDevice, dataSize,
+                               VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    vkUtils::BufferHelper::uploadBufferDirect(stagingBuffer.getMemory(), data, device, dataSize, dstOffset);
+
+    copyFromBuffer(stagingBuffer.getBuffer(), dataSize, logDev, queueIndice, 0, dstOffset);
+
+    // copyBuffer(stagingBuffer.getBuffer(), mBuffer, dataSize, logDev, indices, 0, dstOffset);
+
+    stagingBuffer.destroyBuffer();
+};
+
+void Buffer::copyToBuffer(VkBuffer dstBuffer,
+                          VkDeviceSize size,
+                          const LogicalDeviceManager &deviceM,
+                          uint32_t indice,
+                          VkDeviceSize srcOffset,
+                          VkDeviceSize dstOffset)
+{
+    vkUtils::BufferHelper::copyBufferTransient(mBuffer, dstBuffer, size, deviceM, indice, 0, 0);
+}
+
+void Buffer::copyFromBuffer(VkBuffer srcBuffer,
+                            VkDeviceSize size,
+                            const LogicalDeviceManager &deviceM,
+                            uint32_t indice,
+                            VkDeviceSize srcOffset,
+                            VkDeviceSize dstOffset)
+{
+
+    vkUtils::BufferHelper::copyBufferTransient(srcBuffer, mBuffer, size, deviceM, indice, 0, 0);
+}
+
+GPUBufferView Buffer::getView(VkDeviceSize offset, VkDeviceSize range)
+{
+    return GPUBufferView{mBuffer, offset, (range == VK_WHOLE_SIZE ? mSize : range)};
+}
+
+VkBufferView Buffer::createBufferView(VkFormat format, VkDeviceSize offset, VkDeviceSize size)
+{
+    return vkUtils::BufferHelper::createBufferView(mDevice, mBuffer, format, offset, size);
+}
+
+void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
+                                 const LogicalDeviceManager &deviceM,  uint32_t indice)
+{
+    const VertexFormat &format = mesh.getFormat();
+
+    VertexBufferData vbd = buildInterleavedVertexBuffer(mesh, format);
+
+    const auto &data = vbd.mBuffers[0];
+
+    createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    uploadBuffer(data.data(), data.size(), 0, physDevice, deviceM, indice);
+}
+
+void Buffer::createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
+                                const LogicalDeviceManager &deviceM, uint32_t indice)
+
+{
+    const VertexFormat &format = mesh.getFormat();
+    const auto &indices = mesh.indices;
+
+    VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
+    createBuffer(device, physDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    uploadBuffer(indices.data(), bufferSize, 0, physDevice, deviceM, indice);
+}
+
 // size is  a mix and VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT to create an unique buffer
 void Buffer::createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const std::vector<Mesh> &meshes,
-                                      const LogicalDeviceManager &deviceM, const QueueFamilyIndices indice)
+                                      const LogicalDeviceManager &deviceM,  uint32_t indice)
 {
     /*
     const VertexFormat &format = meshes[0].getFormat();
@@ -261,25 +233,35 @@ void Buffer::createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDe
 
 /*
 
+Quick method: memory (CPU) -> staging buffer (bridge) -> vertex buffer (GPU).
+Slow method: memory (CPU) -> vertex buffer (GPU).
+
+vkMapMemory: Gives us a CPU-accessible pointer to the staging buffer's memoryin GPU.
+memcpy: Copies the vertex data from CPU memory to GPU memory.
+vkUnmapMemory: Basically confirm that the writing is done
+
+VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT memory is not host-visible (CPU) so the CPu can directly access it
+
+CPU writes data into a HOST_VISIBLE staging buffer.
+Copies that data into a DEVICE_LOCAL GPU buffer using a command buffer.
 
 
-Perfect follow-up 👍 — because this is exactly where beginners overcomplicate, and pros keep things clean.
+//It allow to refill the vertix easily and to use it faster
+*/
 
+/*
 Let’s connect **Buffer / MeshBuffer / Texture** with **per-frame data (FrameResources)**.
 
 ---
 
 ## 🔹 1. What *is* frame data really?
 
-Frame resources are just the **per-frame things that change**, because we can’t safely reuse them until the GPU finishes.
-That usually means:
+
 
 * Command buffers
 * Per-frame semaphores/fences
 * Per-frame descriptor sets (if data is different per frame)
 * Per-frame UBO/SSBO buffers (dynamic scene constants, camera, lights, etc.)
-
----
 
 ## 🔹 2. Which buffers/textures go into frame data?
 
@@ -297,27 +279,6 @@ That usually means:
 
 ## 🔹 3. Practical structure
 
-### Global resources (live in VulkanContext / ResourceManagers)
-
-```cpp
-struct MeshBuffer {
-    Buffer vertexBuffer;
-    Buffer indexBuffer;
-    uint32_t indexCount;
-};
-
-struct Texture {
-    VkImage image;
-    VkImageView view;
-    VkSampler sampler;
-};
-```
-
-These are **owned once**, uploaded once. No duplication per frame.
-
----
-
-### FrameResources (rotated each frame)
 
 ```cpp
 struct FrameResources {
@@ -364,17 +325,134 @@ submit(frame);
   After upload, frame data just **uses** them.
 
 ---
-
-✅ So:
-
-* Mesh/Texture = *static, once per scene*
-* FrameResources = *dynamic, per frame in flight*
-* No need to duplicate meshes/textures in FrameResources
-
----
-
-Would you like me to sketch a **class diagram** showing how `FrameResources`, `Scene` (meshes, textures), and `Uploader` tie into `Renderer`? That’d make the ownership/flow crystal clear.
-
-
-
 */
+
+
+
+
+namespace vkUtils
+{
+    namespace BufferHelper
+    {
+        // Buffer View can be recreated even after Buffer has been deleted
+        inline VkBufferView createBufferView(VkDevice device, VkBuffer buffer, VkFormat format, VkDeviceSize offset, VkDeviceSize size )
+        {
+            VkBufferViewCreateInfo viewInfo{};
+            viewInfo.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
+            viewInfo.buffer = buffer;
+            viewInfo.offset = offset;
+            viewInfo.range = size;
+            viewInfo.format = format; // must match how the shader interprets it
+
+            VkBufferView bufferView = VK_NULL_HANDLE;
+            VkResult result = vkCreateBufferView(device, &viewInfo, nullptr, &bufferView);
+            if (result != VK_SUCCESS)
+            {
+                throw std::runtime_error("Failed to create VkBufferView");
+            }
+
+            return bufferView;
+        }
+
+        ///////////////////////////////////////////////////////////////////
+        ////////////////////////Creation utility///////////////////////////
+        ///////////////////////////////////////////////////////////////////
+
+        ///////////////////////////////////////////////////////////////////
+        ////////////////////////Memory Barrier utility///////////////////////////
+        ///////////////////////////////////////////////////////////////////
+
+        void transitionBuffer(
+            const BufferTransition &transitionObject,
+            const LogicalDeviceManager &deviceM,
+             uint32_t indice)
+        {
+            const auto &graphicsQueue = deviceM.getGraphicsQueue();
+            const auto &device = deviceM.getLogicalDevice();
+
+            CommandPoolManager cmdPoolM;
+            cmdPoolM.createCommandPool(device, CommandPoolType::Transient, indice);
+            VkCommandBuffer commandBuffer = cmdPoolM.beginSingleTime();
+
+            VkBufferMemoryBarrier barrier{};
+            barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+            barrier.srcAccessMask = transitionObject.srcAccessMask;
+            barrier.dstAccessMask = transitionObject.dstAccessMask;
+
+            // Default choice for now
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.buffer = transitionObject.buffer;
+            barrier.offset = transitionObject.offset;
+            barrier.size = transitionObject.size;
+
+            vkCmdPipelineBarrier(
+                commandBuffer,
+                transitionObject.srcStageMask, transitionObject.dstStageMask,
+                0,
+                0, nullptr,
+                1, &barrier,
+                0, nullptr);
+
+            cmdPoolM.endSingleTime(commandBuffer, graphicsQueue);
+            cmdPoolM.destroyCommandPool();
+        }
+
+        /////////////////////////////////////////////////
+        /////////////////Recording Utility///////////////
+        /////////////////////////////////////////////////
+
+        inline void recordCopy(VkCommandBuffer cmdBuffer,
+                               VkBuffer srcBuffer,
+                               VkBuffer dstBuffer,
+                               VkDeviceSize size,
+                               VkDeviceSize srcOffset,
+                               VkDeviceSize dstOffset)
+        {
+            // Recording
+            VkBufferCopy copyRegion{};
+            copyRegion.srcOffset = srcOffset; // Optional
+            copyRegion.dstOffset = dstOffset; // Optional
+            copyRegion.size = size;
+            vkCmdCopyBuffer(cmdBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+            // Could use a Buffer Memory Barrier and transition here
+            // Chapter Copy dataBetween Buffer
+        }
+        
+        void copyBufferTransient(VkBuffer srcBuffer, VkBuffer dstBuffer,
+                                 VkDeviceSize size,
+                                 const LogicalDeviceManager &deviceM,
+                                 uint32_t indice,
+                                 VkDeviceSize srcOffset ,
+                                 VkDeviceSize dstOffset )
+        {
+            const auto &graphicsQueue = deviceM.getGraphicsQueue();
+            const auto &device = deviceM.getLogicalDevice();
+
+            CommandPoolManager cmdPoolM;
+            cmdPoolM.createCommandPool(device, CommandPoolType::Transient, indice);
+            VkCommandBuffer commandBuffer = cmdPoolM.beginSingleTime();
+            vkUtils::BufferHelper::recordCopy(commandBuffer, srcBuffer, dstBuffer,
+                                              size, srcOffset, dstOffset);
+            cmdPoolM.endSingleTime(commandBuffer, graphicsQueue);
+            cmdPoolM.destroyCommandPool();
+        }
+
+     
+
+         void uploadBufferDirect(
+            VkDeviceMemory bufferMemory,
+            const void *data,
+            VkDevice device,
+            VkDeviceSize size,
+            VkDeviceSize dstOffset)
+        {
+            void *mapped = nullptr;
+            vkMapMemory(device, bufferMemory, dstOffset, size, 0, &mapped);
+            // Now stagingBufferMemory == mapped
+            memcpy(mapped, data, static_cast<size_t>(size));
+            vkUnmapMemory(device, bufferMemory);
+        }
+    }
+
+}

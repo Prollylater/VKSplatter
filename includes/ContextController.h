@@ -36,7 +36,7 @@ public:
     // Todo: Buffer should not be kept
     std::vector<Buffer> mBufferM;
     DescriptorManager mDescriptorM;
-    TextureManager mTextureM;
+    Texture mTextureM;
 
     // Getters returning const references
     const VulkanInstanceManager &getInstanceManager() const { return mInstanceM; }
@@ -49,7 +49,7 @@ public:
 
     const std::vector<Buffer> &getBufferManager() const { return mBufferM; }
     const DescriptorManager &getDescriptorManager() const { return mDescriptorM; }
-    const TextureManager &getTextureManager() const { return mTextureM; }
+    const Texture &getTextureManager() const { return mTextureM; }
 
     VulkanInstanceManager &getInstanceManager() { return mInstanceM; }
     PhysicalDeviceManager &getPhysicalDeviceManager() { return mPhysDeviceM; }
@@ -67,7 +67,7 @@ public:
 
     std::vector<Buffer> &getBufferManager() { return mBufferM; }
     DescriptorManager &getDescriptorManager() { return mDescriptorM; }
-    TextureManager &getTextureManager() { return mTextureM; }
+    Texture &getTextureManager() { return mTextureM; }
 
     // Not too sure about what init  or not and in private or not
 

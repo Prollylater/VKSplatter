@@ -40,9 +40,14 @@ void VulkanContext::initRenderInfrastructure()
     defConfigRenderPass.depthFormat = mPhysDeviceM.findDepthFormat();
 
     mRenderPassM.createRenderPass(device, defConfigRenderPass);
-    mDescriptorM.createDescriptorSetLayout(device);
+
+    std::vector<VkDescriptorSetLayoutBinding> layoutBindings = {
+        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr},
+        {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}};
+    mDescriptorM.createDescriptorSetLayout(device, layoutBindings);
 
     mDepthRessources.createDepthBuffer(mLogDeviceM, mSwapChainM, mPhysDeviceM);
+
     mSwapChainRess.createFramebuffers(device, mSwapChainM, mDepthRessources, mRenderPassM.getRenderPass());
 };
 
@@ -79,18 +84,26 @@ void VulkanContext::initAll(GLFWwindow *window)
     mTextureM.createTextureImageView(device);
     mTextureM.createTextureSampler(device, physDevice);
 
-    // Frame rssoources bait  for some of them
-    mDescriptorM.createUniformBuffers(device, physDevice);
-
-    mDescriptorM.createDescriptorPool(device); // Coould be global
-
+    mDescriptorM.createDescriptorPool(device, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT,
+                                      {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT},
+                                       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT}}); // Coould be global
     // Frame rssoources bait
-    mDescriptorM.createDescriptorSets(device, mTextureM);
 
+    mDescriptorM.allocateDescriptorSets(device, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
+    
     // Frame Ressources potential
-    mSwapChainM.createFramesData(device, indicesFamily.graphicsFamily.value());
+    mSwapChainM.createFramesData(device, physDevice, indicesFamily.graphicsFamily.value());
 
-    // Render Pass For Drawing
+    auto descriptorBuffer = mSwapChainM.getCurrentFrameData().mCameraBuffer.getDescriptor();
+    auto descriptorTexture = mTextureM.getImage().getDescriptor();
+    for (int i = 0; i < ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        std::vector<VkWriteDescriptorSet> writes = {
+            vkUtils::Descriptor::makeWriteDescriptor(mDescriptorM.getSet(i), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &descriptorBuffer),
+            vkUtils::Descriptor::makeWriteDescriptor(mDescriptorM.getSet(i), 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr,&descriptorTexture) };
+        mDescriptorM.updateDescriptorSet(device, i, writes);
+        mSwapChainM.advanceFrame();
+    }
 };
 
 void VulkanContext::destroyAll()
@@ -105,11 +118,8 @@ void VulkanContext::destroyAll()
         buffer.destroyBuffer();
     }
 
-    mDescriptorM.destroyUniformBuffer(device);
     mDescriptorM.destroyDescriptorPools(device);
 
-    mTextureM.destroySampler(device);
-    mTextureM.destroyTextureView(device);
     mTextureM.destroyTexture(device);
 
     mDepthRessources.destroyDepthBuffer(device);
@@ -151,7 +161,7 @@ void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
     mContext->mSwapChainRess.destroyFramebuffers(device);
     mContext->mSwapChainM.DestroyImageViews(device);
     mContext->mSwapChainM.DestroySwapChain(device);
-    mContext->mSwapChainM.destroyFramesData(device);
+    //mContext->mSwapChainM.destroyFramesData(device);
 
     // Swap Chain M should be able to handle this
     // But this would imply mswapCHainRess would be owned by it
@@ -159,7 +169,7 @@ void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
     SwapChainConfig defConfigSwapChain;
     mContext->mSwapChainM.createSwapChain(mContext->mPhysDeviceM.getPhysicalDevice(), device, window, defConfigSwapChain);
     mContext->mSwapChainM.createImageViews(device);
-    mContext->mSwapChainM.createFramesData(device, mContext->mPhysDeviceM.getIndices().graphicsFamily.value());
+    //mContext->mSwapChainM.createFramesData(device, mContext->mPhysDeviceM.getPhysicalDevice() ,  mContext->mPhysDeviceM.getIndices().graphicsFamily.value());
     mContext->mSwapChainRess.createFramebuffers(device, mContext->mSwapChainM, mContext->mDepthRessources, mContext->mRenderPassM.getRenderPass());
 }
 
@@ -282,14 +292,13 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
     // 1 interleaved buffer here
     vkCmdBindVertexBuffers(command, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(command, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-    // vkCmdDraw(command, static_cast<uint32_t>(mesh.vertexCount()), 1, 0, 0);
 
     const uint32_t currentFrame = mContext->getSwapChainManager().getCurrentFrameIndex();
     vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             mContext->mPipelineM.getPipelineLayout(), 0, 1,
                             &mContext->mDescriptorM.getSet(currentFrame), 0,
                             nullptr);
-    size_t bufferSize = uniqueMesh.getStream(1).mView.mSize;
+    size_t bufferSize = uniqueMesh.getStream(1).mView.mSize/sizeof(uint32_t);
     vkCmdDrawIndexed(command, static_cast<uint32_t>(bufferSize), 1, 0, 0, 0);
 
     mContext->mRenderPassM.endPass(command);
@@ -298,6 +307,8 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
 
 void Renderer::updateUniformBuffers(uint32_t currentImage, VkExtent2D swapChainExtent)
 {
+    //Todo:
+    // A more efficient way to pass a small buffer of data to shaders are push constants.
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -311,7 +322,7 @@ void Renderer::updateUniformBuffers(uint32_t currentImage, VkExtent2D swapChainE
     ubo.proj[1][1] *= -1;
 
     // Copy into persistently mapped buffer
-    memcpy(mContext->mDescriptorM.getMappedPointer(currentImage), &ubo, sizeof(ubo));
+    memcpy(mContext->mSwapChainM.getCurrentFrameData().mCameraMapping, &ubo, sizeof(ubo));
 };
 
 void Renderer::uploadScene(/*const Scene& scene*/)
@@ -319,7 +330,7 @@ void Renderer::uploadScene(/*const Scene& scene*/)
 
     const auto &deviceM = mContext->getLogicalDeviceManager();
     const auto &physDevice = mContext->getPhysicalDeviceManager().getPhysicalDevice();
-    const auto &indice = mContext->getPhysicalDeviceManager().getIndices();
+    const auto &indice = mContext->getPhysicalDeviceManager().getIndices().graphicsFamily.value();
     std::cout << "InitMesh" << std::endl;
     for (const auto &mesh : mScene.meshes)
     {

@@ -3,48 +3,59 @@
 #include "QueueFam.h"
 
 ///////////////////////////////////
-//Physical device handling
+// Physical device handling
 ///////////////////////////////////
 class SwapChainManager;
 
-
-
-
-class PhysicalDeviceManager {
+class PhysicalDeviceManager
+{
 public:
-    PhysicalDeviceManager()= default;
-   ~PhysicalDeviceManager()= default;
+  PhysicalDeviceManager() = default;
+  ~PhysicalDeviceManager() = default;
 
-    void pickPhysicalDevice(VkInstance instance,const SwapChainManager& );
-    VkPhysicalDevice getPhysicalDevice() const;
+  void pickPhysicalDevice(VkInstance instance, const SwapChainManager &);
+  VkPhysicalDevice getPhysicalDevice() const;
 
-  //Should be static and deal with much more than Device handled
-    bool isDeviceQueueSuitable(VkPhysicalDevice device,VkSurfaceKHR surface);
-    int rateDeviceSuitability(VkPhysicalDevice device,const SwapChainManager& );
+  // Should be static and deal with much more than Device handled
+  bool isDeviceQueueSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
+  int rateDeviceSuitability(VkPhysicalDevice device, const SwapChainManager &);
 
-    bool areRequiredExtensionsSupported(VkPhysicalDevice );
+  bool areRequiredExtensionsSupported(VkPhysicalDevice);
 
-    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
-    VkFormat findDepthFormat() const;
-   
-    VkSampleCountFlagBits getMaxUsableSampleCount();
-    VkSampleCountFlagBits getMsaaSample() const {
-      return mMsaaSamples;
-    };
+  VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
+  VkFormat findDepthFormat() const;
 
-    //Indices
-    QueueFamilyIndices getIndices() const{
-      return mIndices;
-    };
+  VkSampleCountFlagBits getMaxUsableSampleCount();
+  VkSampleCountFlagBits getMsaaSample() const
+  {
+    return mMsaaSamples;
+  };
 
-    void setSelectionCriteria(const DeviceSelectionCriteria& criteria);
+  // Indices
+  QueueFamilyIndices getIndices() const
+  {
+    return mIndices;
+  };
+
+  void setSelectionCriteria(const DeviceSelectionCriteria &criteria);
+
 private:
-    //Copy of instance handle should be fine
-    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    QueueFamilyIndices mIndices;
-    VkSampleCountFlagBits mMsaaSamples;
+  // Copy of instance handle should be fine
+  // Todo: change to mPhysicaleDevice
+  VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+  QueueFamilyIndices mIndices;
+  VkSampleCountFlagBits mMsaaSamples;
 };
-
+// Todo: VkFormatFeatureFlags2 ?
+namespace vkUtils
+{
+  namespace Format
+  {
+    VkFormat findSupportedFormat(VkPhysicalDevice physDevice,
+                                 const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+    VkFormat findDepthFormat();
+  }
+}
 
 /*
 

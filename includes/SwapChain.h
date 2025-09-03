@@ -6,6 +6,7 @@
 
 #include "SyncObjects.h"
 #include "CommandPool.h"
+#include "Buffer.h"
 
 // Querying details of swap chain support
 // Structure used to query details of a swap chain support
@@ -22,13 +23,26 @@ struct SwapChainSupportDetails
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+// Temp
+struct UniformBufferObject
+{
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
 struct FrameResources
 {
     CommandPoolManager mCommandPool;
     FrameSyncObjects mSyncObjects;
 
+    Buffer mCameraBuffer;
+    void *mCameraMapping;
+
     /*
-    VkFramebuffer framebuffer; // Swapchain + depth + other attachments
+    VkFramebuffer framebuffer;
+    //Render Target Swapchain + depth + other attachments
+
     VkBuffer uniformBuffer;
     VkDeviceMemory uniformMemory;
     */
@@ -48,6 +62,24 @@ struct SwapChainConfig
     VkExtent2D preferredExtent = {0, 0};
     bool allowExclusiveSharing = true;
 };
+
+
+/*
+TODO:
+Recreating render pass shoudl be implemented, 
+Not Pipelines ?
+Swapchain images (implicitly destroyed by vkDestroySwapchainKHR)
+
+Image views for swapchain images
+
+Depth buffer image + image view (extent changes with the swapchain)
+
+Framebuffers (point to swapchain + depth attachments, so must be rebuilt)
+
+Render pass (if its attachments depend on swapchain format/extent — often yes)
+
+Pipelines (if they use the swapchain extent for viewport/scissor baked into state)
+*/
 
 class SwapChainManager
 {
@@ -94,19 +126,17 @@ public:
         return mSwapChainExtent;
     }
 
-    //const FrameResources &getCurrentFrameData() const;
-    
-    //Todo: Not too sure about  exposing this
-    FrameResources & getCurrentFrameData() ;
+    // const FrameResources &getCurrentFrameData() const;
 
+    // Todo: Not too sure about  exposing this
+    FrameResources &getCurrentFrameData();
 
     const int getCurrentFrameIndex() const;
 
     void advanceFrame();
 
-    void createFramesData(VkDevice device, uint32_t queueIndice);
+    void createFramesData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice);
     void destroyFramesData(VkDevice device);
-
 
 private:
     VkSurfaceKHR mSurface = VK_NULL_HANDLE;
@@ -123,9 +153,9 @@ private:
     uint32_t currentFrame = 0;
     std::vector<FrameResources> mFramesData;
 
-    void createFrameData(VkDevice device, uint32_t queueIndice);
+    void createFrameData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice);
     void destroyFrameData(VkDevice device);
-  };
+};
 
 /*
 [ Shadow Pass       ] → writes depth-only

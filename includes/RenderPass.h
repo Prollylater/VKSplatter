@@ -25,7 +25,7 @@ struct RenderPassConfig
 
     uint32_t subpassCount = 1;
 
-    //Kind og ignoring this for now
+    //Kind of ignoring this for now
     VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT;
     VkAttachmentLoadOp colorLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     VkAttachmentStoreOp colorStoreOp = VK_ATTACHMENT_STORE_OP_STORE;

@@ -119,12 +119,13 @@ bool SwapChainManager::aquireNextImage(VkDevice device, VkSemaphore semaphore, u
       device,
       mSwapChain,
       UINT64_MAX,
-      semaphore, //To signal
+      semaphore, // To signal
       VK_NULL_HANDLE,
       &imageIndex);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR)
   {
+    //Todo: Why is it treated outside again
     // recreateSwapChain(); // must exist
     // Don't return directly since it don't have acces to the Framebuffers
     return false;
@@ -145,10 +146,10 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice log
   VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(mSupportDetails.formats);
   VkPresentModeKHR presentMode = chooseSwapPresentMode(mSupportDetails.presentModes, config.preferredPresentModes);
   VkExtent2D extent = chooseSwapExtent(mSupportDetails.capabilities, window);
- 
+
   mSwapChainExtent = extent;
 
-  // Seem like being conservative is better as imageCount will be allocated  an deat vram
+  // Seem like being conservative is better as imageCount will be allocated in  vram
   // with image having their own tied element
 
   uint32_t imageCount = std::max(mSupportDetails.capabilities.minImageCount, config.preferredImageCount);
@@ -173,7 +174,6 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice log
   QueueFamilyIndices indices = findQueueFamilies(physDevice, mSurface, ContextVk::contextInfo.getDeviceSelector());
   uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
-
   if (indices.graphicsFamily != indices.presentFamily)
   {
     // Image used by the two quue
@@ -192,7 +192,7 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice log
     createInfo.pQueueFamilyIndices = nullptr;
   }
 
-  //Todo: Need to revisit this
+  // Todo: Need to revisit this
   createInfo.preTransform = mSupportDetails.capabilities.currentTransform;
   createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   createInfo.presentMode = presentMode;
@@ -201,12 +201,10 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice log
   createInfo.clipped = VK_TRUE;
   createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-
   if (vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &mSwapChain) != VK_SUCCESS)
   {
     throw std::runtime_error("failed to create swap chain!");
   }
-
 
   vkGetSwapchainImagesKHR(logicalDevice, mSwapChain, &imageCount, nullptr);
   mSwapChainImages.resize(imageCount);
@@ -227,7 +225,6 @@ VkSwapchainKHR SwapChainManager::GetChain() const
   return mSwapChain;
 }
 
-
 // ImageViews
 
 // Just for transition image currently
@@ -239,8 +236,8 @@ void SwapChainManager::createImageViews(VkDevice device)
   for (size_t i = 0; i < mSwapChainImages.size(); i++)
   {
 
-    mSChainImageViews[i] = vkUtils::createImageView(device, mSwapChainImages[i],
-                                                    mSwapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+    mSChainImageViews[i] = vkUtils::Texture::createImageView(device, mSwapChainImages[i],
+                                                             mSwapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
   }
 }
 
@@ -254,67 +251,75 @@ void SwapChainManager::DestroyImageViews(VkDevice device)
   mSChainImageViews.clear();
 }
 
-//Frame Data Ressources
+// Frame Data Ressources
 
-  /*const*/ FrameResources &SwapChainManager::getCurrentFrameData() //const
-    {
-        return mFramesData[currentFrame];
-    }
+/*const*/ FrameResources &SwapChainManager::getCurrentFrameData() // const
+{
+  return mFramesData[currentFrame];
+}
 
-    const int SwapChainManager::getCurrentFrameIndex() const
-    {
-        return currentFrame;
-    }
+const int SwapChainManager::getCurrentFrameIndex() const
+{
+  return currentFrame;
+}
 
-    void SwapChainManager::advanceFrame()
-    {
-        currentFrame++;
-        if (currentFrame >= mFramesData.size())
-        {
-            currentFrame = 0;
-        }
-    }
+void SwapChainManager::advanceFrame()
+{
+  currentFrame++;
+  if (currentFrame >= mFramesData.size())
+  {
+    currentFrame = 0;
+  }
+}
 
-    void SwapChainManager::createFrameData(VkDevice device, uint32_t queueIndice)
-    {
-        auto &frameData = mFramesData[currentFrame];
-        frameData.mSyncObjects.createSyncObjects(device);
-        frameData.mCommandPool.createCommandPool(device, CommandPoolType::Frame, queueIndice);
-        frameData.mCommandPool.createCommandBuffers(1);
-    };
+void SwapChainManager::createFrameData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice)
+{
+  auto &frameData = mFramesData[currentFrame];
+  frameData.mSyncObjects.createSyncObjects(device);
+  frameData.mCommandPool.createCommandPool(device, CommandPoolType::Frame, queueIndice);
+  frameData.mCommandPool.createCommandBuffers(1);
 
-    void SwapChainManager::destroyFrameData(VkDevice device)
-    {
-        auto &frameData = mFramesData[currentFrame];
-        frameData.mSyncObjects.destroy(device);
-        frameData.mCommandPool.destroyCommandPool();
+  VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-    };
+  frameData.mCameraBuffer.createBuffer(device, physDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  // Persistent Mapping
+  vkMapMemory(device, frameData.mCameraBuffer.getMemory(), 0, bufferSize, 0, &frameData.mCameraMapping);
+};
 
-    void SwapChainManager::createFramesData(VkDevice device, uint32_t queueIndice)
-    {
-        currentFrame = 0;
+void SwapChainManager::destroyFrameData(VkDevice device)
+{
+  auto &frameData = mFramesData[currentFrame];
+  frameData.mSyncObjects.destroy(device);
+  frameData.mCommandPool.destroyCommandPool();
+  frameData.mCameraBuffer.destroyBuffer();
 
-        for (int i = 0; i < mFramesData.size(); i++)
-        {
-            createFrameData(device, queueIndice);
-            advanceFrame();
-        }
-        currentFrame = 0;
-    };
-    
-    void SwapChainManager::destroyFramesData(VkDevice device)
-    {
-        currentFrame = 0;
-        for (int i = 0; i < mFramesData.size(); i++)
-        {
-            destroyFrameData(device);
-            advanceFrame();
-        }
-        currentFrame = 0;
-    };
+};
 
-//Passes Ressources
+void SwapChainManager::createFramesData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice)
+{
+  currentFrame = 0;
+
+  for (int i = 0; i < mFramesData.size(); i++)
+  {
+    createFrameData(device, physDevice, queueIndice);
+    advanceFrame();
+  }
+  currentFrame = 0;
+};
+
+void SwapChainManager::destroyFramesData(VkDevice device)
+{
+  currentFrame = 0;
+  for (int i = 0; i < mFramesData.size(); i++)
+  {
+    destroyFrameData(device);
+    advanceFrame();
+  }
+  currentFrame = 0;
+};
+
+// Passes Ressources
 
 void SwapChainResources::createFramebuffers(VkDevice device, const SwapChainManager &swapChain, const DepthRessources &depthRess, VkRenderPass renderPass)
 {
@@ -359,22 +364,37 @@ void SwapChainResources::destroyFramebuffers(VkDevice device)
 void DepthRessources::createDepthBuffer(const LogicalDeviceManager &logDeviceM,
                                         const SwapChainManager &swapChain, const PhysicalDeviceManager &physDeviceM)
 {
-  mDepthFormat = physDeviceM.findSupportedFormat(
-      {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
-      VK_IMAGE_TILING_OPTIMAL,
-      VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+  // Todo: compare with creating sampled image
+  mDepthFormat = physDeviceM.findDepthFormat();
 
   bool hasStencil = (mDepthFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || mDepthFormat == VK_FORMAT_D24_UNORM_S8_UINT);
 
   auto swapChainExtent = swapChain.getSwapChainExtent();
-  mDepthImage = vkUtils::createImage(logDeviceM.getLogicalDevice(), physDeviceM.getPhysicalDevice(), mDepthMemory, swapChainExtent.width, swapChainExtent.height,
-                                     mDepthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-  mDepthView = vkUtils::createImageView(logDeviceM.getLogicalDevice(), mDepthImage, mDepthFormat,
-                                        VK_IMAGE_ASPECT_DEPTH_BIT);
+  vkUtils::Texture::ImageCreateConfig depthConfig;
+  depthConfig.device = logDeviceM.getLogicalDevice();
+  depthConfig.physDevice = physDeviceM.getPhysicalDevice();
+  depthConfig.height = swapChainExtent.height;
+  depthConfig.width = swapChainExtent.width;
+  depthConfig.format = mDepthFormat;
+  depthConfig.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+  depthConfig.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+  mDepthImage = vkUtils::Texture::createImage(depthConfig);
+
+  mDepthView = vkUtils::Texture::createImageView(logDeviceM.getLogicalDevice(), mDepthImage, mDepthFormat,
+                                                 VK_IMAGE_ASPECT_DEPTH_BIT);
 
   const auto indices = physDeviceM.getIndices();
-  vkUtils::transitionImageLayout(mDepthImage, mDepthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, logDeviceM, indices);
+
+  VkImageAspectFlags imgAspectFlag = VK_IMAGE_ASPECT_DEPTH_BIT;
+  if (hasStencil)
+  {
+    imgAspectFlag |= VK_IMAGE_ASPECT_STENCIL_BIT;
+  }
+  vkUtils::Texture::ImageTransition transitionObject = vkUtils::Texture::makeTransition(mDepthImage, VK_IMAGE_LAYOUT_UNDEFINED,
+                                                                                        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, imgAspectFlag);
+  vkUtils::Texture::transitionImageLayout(transitionObject, logDeviceM, indices.graphicsFamily.value());
 }
 
 void DepthRessources::destroyDepthBuffer(VkDevice device)
@@ -383,24 +403,6 @@ void DepthRessources::destroyDepthBuffer(VkDevice device)
   vkDestroyImage(device, mDepthImage, nullptr);
   vkFreeMemory(device, mDepthMemory, nullptr);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // Querying details of swap chain support
 

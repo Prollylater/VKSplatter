@@ -3,167 +3,152 @@
 #include "Buffer.h"
 
 ///////////////////////////////////
-// Buffer
+// Descriptor
 ///////////////////////////////////
 
-constexpr uint32_t BINDING_UBO = 0;
-constexpr uint32_t BINDING_SAMPLER = 1;
-
-void DescriptorManager::createDescriptorPool(VkDevice device)
-{
-    // Bigger pool size,  a pool for each descriptor types
-    // Careful with those
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[0].descriptorCount = static_cast<uint32_t>(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = static_cast<uint32_t>(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-    poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = static_cast<uint32_t>(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-
-    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &mDescriptorPool) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create descriptor pool!");
-    }
+/*
+VkDescriptorPoolSize poolSizes[] = {
+    { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100 }, // up to 100 textures
+    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 50 },          // up to 50 UBOs
+    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 20 }           // up to 20 SSBOs
 };
-#include "Texture.h"
+Type, descriptor count
+VkDescriptorPoolCreateInfo poolInfo{};
+poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+poolInfo.maxSets = 50;   // maximum number of *sets* allocated
+*/
 
-void DescriptorManager::createDescriptorSets(VkDevice device, TextureManager &texutreM)
+// Manage memory for descriptor sets,
+// In PoolSize size is tied to the type the number of sets/and descriptor
+void DescriptorManager::createDescriptorPool(VkDevice device, uint32_t maxSets,
+                              const std::vector<VkDescriptorPoolSize>& poolSizes)
 {
-    // Uniform Buffer that are not bound
-    std::vector<VkDescriptorSetLayout> layouts(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT, mDescriptorSetLayout);
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = mDescriptorPool;
-    allocInfo.descriptorSetCount = static_cast<uint32_t>(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-    allocInfo.pSetLayouts = layouts.data();
+  // Bigger pool size,  a pool for each descriptor types
+  VkDescriptorPoolCreateInfo poolInfo{};
+  poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+  poolInfo.pPoolSizes = poolSizes.data();
+  poolInfo.maxSets = static_cast<uint32_t>(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
 
-    mDescriptorSets.resize(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-    if (vkAllocateDescriptorSets(device, &allocInfo, mDescriptorSets.data()) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to allocate descriptor sets!");
-    }
-
-    for (size_t i = 0; i < ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        //Set UBO
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = mUniformBuffers[i].getBuffer();
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(UniformBufferObject);
-
-      
-        //Set location bnding
-        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
-        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = mDescriptorSets[i];
-        descriptorWrites[0].dstBinding = BINDING_UBO;
-        descriptorWrites[0].dstArrayElement = 0;
-        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].pBufferInfo = &bufferInfo;
-
-        // Some way to directtly connect the binding ., this should be optional
-          VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = texutreM.getTextureView();
-        imageInfo.sampler = texutreM.getSampler();
-
-        //This should be somewher eelse ?
-        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = mDescriptorSets[i];
-        descriptorWrites[1].dstBinding = BINDING_SAMPLER;
-        descriptorWrites[1].dstArrayElement = 0;
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pImageInfo = &imageInfo;
-        //           descriptorWrite.pTexelBufferView = nullptr; // Optional
-        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-   
-   
-    }
+  if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &mDescriptorPool) != VK_SUCCESS)
+  {
+    throw std::runtime_error("failed to create descriptor pool!");
+  }
 };
 
+// Describe the set, their binding and so on
+// Describe the type of binding each pool will be used to geenrate
 
-//TODO
-void DescriptorManager::createUniformBuffers(VkDevice device, VkPhysicalDevice physDevice)
+void DescriptorManager::allocateDescriptorSets(VkDevice device, uint32_t setCount)
 {
+  // Use two mDescriptorSetLayout to create two descirptor set
+  std::vector<VkDescriptorSetLayout> layouts(setCount, mDescriptorSetLayout);
 
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+  VkDescriptorSetAllocateInfo allocInfo{};
+  allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  allocInfo.descriptorPool = mDescriptorPool;
+  allocInfo.descriptorSetCount = layouts.size();
+  allocInfo.pSetLayouts = layouts.data();
 
-    //mUniformBuffers.resize(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-    //mUniformBuffersMemory.resize(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-    mUniformBuffersMapped.resize(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
+  mDescriptorSets.resize(setCount);
+  // ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHTs
+  if (vkAllocateDescriptorSets(device, &allocInfo, mDescriptorSets.data()) != VK_SUCCESS)
+  {
+    throw std::runtime_error("failed to allocate descriptor sets!");
+  }
+};
 
-    mUniformBuffers.resize(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-
-    for (size_t i = 0; i < ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        mUniformBuffers[i].createBuffer(device, physDevice, bufferSize,VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ,
-             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        // Persistent Mapping
-        vkMapMemory(device, mUniformBuffers[i].getMemory(), 0, bufferSize, 0, &mUniformBuffersMapped[i]);
-    }
-}
-
-void DescriptorManager::createDescriptorSetLayout(VkDevice device)
+void DescriptorManager::updateDescriptorSet(VkDevice device, uint32_t setIndex,
+                                            const std::vector<VkWriteDescriptorSet> &writes)
 {
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding = 0;
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.descriptorCount = 1;
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    uboLayoutBinding.pImmutableSamplers = nullptr;
+  // Use two mDescriptorSetLayout to create two descirptor set
 
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding = 1;
-    samplerLayoutBinding.descriptorCount = 1;
-    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerLayoutBinding.pImmutableSamplers = nullptr;
-    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+};
 
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, samplerLayoutBinding};
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-    layoutInfo.pBindings = bindings.data();
+// makeWriteDescriptor(mDescritporSets[i], 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr,buffer):
+// makeWriteDescriptor(mDescritporSets[i], 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr,mTexture.getDescriptor):
 
-    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &mDescriptorSetLayout) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create descriptor set layout!");
-    }
+// Might as well do this
+/*
+std::vector<VkDescriptorSetLayoutBinding> bindings = {
+    {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr},
+    {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}
+};
+*/
+// makeLayoutBinding(0,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT);
+// makeLayoutBinding(1,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+//  Create the structure of a set
+void DescriptorManager::createDescriptorSetLayout(VkDevice device, std::vector<VkDescriptorSetLayoutBinding> bindings)
+{
+  VkDescriptorSetLayoutCreateInfo layoutInfo{};
+  layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+  layoutInfo.pBindings = bindings.data();
+  layoutInfo.flags = 0;
+
+  if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &mDescriptorSetLayout) != VK_SUCCESS)
+  {
+    throw std::runtime_error("failed to create descriptor set layout!");
+  }
 }
 
 void DescriptorManager::destroyDescriptorLayout(VkDevice device)
 {
 
-    vkDestroyDescriptorSetLayout(device, mDescriptorSetLayout, nullptr);
-    mDescriptorSetLayout= VK_NULL_HANDLE;
+  vkDestroyDescriptorSetLayout(device, mDescriptorSetLayout, nullptr);
+  mDescriptorSetLayout = VK_NULL_HANDLE;
 }
 
-
-void DescriptorManager::destroyUniformBuffer(VkDevice device)
-{
-
-    for (size_t i = 0; i < ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        mUniformBuffers[i].destroyBuffer();
-    }
-}
-
-// TOOD: Chang eother at VK_NULL_HANDLE
-//  Destroy on not real object nor null handle can have weird conseuqeujces
 
 
 /*
-+ default init to VK_NULL_HANDLE
-Todo: Add this pattern where needed
-if( VK_NULL_HANDLE != fence ) { 
-  vkDestroyFence( logical_device, fence, nullptr ); 
-  fence = VK_NULL_HANDLE; 
-}
+
+For  samplers and all kinds of image descriptors, an ImageDescriptorInfo type is used which has the following definition:
+
+
+struct ImageDescriptorInfo {
+  VkDescriptorSet                     TargetDescriptorSet;
+  uint32_t                            TargetDescriptorBinding;
+  uint32_t                            TargetArrayElement;
+  VkDescriptorType                    TargetDescriptorType;
+  std::vector<VkDescriptorImageInfo>  ImageInfos;
+};
+
+For uniform and storage buffers (and their dynamic variations), a BufferDescriptorInfo type is used. It has the following definition:
+
+
+struct BufferDescriptorInfo {
+  VkDescriptorSet                     TargetDescriptorSet;
+  uint32_t                            TargetDescriptorBinding;
+  uint32_t                            TargetArrayElement;
+  VkDescriptorType                    TargetDescriptorType;
+  std::vector<VkDescriptorBufferInfo> BufferInfos;
+};
+For uniform and storage texel buffers, a TexelBufferDescriptorInfo type is introduced with the following definition:
+
+
+struct TexelBufferDescriptorInfo {
+  VkDescriptorSet                     TargetDescriptorSet;
+  uint32_t                            TargetDescriptorBinding;
+  uint32_t                            TargetArrayElement;
+  VkDescriptorType                    TargetDescriptorType;
+  std::vector<VkBufferView>           TexelBufferViews;
+};
+The preceding structures are used when we want to update descriptor sets with handles of new descriptors (that haven't been bound yet).
+It is also possible to copy descriptor data from other, already updated, sets. For this purpose, a CopyDescriptorInfo type is used that is defined like this:
+
+
+struct CopyDescriptorInfo {
+  VkDescriptorSet     TargetDescriptorSet;
+  uint32_t            TargetDescriptorBinding;
+  uint32_t            TargetArrayElement;
+  VkDescriptorSet     SourceDescriptorSet;
+  uint32_t            SourceDescriptorBinding;
+  uint32_t            SourceArrayElement;
+  uint32_t            DescriptorCount;
+};
+All the preceding structures define the handle of a descriptor set that should be updated,
+an index of a descriptor within the given set, and an index into an array if we want to update descriptors accessed through arrays. The rest of the parameters are type-specific.
+
 */

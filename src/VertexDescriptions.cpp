@@ -105,7 +105,7 @@ void Mesh::loadModel(std::string filename)
         inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_Indices);
 }
 
-VkVertexInputBindingDescription makeBinding(
+VkVertexInputBindingDescription makeVtxInputBinding(
     uint32_t binding,
     uint32_t stride,
     VkVertexInputRate inputRate)
@@ -117,7 +117,7 @@ VkVertexInputBindingDescription makeBinding(
     return desc;
 }
 
-VkVertexInputAttributeDescription makeAttr(
+VkVertexInputAttributeDescription makeVtxInputAttr(
     uint32_t location,
     uint32_t binding,
     VkFormat format,
@@ -193,29 +193,29 @@ VertexFormat VertexFormatRegistry::generateVertexFormat(VertexFlags flags)
 
     if (flags & Vertex_Pos)
     {
-        vf.bindings.push_back(makeBinding(bindingIndex, sizeof(glm::vec3)));
-        vf.attributes.push_back(makeAttr(LOCATION_POS, bindingIndex, VK_FORMAT_R32G32B32_SFLOAT, 0));
+        vf.bindings.push_back(makeVtxInputBinding(bindingIndex, sizeof(glm::vec3)));
+        vf.attributes.push_back(makeVtxInputAttr(LOCATION_POS, bindingIndex, VK_FORMAT_R32G32B32_SFLOAT, 0));
         ++bindingIndex;
     }
 
     if (flags & Vertex_Normal)
     {
-        vf.bindings.push_back(makeBinding(bindingIndex, sizeof(glm::vec3)));
-        vf.attributes.push_back(makeAttr(LOCATION_NORMAL, bindingIndex, VK_FORMAT_R32G32B32_SFLOAT, 0));
+        vf.bindings.push_back(makeVtxInputBinding(bindingIndex, sizeof(glm::vec3)));
+        vf.attributes.push_back(makeVtxInputAttr(LOCATION_NORMAL, bindingIndex, VK_FORMAT_R32G32B32_SFLOAT, 0));
         ++bindingIndex;
     }
 
     if (flags & Vertex_UV)
     {
-        vf.bindings.push_back(makeBinding(bindingIndex, sizeof(glm::vec2)));
-        vf.attributes.push_back(makeAttr(LOCATION_UV, bindingIndex, VK_FORMAT_R32G32_SFLOAT, 0));
+        vf.bindings.push_back(makeVtxInputBinding(bindingIndex, sizeof(glm::vec2)));
+        vf.attributes.push_back(makeVtxInputAttr(LOCATION_UV, bindingIndex, VK_FORMAT_R32G32_SFLOAT, 0));
         ++bindingIndex;
     }
 
     if (flags & Vertex_Color)
     {
-        vf.bindings.push_back(makeBinding(bindingIndex, sizeof(glm::vec3)));
-        vf.attributes.push_back(makeAttr(LOCATION_COLOR, bindingIndex, VK_FORMAT_R32G32B32_SFLOAT, 0));
+        vf.bindings.push_back(makeVtxInputBinding(bindingIndex, sizeof(glm::vec3)));
+        vf.attributes.push_back(makeVtxInputAttr(LOCATION_COLOR, bindingIndex, VK_FORMAT_R32G32B32_SFLOAT, 0));
         ++bindingIndex;
     }
 
@@ -243,29 +243,29 @@ VertexFormat VertexFormatRegistry::generateInterleavedVertexFormat(VertexFlags f
     if (flags & Vertex_Color)
         stride += sizeof(glm::vec3);
 
-    vf.bindings.push_back(makeBinding(0, stride));
+    vf.bindings.push_back(makeVtxInputBinding(0, stride));
 
     if (flags & Vertex_Pos)
     {
-        vf.attributes.push_back(makeAttr(LOCATION_POS, 0, VK_FORMAT_R32G32B32_SFLOAT, offset));
+        vf.attributes.push_back(makeVtxInputAttr(LOCATION_POS, 0, VK_FORMAT_R32G32B32_SFLOAT, offset));
         offset += sizeof(glm::vec3);
     }
 
     if (flags & Vertex_Normal)
     {
-        vf.attributes.push_back(makeAttr(LOCATION_NORMAL, 0, VK_FORMAT_R32G32B32_SFLOAT, offset));
+        vf.attributes.push_back(makeVtxInputAttr(LOCATION_NORMAL, 0, VK_FORMAT_R32G32B32_SFLOAT, offset));
         offset += sizeof(glm::vec3);
     }
 
     if (flags & Vertex_UV)
     {
-        vf.attributes.push_back(makeAttr(LOCATION_UV, 0, VK_FORMAT_R32G32_SFLOAT, offset));
+        vf.attributes.push_back(makeVtxInputAttr(LOCATION_UV, 0, VK_FORMAT_R32G32_SFLOAT, offset));
         offset += sizeof(glm::vec2);
     }
 
     if (flags & Vertex_Color)
     {
-        vf.attributes.push_back(makeAttr(LOCATION_COLOR, 0, VK_FORMAT_R32G32B32_SFLOAT, offset));
+        vf.attributes.push_back(makeVtxInputAttr(LOCATION_COLOR, 0, VK_FORMAT_R32G32B32_SFLOAT, offset));
         offset += sizeof(glm::vec3);
     }
 
