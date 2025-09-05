@@ -116,7 +116,7 @@ public:
     {
         return mSChainImageViews;
     }
-    const VkFormat getSwapChainImageFormat() const
+    const VkSurfaceFormatKHR getSwapChainImageFormat() const
     {
         return mSwapChainImageFormat;
     }
@@ -145,8 +145,9 @@ private:
     // Remove
     VkInstance mInstance;
     SwapChainSupportDetails mSupportDetails;
-    VkFormat mSwapChainImageFormat;
+    VkSurfaceFormatKHR mSwapChainImageFormat;
     VkExtent2D mSwapChainExtent;
+    
     std::vector<VkImage> mSwapChainImages;
     std::vector<VkImageView> mSChainImageViews;
 

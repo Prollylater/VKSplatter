@@ -13,7 +13,10 @@ enum class FragmentShaderType {
 
 struct PipelineConfig {
     std::string vertShaderPath;
+    std::string geomShaderPath;
     std::string fragShaderPath;
+    std::string computeShaderPath;
+
     VkRenderPass renderPass;
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
     uint32_t subpass = 0;
@@ -41,24 +44,15 @@ public:
     VkPipelineLayout getPipelineLayout() const { return mPipelineLayout; }
 
     bool initialize(VkDevice device, VkRenderPass renderPass);
-    bool createGraphicsPipeline(VkDevice,VkRenderPass, const PipelineConfig&, const VkDescriptorSetLayout& );
+    bool createGraphicsPipeline(VkDevice,VkRenderPass, const PipelineConfig&, const VkDescriptorSetLayout&,const VkPushConstantRange&);
     void destroy(VkDevice device);
 
 private:
-  //  VkDevice mDevice = VK_NULL_HANDLE;
-    //VkRenderPass mRenderPass = VK_NULL_HANDLE;
-
     std::array<VkPipeline, 1> mGraphicsPipeline = {VK_NULL_HANDLE};
 
     //Still using a unique render pass
     VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
 
-    //Could keep them to rebuild other pipelien ?
-    //Not sure
-    //VkShaderModule mVertShaderModule = VK_NULL_HANDLE;
-    //VkShaderModule mFragShaderModule = VK_NULL_HANDLE;
-    
-    
     VkShaderModule createShaderModule(VkDevice device,const std::vector<char>& code);
     std::vector<char> readShaderFile(const std::string& path);
     VkPipelineShaderStageCreateInfo createShaderStage(VkShaderStageFlagBits stage, VkShaderModule module);

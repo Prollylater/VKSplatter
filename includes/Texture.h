@@ -73,6 +73,7 @@ namespace vkUtils
         {
             VkDevice device = VK_NULL_HANDLE;
             VkPhysicalDevice physDevice = VK_NULL_HANDLE;
+            //This may be dangerous
             VkDeviceMemory imageMemory = VK_NULL_HANDLE;
             uint32_t width = 1;
             uint32_t height = 1;
@@ -93,6 +94,7 @@ namespace vkUtils
         VkImage createImage(
             VkDevice device,
             VkPhysicalDevice physDevice,
+            //This may be dangerous
             VkDeviceMemory &imageMemory,
             uint32_t width,
             uint32_t height,

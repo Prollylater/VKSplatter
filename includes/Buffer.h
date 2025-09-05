@@ -71,7 +71,7 @@ class Buffer
 {
 public:
     Buffer() = default;
-    ~Buffer() = default;
+    ~Buffer() { destroyBuffer(); }
 
     void createBuffer(VkDevice device,
                       VkPhysicalDevice physDevice,
@@ -187,7 +187,7 @@ namespace vkUtils
                                  VkDeviceSize srcOffset = 0,
                                  VkDeviceSize dstOffset = 0);
 
-         void uploadBufferDirect(
+        void uploadBufferDirect(
             VkDeviceMemory bufferMemory,
             const void *data,
             VkDevice device,

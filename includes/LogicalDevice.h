@@ -34,10 +34,10 @@ public:
 
     // Todo: Move higher to renderer or so on
     VkResult submitFrameToGQueue(
-        VkCommandBuffer,
-        VkSemaphore,
-        VkSemaphore,
-        VkFence);
+        VkCommandBuffer cmdBuffers,
+        VkSemaphore waitSemaphores,
+        VkSemaphore signalSemaphores,
+        VkFence fence);
 
     VkResult presentImage(VkSwapchainKHR, VkSemaphore, uint32_t);
 

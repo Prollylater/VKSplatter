@@ -69,7 +69,7 @@ void Buffer::createBuffer(VkDevice device,
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
-    //Could be passed as uint32 directly
+    // Could be passed as uint32 directly
     allocInfo.memoryTypeIndex = findMemoryType(physDevice, memRequirements.memoryTypeBits, properties);
 
     if (vkAllocateMemory(device, &allocInfo, nullptr, &mMemory) != VK_SUCCESS)
@@ -86,10 +86,13 @@ void Buffer::createBuffer(VkDevice device,
 void Buffer::destroyBuffer()
 {
     // Error check
-    vkDestroyBuffer(mDevice, mBuffer, nullptr);
-    vkFreeMemory(mDevice, mMemory, nullptr);
-    mBuffer = VK_NULL_HANDLE;
-    mMemory = VK_NULL_HANDLE;
+    if (mBuffer != VK_NULL_HANDLE)
+    {
+        vkDestroyBuffer(mDevice, mBuffer, nullptr);
+        vkFreeMemory(mDevice, mMemory, nullptr);
+        mBuffer = VK_NULL_HANDLE;
+        mMemory = VK_NULL_HANDLE;
+    }
 }
 
 // Separateing staging mapping and copying maybe ?
@@ -147,7 +150,7 @@ VkBufferView Buffer::createBufferView(VkFormat format, VkDeviceSize offset, VkDe
 }
 
 void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
-                                 const LogicalDeviceManager &deviceM,  uint32_t indice)
+                                 const LogicalDeviceManager &deviceM, uint32_t indice)
 {
     const VertexFormat &format = mesh.getFormat();
 
@@ -176,7 +179,7 @@ void Buffer::createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &
 
 // size is  a mix and VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT to create an unique buffer
 void Buffer::createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const std::vector<Mesh> &meshes,
-                                      const LogicalDeviceManager &deviceM,  uint32_t indice)
+                                      const LogicalDeviceManager &deviceM, uint32_t indice)
 {
     /*
     const VertexFormat &format = meshes[0].getFormat();
@@ -327,15 +330,12 @@ submit(frame);
 ---
 */
 
-
-
-
 namespace vkUtils
 {
     namespace BufferHelper
     {
         // Buffer View can be recreated even after Buffer has been deleted
-        inline VkBufferView createBufferView(VkDevice device, VkBuffer buffer, VkFormat format, VkDeviceSize offset, VkDeviceSize size )
+        inline VkBufferView createBufferView(VkDevice device, VkBuffer buffer, VkFormat format, VkDeviceSize offset, VkDeviceSize size)
         {
             VkBufferViewCreateInfo viewInfo{};
             viewInfo.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
@@ -365,7 +365,7 @@ namespace vkUtils
         void transitionBuffer(
             const BufferTransition &transitionObject,
             const LogicalDeviceManager &deviceM,
-             uint32_t indice)
+            uint32_t indice)
         {
             const auto &graphicsQueue = deviceM.getGraphicsQueue();
             const auto &device = deviceM.getLogicalDevice();
@@ -418,13 +418,13 @@ namespace vkUtils
             // Could use a Buffer Memory Barrier and transition here
             // Chapter Copy dataBetween Buffer
         }
-        
+
         void copyBufferTransient(VkBuffer srcBuffer, VkBuffer dstBuffer,
                                  VkDeviceSize size,
                                  const LogicalDeviceManager &deviceM,
                                  uint32_t indice,
-                                 VkDeviceSize srcOffset ,
-                                 VkDeviceSize dstOffset )
+                                 VkDeviceSize srcOffset,
+                                 VkDeviceSize dstOffset)
         {
             const auto &graphicsQueue = deviceM.getGraphicsQueue();
             const auto &device = deviceM.getLogicalDevice();
@@ -438,9 +438,7 @@ namespace vkUtils
             cmdPoolM.destroyCommandPool();
         }
 
-     
-
-         void uploadBufferDirect(
+        void uploadBufferDirect(
             VkDeviceMemory bufferMemory,
             const void *data,
             VkDevice device,

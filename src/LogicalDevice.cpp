@@ -1,29 +1,29 @@
 #include "LogicalDevice.h"
 #include <set>
 
-
 void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices indices)
 {
     // Logical device manager get the name of it's corresponding physical device
     // Reverse shoudl also be true
 
-    //You could use here the QueueFamilyIndices already existing or get a new one by passing the physmanager
- 
+    // You could use here the QueueFamilyIndices already existing or get a new one by passing the physmanager
+
     std::set<uint32_t> uniqueQueueFamilies;
-    for (const auto& family : {
-        indices.graphicsFamily,
-        indices.presentFamily,
-        indices.computeFamily,
-        indices.transferFamily
-    }) {
-        if (family.has_value()) {
+    for (const auto &family : {
+             indices.graphicsFamily,
+             indices.presentFamily,
+             indices.computeFamily,
+             indices.transferFamily})
+    {
+        if (family.has_value())
+        {
             uniqueQueueFamilies.insert(family.value());
         }
     }
     float queuePriority = 1.0f;
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-        for (uint32_t queueFamily : uniqueQueueFamilies)
+    for (uint32_t queueFamily : uniqueQueueFamilies)
     {
         VkDeviceQueueCreateInfo queueCreateInfo{};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -35,19 +35,19 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
-    //Todo: Explicit activation ? 
+    // Todo: Explicit activation ?
     VkPhysicalDeviceFeatures deviceFeatures{};
     deviceFeatures.samplerAnisotropy = ContextVk::contextInfo.getDeviceSelector().requireSamplerAnisotropy;
-   
+
     // Share idea of vk istance create info
     // Device is then created using physicail device features and queue create
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    //Data and count probbly work together
+    // Data and count probbly work together
     createInfo.pQueueCreateInfos = queueCreateInfos.data();
-    createInfo.queueCreateInfoCount =  static_cast<uint32_t>(queueCreateInfos.size());;
+    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+    ;
     createInfo.pEnabledFeatures = &deviceFeatures;
-
 
     // Extension
     createInfo.enabledExtensionCount = static_cast<uint32_t>(ContextVk::contextInfo.getDeviceExtensions().size());
@@ -56,7 +56,7 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
     // ValidationLayer
     // Those are actually shared with instance validation layers in up to date vulkan standard
     // It was not the case before and they needed to be set
-    // Even if we set them chance are they are not used 
+    // Even if we set them chance are they are not used
     if (ContextVk::contextInfo.enableValidationLayers)
     {
         createInfo.enabledLayerCount = static_cast<uint32_t>(ContextVk::contextInfo.getValidationLayers().size());
@@ -67,30 +67,27 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
         createInfo.enabledLayerCount = 0;
     }
 
-
     if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create logical device!");
     }
 
-    if( ContextVk::contextInfo.getDeviceSelector().requireGraphics){
-    vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &mGraphicsQueue);
-
+    if (ContextVk::contextInfo.getDeviceSelector().requireGraphics)
+    {
+        vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &mGraphicsQueue);
     }
-    if( ContextVk::contextInfo.getDeviceSelector().requireTransferQueue){
-    vkGetDeviceQueue(device, indices.transferFamily.value(), 0, &mTransferQueue);
-
+    if (ContextVk::contextInfo.getDeviceSelector().requireTransferQueue)
+    {
+        vkGetDeviceQueue(device, indices.transferFamily.value(), 0, &mTransferQueue);
     }
-    if( ContextVk::contextInfo.getDeviceSelector().requirePresent){
-    vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &mPresentQueue);
-
+    if (ContextVk::contextInfo.getDeviceSelector().requirePresent)
+    {
+        vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &mPresentQueue);
     }
-    if( ContextVk::contextInfo.getDeviceSelector().requireCompute){
-    vkGetDeviceQueue(device, indices.computeFamily.value(), 0, &mComputeQueue);
-        
+    if (ContextVk::contextInfo.getDeviceSelector().requireCompute)
+    {
+        vkGetDeviceQueue(device, indices.computeFamily.value(), 0, &mComputeQueue);
     }
-
-
 }
 
 VkDevice LogicalDeviceManager::getLogicalDevice() const
@@ -98,24 +95,23 @@ VkDevice LogicalDeviceManager::getLogicalDevice() const
     return device;
 }
 
-VkQueue LogicalDeviceManager::getQueue(uint32_t familyIndex, uint32_t queueIndex )  const{
+VkQueue LogicalDeviceManager::getQueue(uint32_t familyIndex, uint32_t queueIndex) const
 {
-     VkQueue queueRef;
-   // vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &queueRef);
-    return queueRef;
-}
-
+    {
+        VkQueue queueRef;
+        // vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &queueRef);
+        return queueRef;
+    }
 }
 
 void LogicalDeviceManager::DestroyDevice()
 {
-    if( device ) { 
-  vkDestroyDevice( device, nullptr ); 
-  device = VK_NULL_HANDLE; 
+    if (device)
+    {
+        vkDestroyDevice(device, nullptr);
+        device = VK_NULL_HANDLE;
+    }
 }
-}
-
-
 
 /*
 
@@ -131,58 +127,57 @@ Then during operation we have
 vkGetDeviceQueue() → retrieve the actual VkQueue handles from the logical device.
 */
 
-
+// HElper used for simple rendering
 VkResult LogicalDeviceManager::submitFrameToGQueue(
     VkCommandBuffer cmdBuffer,
     VkSemaphore waitSemaphore,
     VkSemaphore signalSemaphore,
     VkFence fence)
 {
-    std::vector<VkCommandBuffer> cmdBuffers = { cmdBuffer };
+    std::vector<VkCommandBuffer> cmdBuffers = {cmdBuffer};
 
-    std::vector<VkSemaphore> waitSemaphores   = { waitSemaphore };
+    std::vector<VkSemaphore> waitSemaphores = {waitSemaphore};
     // Wait for semaphore "confirmation" during the color stage after vertexshader
-    std::vector<VkPipelineStageFlags> waitStages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+    //Could be VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
+    std::vector<VkPipelineStageFlags> waitStages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
-    std::vector<VkSemaphore> signalSemaphores = { signalSemaphore };
+    std::vector<VkSemaphore> signalSemaphores = {signalSemaphore};
 
-    return submitToQueue(mGraphicsQueue, 
-                         cmdBuffers, 
-                         waitSemaphores, 
-                         waitStages, 
-                         signalSemaphores, 
+    return submitToQueue(mGraphicsQueue,
+                         cmdBuffers,
+                         waitSemaphores,
+                         waitStages,
+                         signalSemaphores,
                          fence);
 }
 
-
 VkResult LogicalDeviceManager::submitToQueue(
     VkQueue queue,
-    const std::vector<VkCommandBuffer>& cmdBuffers,
-    const std::vector<VkSemaphore>& waitSemaphores,
-    const std::vector<VkPipelineStageFlags>& waitStages,
-    const std::vector<VkSemaphore>& signalSemaphores,
+    const std::vector<VkCommandBuffer> &cmdBuffers,
+    const std::vector<VkSemaphore> &waitSemaphores,
+    const std::vector<VkPipelineStageFlags> &waitStages,
+    const std::vector<VkSemaphore> &signalSemaphores,
     VkFence fence)
 {
-    //Todo:
-    //Check if commmand buffer are used, from the correct type of queue
+    // Todo:
+    // Check if commmand buffer are used, from the correct type of queue
     //, or were recorded with a VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT flag
-    //Could be done above this function
+    // Could be done above this function
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     submitInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
-    submitInfo.pWaitSemaphores    = waitSemaphores.data();
-    submitInfo.pWaitDstStageMask  = waitStages.data();
+    submitInfo.pWaitSemaphores = waitSemaphores.data();
+    submitInfo.pWaitDstStageMask = waitStages.data();
 
     submitInfo.commandBufferCount = static_cast<uint32_t>(cmdBuffers.size());
-    submitInfo.pCommandBuffers    = cmdBuffers.data();
+    submitInfo.pCommandBuffers = cmdBuffers.data();
 
     submitInfo.signalSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size());
-    submitInfo.pSignalSemaphores    = signalSemaphores.data();
+    submitInfo.pSignalSemaphores = signalSemaphores.data();
 
     return vkQueueSubmit(queue, 1, &submitInfo, fence);
 }
-
 
 VkResult LogicalDeviceManager::presentImage(
     VkSwapchainKHR swapchain,
@@ -199,4 +194,3 @@ VkResult LogicalDeviceManager::presentImage(
     presentInfo.pResults = nullptr;
     return vkQueuePresentKHR(mPresentQueue, &presentInfo);
 }
-

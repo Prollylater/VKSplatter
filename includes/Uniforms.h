@@ -6,9 +6,8 @@
 #include "LogicalDevice.h"
 #include "Buffer.h"
 
-// Todo: Definitly clean all the include
-// Rename
 #define GLM_FORCE_RADIANS
+//Default aligned helper
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glm/gtc/matrix_transform.hpp>
 // Use alignas
@@ -43,21 +42,24 @@ public:
         mDescriptorSets.clear();
     }
 
+    //Work witout VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
+    void resetDescriptorSets(VkDevice device)
+    {
+        VkResult result = vkResetDescriptorPool(device, mDescriptorPool, 0);
+
+        if (VK_SUCCESS != result)
+        {
+            throw std::runtime_error("Failed to reset descriptor pool!");
+        }
+
+        mDescriptorSets.clear();
+    }
     void allocateDescriptorSets(VkDevice device, uint32_t setCount);
     void updateDescriptorSet(VkDevice device, uint32_t setIndex,
                              const std::vector<VkWriteDescriptorSet> &writes);
     void createDescriptorSetLayout(VkDevice device, std::vector<VkDescriptorSetLayoutBinding> bindings);
 
-    void destroyDescriptorPools(VkDevice device)
-    {
-        if (mDescriptorPool != VK_NULL_HANDLE)
-        {
-            freeDescriptorSets(device);
-            vkDestroyDescriptorPool(device, mDescriptorPool, nullptr);
-            mDescriptorPool = VK_NULL_HANDLE;
-        }
-    }
-
+    void destroyDescriptorPool(VkDevice device);
     void destroyDescriptorLayout(VkDevice device);
 
     const VkDescriptorSetLayout getDescriptorLat() const
@@ -73,8 +75,8 @@ public:
     }
 
 private:
-    VkDescriptorPool mDescriptorPool;
-    VkDescriptorSetLayout mDescriptorSetLayout;
+    VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
+    VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
     std::vector<VkDescriptorSet> mDescriptorSets;
 };
 
@@ -94,6 +96,16 @@ namespace vkUtils
             return layout;
         }
 
+         inline VkPushConstantRange makePushConstantRange(
+            VkShaderStageFlags flag, uint32_t offset, uint32_t size)
+        {
+            VkPushConstantRange pushConstantRange{};
+            pushConstantRange.stageFlags = flag; 
+            pushConstantRange.offset = 0;
+            pushConstantRange.size = size; 
+            return pushConstantRange;
+        }
+
         inline VkWriteDescriptorSet makeWriteDescriptor(
             VkDescriptorSet dstSet, uint32_t binding, VkDescriptorType type,
             const VkDescriptorBufferInfo *bufferInfo = nullptr,
@@ -102,8 +114,11 @@ namespace vkUtils
             VkWriteDescriptorSet write{};
             write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write.dstSet = dstSet;
+            // Beginnig element in Array (We may want to update only part of an Array)
+            // Not implemented yet
             write.dstArrayElement = 0;
             write.dstBinding = binding;
+            // Number of elements to update, in an array
             write.descriptorCount = 1;
             write.descriptorType = type;
             write.pBufferInfo = bufferInfo;
@@ -114,7 +129,7 @@ namespace vkUtils
         }
 
     }
-}
+};
 
 /*
 Multiple descriptor sets

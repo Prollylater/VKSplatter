@@ -324,6 +324,7 @@ namespace vkUtils
             return image;
         }
 
+        //DeviceMemory of an IMage must be initialized with a config that has be tbrough this function
         VkImage createImage(ImageCreateConfig &config)
         {
 

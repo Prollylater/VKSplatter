@@ -28,16 +28,11 @@ struct DeviceSelectionCriteria {
     bool requireTransferQueue = false; //Not implemented yet
 
     bool requireGeometryShader = true;
-    bool requireTessellationShader = true;
+    bool requireTessellationShader = false;
     bool requireSamplerAnisotropy = true;
-
-
-    //Other features to look into
 
     //depth Clamp/vias/multiple viewports
     VkPhysicalDeviceType preferredType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
-
-
 };
 
 

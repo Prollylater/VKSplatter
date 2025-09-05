@@ -35,18 +35,16 @@ void VulkanContext::initRenderInfrastructure()
     const VkDevice &device = mLogDeviceM.getLogicalDevice();
     const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
 
-    RenderPassConfig defConfigRenderPass;
-    defConfigRenderPass.colorFormat = mSwapChainM.getSwapChainImageFormat();
-    defConfigRenderPass.depthFormat = mPhysDeviceM.findDepthFormat();
-
-    mRenderPassM.createRenderPass(device, defConfigRenderPass);
-
     std::vector<VkDescriptorSetLayoutBinding> layoutBindings = {
         {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr},
         {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}};
     mDescriptorM.createDescriptorSetLayout(device, layoutBindings);
 
     mDepthRessources.createDepthBuffer(mLogDeviceM, mSwapChainM, mPhysDeviceM);
+    RenderPassConfig defConfigRenderPass = vkUtils::RenderPass::makeDefaultConfig(mSwapChainM.getSwapChainImageFormat().format,
+                                                                                  mDepthRessources.getFormat());
+    // Defined the Render Pass Config
+    mRenderPassM.createRenderPass(device, defConfigRenderPass);
 
     mSwapChainRess.createFramebuffers(device, mSwapChainM, mDepthRessources, mRenderPassM.getRenderPass());
 };
@@ -63,12 +61,21 @@ void VulkanContext::initPipelineAndDescriptors()
     defConfigPipeline.fragShaderPath = fragPath;
     defConfigPipeline.vertShaderPath = vertPath;
 
+    mDescriptorM.createDescriptorPool(device, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT,
+                                      {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT},
+                                       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT}}); // Coould be global
+    // Frame rssoources bait
+    mDescriptorM.allocateDescriptorSets(device, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
+
     // There's no reason to keep this initialize
+    VkPushConstantRange pushCst = vkUtils::Descriptor::makePushConstantRange(
+        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformBufferObject));
     mPipelineM.createGraphicsPipeline(device, mRenderPassM.getRenderPass(), defConfigPipeline,
-                                      mDescriptorM.getDescriptorLat());
+                                      mDescriptorM.getDescriptorLat(), pushCst);
 };
 
 void VulkanContext::initSceneAssets() {};
+
 // All the rest or fram eressourees
 void VulkanContext::initAll(GLFWwindow *window)
 {
@@ -84,23 +91,16 @@ void VulkanContext::initAll(GLFWwindow *window)
     mTextureM.createTextureImageView(device);
     mTextureM.createTextureSampler(device, physDevice);
 
-    mDescriptorM.createDescriptorPool(device, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT,
-                                      {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT},
-                                       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT}}); // Coould be global
-    // Frame rssoources bait
-
-    mDescriptorM.allocateDescriptorSets(device, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
-    
     // Frame Ressources potential
     mSwapChainM.createFramesData(device, physDevice, indicesFamily.graphicsFamily.value());
-
-    auto descriptorBuffer = mSwapChainM.getCurrentFrameData().mCameraBuffer.getDescriptor();
     auto descriptorTexture = mTextureM.getImage().getDescriptor();
+
     for (int i = 0; i < ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT; i++)
     {
+        auto descriptorBuffer = mSwapChainM.getCurrentFrameData().mCameraBuffer.getDescriptor();
         std::vector<VkWriteDescriptorSet> writes = {
             vkUtils::Descriptor::makeWriteDescriptor(mDescriptorM.getSet(i), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &descriptorBuffer),
-            vkUtils::Descriptor::makeWriteDescriptor(mDescriptorM.getSet(i), 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr,&descriptorTexture) };
+            vkUtils::Descriptor::makeWriteDescriptor(mDescriptorM.getSet(i), 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &descriptorTexture)};
         mDescriptorM.updateDescriptorSet(device, i, writes);
         mSwapChainM.advanceFrame();
     }
@@ -118,7 +118,8 @@ void VulkanContext::destroyAll()
         buffer.destroyBuffer();
     }
 
-    mDescriptorM.destroyDescriptorPools(device);
+    mDescriptorM.destroyDescriptorLayout(device);
+    mDescriptorM.destroyDescriptorPool(device);
 
     mTextureM.destroyTexture(device);
 
@@ -128,7 +129,6 @@ void VulkanContext::destroyAll()
     mSwapChainM.destroyFramesData(device);
 
     mRenderPassM.destroyRenderPass(device);
-    mDescriptorM.destroyDescriptorLayout(device);
     mPipelineM.destroy(device);
 
     mSwapChainM.DestroyImageViews(device);
@@ -138,6 +138,7 @@ void VulkanContext::destroyAll()
     mSwapChainM.DestroySurface();
     mInstanceM.destroyInstance();
 };
+
 ////////////////////////////////////////////////////:
 ////////////////////////////////////////////////////:
 ////////////////////////////////////////////////////:
@@ -161,7 +162,7 @@ void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
     mContext->mSwapChainRess.destroyFramebuffers(device);
     mContext->mSwapChainM.DestroyImageViews(device);
     mContext->mSwapChainM.DestroySwapChain(device);
-    //mContext->mSwapChainM.destroyFramesData(device);
+    // mContext->mSwapChainM.destroyFramesData(device);
 
     // Swap Chain M should be able to handle this
     // But this would imply mswapCHainRess would be owned by it
@@ -169,7 +170,7 @@ void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
     SwapChainConfig defConfigSwapChain;
     mContext->mSwapChainM.createSwapChain(mContext->mPhysDeviceM.getPhysicalDevice(), device, window, defConfigSwapChain);
     mContext->mSwapChainM.createImageViews(device);
-    //mContext->mSwapChainM.createFramesData(device, mContext->mPhysDeviceM.getPhysicalDevice() ,  mContext->mPhysDeviceM.getIndices().graphicsFamily.value());
+    // mContext->mSwapChainM.createFramesData(device, mContext->mPhysDeviceM.getPhysicalDevice() ,  mContext->mPhysDeviceM.getIndices().graphicsFamily.value());
     mContext->mSwapChainRess.createFramebuffers(device, mContext->mSwapChainM, mContext->mDepthRessources, mContext->mRenderPassM.getRenderPass());
 }
 
@@ -209,12 +210,12 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
 
     frameRess.mSyncObjects.resetFence(device);
 
-    // frameRess.mCommandPool.resetCommandBuffer();
+    //Update Camera 
+    //Todo: Lot of refactored concerning this
+    updateUniformBuffers(currentFrame, mContext->mSwapChainM.getSwapChainExtent());
+
     recordCommandBuffer(imageIndex);
 
-    // Update the Uniform Buffers
-    // Todo: HHHHHHHHHHHHHHHHHHHHHHHHHH
-    updateUniformBuffers(currentFrame, mContext->mSwapChainM.getSwapChainExtent());
 
     // Submit Info set up
     mContext->mLogDeviceM.submitFrameToGQueue(
@@ -258,6 +259,11 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
 
     vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, mContext->mPipelineM.getPipeline());
 
+    // Command
+    // Function in pipeline that check the size ?
+    // Todo: THink about where to put this
+   
+
     // Add this for dynamic Pipeline( Info should be stored somewhere to be passed there)
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -293,12 +299,21 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
     vkCmdBindVertexBuffers(command, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(command, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
+    
     const uint32_t currentFrame = mContext->getSwapChainManager().getCurrentFrameIndex();
+    //Todo: The pipeline or the current set could know their number of set
+    //Also on &mContext->mDescriptorM.getSet(currentFrame)
+    //It is "fine" but not really useful ?
     vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             mContext->mPipelineM.getPipelineLayout(), 0, 1,
                             &mContext->mDescriptorM.getSet(currentFrame), 0,
                             nullptr);
-    size_t bufferSize = uniqueMesh.getStream(1).mView.mSize/sizeof(uint32_t);
+
+    vkCmdPushConstants(command, mContext->mPipelineM.getPipelineLayout(),
+                       VK_SHADER_STAGE_VERTEX_BIT,
+                       0, sizeof(UniformBufferObject), frameRess.mCameraMapping);
+
+    size_t bufferSize = uniqueMesh.getStream(1).mView.mSize / sizeof(uint32_t);
     vkCmdDrawIndexed(command, static_cast<uint32_t>(bufferSize), 1, 0, 0, 0);
 
     mContext->mRenderPassM.endPass(command);
@@ -307,8 +322,8 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
 
 void Renderer::updateUniformBuffers(uint32_t currentImage, VkExtent2D swapChainExtent)
 {
-    //Todo:
-    // A more efficient way to pass a small buffer of data to shaders are push constants.
+    // Todo:
+    //  A more efficient way to pass a small buffer of data to shaders are push constants.
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();

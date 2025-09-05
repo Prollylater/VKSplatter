@@ -21,7 +21,7 @@ poolInfo.maxSets = 50;   // maximum number of *sets* allocated
 // Manage memory for descriptor sets,
 // In PoolSize size is tied to the type the number of sets/and descriptor
 void DescriptorManager::createDescriptorPool(VkDevice device, uint32_t maxSets,
-                              const std::vector<VkDescriptorPoolSize>& poolSizes)
+                                             const std::vector<VkDescriptorPoolSize> &poolSizes)
 {
   // Bigger pool size,  a pool for each descriptor types
   VkDescriptorPoolCreateInfo poolInfo{};
@@ -61,24 +61,9 @@ void DescriptorManager::allocateDescriptorSets(VkDevice device, uint32_t setCoun
 void DescriptorManager::updateDescriptorSet(VkDevice device, uint32_t setIndex,
                                             const std::vector<VkWriteDescriptorSet> &writes)
 {
-  // Use two mDescriptorSetLayout to create two descirptor set
-
-    vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+  vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 };
 
-// makeWriteDescriptor(mDescritporSets[i], 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr,buffer):
-// makeWriteDescriptor(mDescritporSets[i], 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr,mTexture.getDescriptor):
-
-// Might as well do this
-/*
-std::vector<VkDescriptorSetLayoutBinding> bindings = {
-    {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr},
-    {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}
-};
-*/
-// makeLayoutBinding(0,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_VERTEX_BIT);
-// makeLayoutBinding(1,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
-//  Create the structure of a set
 void DescriptorManager::createDescriptorSetLayout(VkDevice device, std::vector<VkDescriptorSetLayoutBinding> bindings)
 {
   VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -93,14 +78,23 @@ void DescriptorManager::createDescriptorSetLayout(VkDevice device, std::vector<V
   }
 }
 
-void DescriptorManager::destroyDescriptorLayout(VkDevice device)
+void DescriptorManager::destroyDescriptorPool(VkDevice device)
 {
-
-  vkDestroyDescriptorSetLayout(device, mDescriptorSetLayout, nullptr);
-  mDescriptorSetLayout = VK_NULL_HANDLE;
+  if (mDescriptorPool != VK_NULL_HANDLE)
+  {
+    vkDestroyDescriptorPool(device, mDescriptorPool, nullptr);
+    mDescriptorPool = VK_NULL_HANDLE;
+  }
 }
 
-
+void DescriptorManager::destroyDescriptorLayout(VkDevice device)
+{
+   if (mDescriptorSetLayout != VK_NULL_HANDLE)
+  {
+    vkDestroyDescriptorSetLayout(device, mDescriptorSetLayout, nullptr);
+    mDescriptorSetLayout = VK_NULL_HANDLE;
+  }
+}
 
 /*
 
