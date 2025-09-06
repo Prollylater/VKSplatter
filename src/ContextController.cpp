@@ -47,20 +47,20 @@ void VulkanContext::initRenderInfrastructure()
     mRenderPassM.createRenderPass(device, defConfigRenderPass);
 
     mSwapChainRess.createFramebuffers(device, mSwapChainM, mDepthRessources, mRenderPassM.getRenderPass());
+
+    mPipelineM.initialize(device);
 };
 
-void VulkanContext::initPipelineAndDescriptors()
+void VulkanContext::initPipelineAndDescriptors(VertexFlags flag)
 {
     std::cout << "initPipelineAndDescriptors" << std::endl;
 
     const VkDevice &device = mLogDeviceM.getLogicalDevice();
     const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
 
-    // Just pass vkDevice in the regular way
-    PipelineConfig defConfigPipeline;
-    defConfigPipeline.fragShaderPath = fragPath;
-    defConfigPipeline.vertShaderPath = vertPath;
-
+    PipelineBuilder builder;
+    builder.setShaders({vertPath,fragPath}).setInputConfig({.vertexFormat = VertexFormatRegistry::getFormat(flag)}).setRenderPass(mRenderPassM.getRenderPass());
+    //
     mDescriptorM.createDescriptorPool(device, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT,
                                       {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT},
                                        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT}}); // Coould be global
@@ -70,8 +70,9 @@ void VulkanContext::initPipelineAndDescriptors()
     // There's no reason to keep this initialize
     VkPushConstantRange pushCst = vkUtils::Descriptor::makePushConstantRange(
         VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformBufferObject));
-    mPipelineM.createGraphicsPipeline(device, mRenderPassM.getRenderPass(), defConfigPipeline,
-                                      mDescriptorM.getDescriptorLat(), pushCst);
+    builder.setUniform({{mDescriptorM.getDescriptorLat()} ,{pushCst}});
+
+    mPipelineM.createPipelineWithBuilder(device, builder);
 };
 
 void VulkanContext::initSceneAssets() {};

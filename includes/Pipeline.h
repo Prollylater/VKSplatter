@@ -1,68 +1,177 @@
 #pragma once
 #include "BaseVk.h"
 
-
 #include <array>
+#include "VertexDescriptions.h"
 
-enum class FragmentShaderType {
+enum class FragmentShaderType
+{
     Basic,
     Blinn_Phong,
     PBR
 };
 
+//TODO: Multi Pipeline Creation + Multi Threated creation from cache
 
-struct PipelineConfig {
+// Shader Module Abstraction ?
+// ShaderModule → wraps VkShaderModule.
+
+// Compiling shader on the fly in Oopengl was the usual
+// CHeck if equivalent is possible in vulkan
+
+struct PipelineShaderConfig
+{
     std::string vertShaderPath;
-    std::string geomShaderPath;
     std::string fragShaderPath;
+    std::string geomShaderPath;
     std::string computeShaderPath;
+};
 
-    VkRenderPass renderPass;
+
+struct PipelineUniformConfig
+{
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+    std::vector<VkPushConstantRange> pushConstants;
+};
+
+struct PipelineRasterConfig
+{
+    VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
+    VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    // Lines and Point with fillModeNonSolid available with gpu features
+    VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL;
+};
+
+struct PipelineBlendConfig
+{
+    bool enableAlphaBlend = false;
+};
+
+struct PipelineDepthConfig
+{
+    bool enableDetphTest = true;
+};
+
+struct PipelineVertexInputConfig
+{
+    VkPrimitiveTopology topolpgy = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;                   
+    VkBool32 primitiveRestartEnable = VK_FALSE;
+    VertexFormat vertexFormat;
+};
+
+struct PipelineConfig
+{
+    PipelineShaderConfig shaders;
+    PipelineRasterConfig raster;
+    PipelineBlendConfig blend;
+    PipelineDepthConfig depth;
+    PipelineVertexInputConfig input;
+    PipelineUniformConfig uniform;
+
+    VkRenderPass renderPass = VK_NULL_HANDLE;
     uint32_t subpass = 0;
 
-    // Optional: Flags or enums for blending, culling, etc.
-    bool enableDepthTest = true;
-    bool enableAlphaBlend = false;
-
-    // Optional: Dynamic states
     std::vector<VkDynamicState> dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+        VK_DYNAMIC_STATE_SCISSOR};
 };
 
-
-class PipelineManager {
+class PipelineBuilder
+{
 public:
-    PipelineManager() = default;
-    //Tried actually using but apparently double destroy is a risk
-    //Destroy might be followed by a setting object to VK_NULL_Handle
-    ~PipelineManager() = default;
+    PipelineBuilder &setShaders(const PipelineShaderConfig &);
+    PipelineBuilder &setDynamicStates(const std::vector<VkDynamicState> &states);
+    PipelineBuilder &setRasterizer(const PipelineRasterConfig &);
+    PipelineBuilder &setRenderPass(VkRenderPass renderPass, uint32_t subpass = 0);
+    PipelineBuilder &setUniform(const PipelineUniformConfig &uniform);
+    PipelineBuilder &setBlend(const PipelineBlendConfig &);
+    PipelineBuilder &setDepthConfig(const PipelineDepthConfig &);
+    PipelineBuilder &setDepthTest(bool enable);
+    PipelineBuilder &setInputConfig(const PipelineVertexInputConfig &);
 
-    VkPipeline getPipeline() const { return mGraphicsPipeline[0]; }
-    VkPipelineLayout getPipelineLayout() const { return mPipelineLayout; }
 
-    bool initialize(VkDevice device, VkRenderPass renderPass);
-    bool createGraphicsPipeline(VkDevice,VkRenderPass, const PipelineConfig&, const VkDescriptorSetLayout&,const VkPushConstantRange&);
-    void destroy(VkDevice device);
+    // Returns pipeline + layout
+    std::pair<VkPipeline, VkPipelineLayout> build(VkDevice device, VkPipelineCache cache = VK_NULL_HANDLE) const;
 
 private:
-    std::array<VkPipeline, 1> mGraphicsPipeline = {VK_NULL_HANDLE};
-
-    //Still using a unique render pass
-    VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
-
-    VkShaderModule createShaderModule(VkDevice device,const std::vector<char>& code);
-    std::vector<char> readShaderFile(const std::string& path);
-    VkPipelineShaderStageCreateInfo createShaderStage(VkShaderStageFlagBits stage, VkShaderModule module);
-
+    PipelineConfig mConfig;
 };
 
-//Shader Module Abstraction ?
-//ShaderModule → wraps VkShaderModule.
+class PipelineManager
+{
+public:
+    PipelineManager() = default;
+    ~PipelineManager() = default;
+    void initialize(VkDevice device, const std::string &cacheFile = "");
+    void destroy(VkDevice device);
+    void destroyPipeline(VkDevice device, uint32_t index);
+
+    VkPipeline getPipeline(size_t index = 0) const { return mPipelines[index].pipeline; }
+    VkPipelineLayout getPipelineLayout(size_t index = 0) const { return mPipelines[index].layout; }
+
+    std::vector<unsigned char> getCacheData(VkDevice device);
+
+    void createPipelineWithBuilder(VkDevice device ,const PipelineBuilder &builder);
+
+    void reloadShaders(VkDevice device, int pipelineIndex, const PipelineBuilder builder);
+    void dumpCacheToFile(const std::string &path, VkDevice mDevice);
+
+private:
+    VkDevice mDevice = VK_NULL_HANDLE;
+
+    struct PipelineEntry
+    {
+        VkPipeline pipeline = VK_NULL_HANDLE;
+        VkPipelineLayout layout = VK_NULL_HANDLE;
+    };
+    std::vector<PipelineEntry> mPipelines;
+
+    VkPipelineCache mPipelineCache = VK_NULL_HANDLE;
+};
+
+/*
+hreaded Pipeline Creation
+
+Pipeline creation can be very slow (100s of ms per pipeline).
+
+Many engines create them asynchronously in worker threads at load time.
+
+Manager could expose async APIs:
 
 
 
-//Compiling shader on the fly in Oopengl was the usual
-//CHeck if equivalent is possible in vulkan
+Reflection-Based Descriptor Layouts
+
+Use SPIR-V reflection to automatically build descriptor set layouts & push constant ranges.
+
+That way, you don’t hardcode layouts in PipelineConfig.
+
+Eases integration with shader authoring tools.
+
+*/
+
+namespace vkUtils
+{
+
+    namespace Shaders
+    {
+
+        VkShaderModule createShaderModule(VkDevice device, const std::vector<char> &code);
+        std::vector<char> readShaderFile(const std::string &path);
+        VkPipelineShaderStageCreateInfo createShaderStage(VkShaderStageFlagBits stage, VkShaderModule module);
+
+    }
+
+}
+
+// Fixed-function configuration
+////////////////////////
+/*
++Multi thread creation of this
+Cache creation and Compute Pipeliens
+    VkComputePipelineCreateInfo pipelineInfo{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
+        pipelineInfo.pStages = shaderStages.data();
+        pipelineInfo.layout = mPipelineLayout;
+
+
+*/

@@ -31,7 +31,7 @@ void HelloTriangleApplication::initVulkan()
     
     context.initVulkanBase(window);
     context.initRenderInfrastructure();
-    context.initPipelineAndDescriptors();
+    context.initPipelineAndDescriptors(renderer.flag);
 
     renderer.uploadScene();
 

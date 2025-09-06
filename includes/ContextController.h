@@ -73,7 +73,7 @@ public:
 
     void initVulkanBase(GLFWwindow *window);
     void initRenderInfrastructure();
-    void initPipelineAndDescriptors();
+    void initPipelineAndDescriptors(VertexFlags flag);
 
     void initAll(GLFWwindow *window);
     void destroyAll();
@@ -119,11 +119,15 @@ public:
         mScene.meshes.emplace_back(Mesh());
         Mesh &mesh = mScene.meshes.back();
         mesh.loadModel(MODEL_PATH);
+        //Todo: Properly awful
         mesh.inputFlag = static_cast<VertexFlags>(Vertex_Pos | Vertex_Normal | Vertex_UV | Vertex_Color);
+        flag = mesh.getflag();
         VertexFormatRegistry::addFormat(mesh);
     }
 
     void uploadScene(/*const Scene& scene*/);
+    VertexFlags flag;
+
 private:
     VulkanContext *mContext;
     Scene mScene;

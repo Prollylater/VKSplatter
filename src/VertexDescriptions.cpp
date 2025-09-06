@@ -136,7 +136,7 @@ VkPipelineVertexInputStateCreateInfo VertexFormat::toCreateInfo() const
     VkPipelineVertexInputStateCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     info.vertexBindingDescriptionCount = bindings.size();
-    info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributes.size());
+    info.vertexAttributeDescriptionCount = attributes.size();
     info.pVertexBindingDescriptions = bindings.data();
     info.pVertexAttributeDescriptions = attributes.data();
     return info;
@@ -171,7 +171,6 @@ void VertexFormatRegistry::addFormat(const VertexFlags flag)
 
 void VertexFormatRegistry::addFormat(const Mesh &mesh)
 {
-
     addFormat(mesh.inputFlag);
 }
 

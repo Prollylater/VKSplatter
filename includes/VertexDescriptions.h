@@ -30,7 +30,7 @@ enum VertexFlags : uint32_t
     Vertex_Indices = 1 << 4,
 
 };
-//Namespace
+// Namespace
 inline VkVertexInputBindingDescription makeVtxInputBinding(
     uint32_t binding,
     uint32_t stride,
@@ -78,7 +78,7 @@ private:
     static std::unordered_map<VertexFlags, VertexFormat> &getFormats();
 };
 
-//Help for loading Vertex
+// Help for loading Vertex
 struct VertexUnique
 {
     glm::vec3 position;
@@ -106,7 +106,6 @@ struct VertexHash
 
 struct Mesh
 {
-    
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;
     std::vector<glm::vec2> uvs;
@@ -126,6 +125,11 @@ struct Mesh
     const VertexFormat &getFormat() const
     {
         return VertexFormatRegistry::getFormat(inputFlag);
+    }
+
+    const VertexFlags &getflag() const
+    {
+        return inputFlag;
     }
 
     bool validateMesh(VertexFlags flags)
@@ -158,6 +162,24 @@ VertexBufferData buildInterleavedVertexBuffer(const Mesh &mesh, const VertexForm
 
 /////////////////////////////////////////////////::
 /*
+Vertex Buffers (bound via vkCmdBindVertexBuffers)
+┌─────────────┐     ┌─────────────┐
+│ Binding 0   │     │ Binding 1   │
+│  positions  │     │   colors    │
+│  stride=12  │     │  stride=16  │
+└─────────────┘     └─────────────┘
+       │                   │
+       │                   │
+       ▼                   ▼
+Attributes (shader inputs)
+┌─────────────┐     ┌─────────────┐
+│ location 0  │     │ location 1  │
+│ pos (vec3)  │     │ color (vec4)│
+│ binding=0   │     │ binding=1   │
+│ offset=0    │     │ offset=0    │
+└─────────────┘     └─────────────┘
+       │                   │
+       └─────── shader vertex input ────────▶
 
 
 {
