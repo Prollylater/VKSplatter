@@ -1,5 +1,7 @@
 
-#include "QueueFam.h"
+#pragma once
+
+//SOme need stuff is removable
 #include "VertexDescriptions.h"
 
 #include "VulkanInstance.h"
@@ -12,8 +14,7 @@
 
 #include "SyncObjects.h"
 #include "Buffer.h"
-#include "Uniforms.h"
-#include "Texture.h"
+
 
 // Todo: Which heap allocation are absolutely needed
 class VulkanContext
@@ -30,16 +31,18 @@ public:
     RenderPassManager mRenderPassM;
     PipelineManager mPipelineM;
     SwapChainManager mSwapChainM;
-    SwapChainResources mSwapChainRess;
+    // SwapChainResources mSwapChainRess;
     DepthRessources mDepthRessources;
+    const DepthRessources &getDepthResources() const { return mDepthRessources; }
+    DepthRessources &getDepthResources() { return mDepthRessources; }
 
     // Todo: Buffer should not be kept
     std::vector<Buffer> mBufferM;
-    DescriptorManager mDescriptorM;
-    Texture mTextureM;
 
     // Getters returning const references
-    const VulkanInstanceManager &getInstanceManager() const { return mInstanceM; }
+    // const VulkanInstanceManager &getInstanceManager() const { return mInstanceM; }
+    // VulkanInstanceManager &getInstanceManager() { return mInstanceM; }
+
     const PhysicalDeviceManager &getPhysicalDeviceManager() const { return mPhysDeviceM; }
     const LogicalDeviceManager &getLogicalDeviceManager() const { return mLogDeviceM; }
 
@@ -48,10 +51,7 @@ public:
     const SwapChainManager &getSwapChainManager() const { return mSwapChainM; }
 
     const std::vector<Buffer> &getBufferManager() const { return mBufferM; }
-    const DescriptorManager &getDescriptorManager() const { return mDescriptorM; }
-    const Texture &getTextureManager() const { return mTextureM; }
 
-    VulkanInstanceManager &getInstanceManager() { return mInstanceM; }
     PhysicalDeviceManager &getPhysicalDeviceManager() { return mPhysDeviceM; }
     LogicalDeviceManager &getLogicalDeviceManager() { return mLogDeviceM; }
 
@@ -59,79 +59,19 @@ public:
     PipelineManager &getPipelineManager() { return mPipelineM; }
     SwapChainManager &getSwapChainManager() { return mSwapChainM; }
 
-    const SwapChainResources &getSwapChainResources() const { return mSwapChainRess; }
-    const DepthRessources &getDepthResources() const { return mDepthRessources; }
-
-    SwapChainResources &getSwapChainResources() { return mSwapChainRess; }
-    DepthRessources &getDepthResources() { return mDepthRessources; }
-
     std::vector<Buffer> &getBufferManager() { return mBufferM; }
-    DescriptorManager &getDescriptorManager() { return mDescriptorM; }
-    Texture &getTextureManager() { return mTextureM; }
 
     // Not too sure about what init  or not and in private or not
 
-    void initVulkanBase(GLFWwindow *window);
+    void initVulkanBase(GLFWwindow *window, ContextCreateInfo &createInfo);
     void initRenderInfrastructure();
-    void initPipelineAndDescriptors(VertexFlags flag);
+    void initPipelineAndDescriptors(const PipelineLayoutDescriptor &layoutConfig, VertexFlags flag);
 
-    void initAll(GLFWwindow *window);
     void destroyAll();
 
 private:
     // TODO: Memory allocator, debug messenger, etc.
-
     void initSceneAssets();
-};
-
-class Scene
-{
-public:
-    std::vector<Mesh> meshes;
-    // std::vector<Material> materials;
-    // std::vector<Textures> Textures;
-    // std::vector<Lights> lights;
-};
-
-class Renderer
-{
-public:
-    Renderer() = default;
-    ~Renderer() = default;
-
-    // Todo: This can be brittle, something should make it clear if not associated
-    // It could also do more work ?
-    void associateContext(VulkanContext &context)
-    {
-        mContext = &context;
-    }
-    // WHo should actually handle this ?
-    void recreateSwapChain(VkDevice device, GLFWwindow *window);
-
-    void updateUniformBuffers(uint32_t currentImage, VkExtent2D swapChainExtent);
-
-    void drawFrame(bool framebufferResized, GLFWwindow *window);
-    void recordCommandBuffer(uint32_t imageIndex);
-
-    void registerSceneFormat(/*const Scene& scene*/)
-    {
-        // Renderer.cpp
-        mScene.meshes.emplace_back(Mesh());
-        Mesh &mesh = mScene.meshes.back();
-        mesh.loadModel(MODEL_PATH);
-        //Todo: Properly awful
-        mesh.inputFlag = static_cast<VertexFlags>(Vertex_Pos | Vertex_Normal | Vertex_UV | Vertex_Color);
-        flag = mesh.getflag();
-        VertexFormatRegistry::addFormat(mesh);
-    }
-
-    void uploadScene(/*const Scene& scene*/);
-    VertexFlags flag;
-
-private:
-    VulkanContext *mContext;
-    Scene mScene;
-    std::vector<MeshGPUResources> gpuMeshes;
 };
 
 /*

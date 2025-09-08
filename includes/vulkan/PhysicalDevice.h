@@ -13,20 +13,20 @@ public:
   PhysicalDeviceManager() = default;
   ~PhysicalDeviceManager() = default;
 
-  void pickPhysicalDevice(VkInstance instance, const SwapChainManager &);
-  VkPhysicalDevice getPhysicalDevice() const;
+  void pickPhysicalDevice(VkInstance instance, const SwapChainManager &, const DeviceSelectionCriteria&);
 
   // Should be static and deal with much more than Device handled
-  bool isDeviceQueueSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
-  int rateDeviceSuitability(VkPhysicalDevice device, const SwapChainManager &);
+  bool isDeviceQueueSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, const DeviceSelectionCriteria&);
+  int rateDeviceSuitability(VkPhysicalDevice device, const SwapChainManager &, const DeviceSelectionCriteria&);
 
-  bool areRequiredExtensionsSupported(VkPhysicalDevice);
+  bool areRequiredExtensionsSupported(VkPhysicalDevice, const std::vector<const char *> &);
 
   VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
   VkFormat findDepthFormat() const;
 
+  VkPhysicalDevice getPhysicalDevice() const;
   VkSampleCountFlagBits getMaxUsableSampleCount();
-  VkSampleCountFlagBits getMsaaSample() const
+   VkSampleCountFlagBits getMsaaSample() const
   {
     return mMsaaSamples;
   };
@@ -36,6 +36,7 @@ public:
   {
     return mIndices;
   };
+
 
   void setSelectionCriteria(const DeviceSelectionCriteria &criteria);
 

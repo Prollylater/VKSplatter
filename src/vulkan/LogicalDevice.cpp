@@ -1,7 +1,8 @@
 #include "LogicalDevice.h"
 #include <set>
 
-void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices indices)
+void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices indices,
+ const std::vector<const char *> & validationLayers, const DeviceSelectionCriteria& criteria)
 {
     // Logical device manager get the name of it's corresponding physical device
     // Reverse shoudl also be true
@@ -20,9 +21,11 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
             uniqueQueueFamilies.insert(family.value());
         }
     }
+
     float queuePriority = 1.0f;
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+
     for (uint32_t queueFamily : uniqueQueueFamilies)
     {
         VkDeviceQueueCreateInfo queueCreateInfo{};
@@ -30,6 +33,7 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
         queueCreateInfo.queueFamilyIndex = queueFamily;
         // Only a small number of queue by queue family and some may not support more
         // 1 is enough for now
+        // Todo: Think about this (Create Info ?)
         queueCreateInfo.queueCount = 1;
         queueCreateInfo.pQueuePriorities = &queuePriority;
         queueCreateInfos.push_back(queueCreateInfo);
@@ -37,7 +41,7 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
 
     // Todo: Explicit activation ?
     VkPhysicalDeviceFeatures deviceFeatures{};
-    deviceFeatures.samplerAnisotropy = ContextVk::contextInfo.getDeviceSelector().requireSamplerAnisotropy;
+    deviceFeatures.samplerAnisotropy = criteria.requireSamplerAnisotropy;
 
     // Share idea of vk istance create info
     // Device is then created using physicail device features and queue create
@@ -50,17 +54,17 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
     createInfo.pEnabledFeatures = &deviceFeatures;
 
     // Extension
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(ContextVk::contextInfo.getDeviceExtensions().size());
-    createInfo.ppEnabledExtensionNames = ContextVk::contextInfo.getDeviceExtensions().data();
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(criteria.deviceExtensions.size());
+    createInfo.ppEnabledExtensionNames = criteria.deviceExtensions.data();
 
     // ValidationLayer
     // Those are actually shared with instance validation layers in up to date vulkan standard
     // It was not the case before and they needed to be set
     // Even if we set them chance are they are not used
-    if (ContextVk::contextInfo.enableValidationLayers)
+    if (!validationLayers.empty())
     {
-        createInfo.enabledLayerCount = static_cast<uint32_t>(ContextVk::contextInfo.getValidationLayers().size());
-        createInfo.ppEnabledLayerNames = ContextVk::contextInfo.getValidationLayers().data();
+        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+        createInfo.ppEnabledLayerNames = validationLayers.data();
     }
     else
     {
@@ -72,19 +76,19 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
         throw std::runtime_error("failed to create logical device!");
     }
 
-    if (ContextVk::contextInfo.getDeviceSelector().requireGraphics)
+    if (criteria.requireGraphics)
     {
         vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &mGraphicsQueue);
     }
-    if (ContextVk::contextInfo.getDeviceSelector().requireTransferQueue)
+    if (criteria.requireTransferQueue)
     {
         vkGetDeviceQueue(device, indices.transferFamily.value(), 0, &mTransferQueue);
     }
-    if (ContextVk::contextInfo.getDeviceSelector().requirePresent)
+    if (criteria.requirePresent)
     {
         vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &mPresentQueue);
     }
-    if (ContextVk::contextInfo.getDeviceSelector().requireCompute)
+    if (criteria.requireCompute)
     {
         vkGetDeviceQueue(device, indices.computeFamily.value(), 0, &mComputeQueue);
     }
@@ -97,11 +101,9 @@ VkDevice LogicalDeviceManager::getLogicalDevice() const
 
 VkQueue LogicalDeviceManager::getQueue(uint32_t familyIndex, uint32_t queueIndex) const
 {
-    {
         VkQueue queueRef;
         // vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &queueRef);
         return queueRef;
-    }
 }
 
 void LogicalDeviceManager::DestroyDevice()
@@ -115,7 +117,6 @@ void LogicalDeviceManager::DestroyDevice()
 
 /*
 
-
 vkEnumeratePhysicalDevices() → get a list of physical devices and then
 inspect each VkPhysicalDevice → Using vkGetPhysicalDeviceQueueFamilyProperties() to find which queue families support graphics, compute, transfer,bit and presentation, etc.
 THen : VkDeviceQueueCreateInfo[] → Create info basically saying  qeueu xx shoudld be in
@@ -127,7 +128,7 @@ Then during operation we have
 vkGetDeviceQueue() → retrieve the actual VkQueue handles from the logical device.
 */
 
-// HElper used for simple rendering
+//Helper used for submiting to Frame GQueue
 VkResult LogicalDeviceManager::submitFrameToGQueue(
     VkCommandBuffer cmdBuffer,
     VkSemaphore waitSemaphore,

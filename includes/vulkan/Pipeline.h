@@ -11,14 +11,6 @@ enum class FragmentShaderType
     PBR
 };
 
-//TODO: Multi Pipeline Creation + Multi Threated creation from cache
-
-// Shader Module Abstraction ?
-// ShaderModule → wraps VkShaderModule.
-
-// Compiling shader on the fly in Oopengl was the usual
-// CHeck if equivalent is possible in vulkan
-
 struct PipelineShaderConfig
 {
     std::string vertShaderPath;
@@ -27,8 +19,7 @@ struct PipelineShaderConfig
     std::string computeShaderPath;
 };
 
-
-struct PipelineUniformConfig
+struct PipelineLayoutConfig
 {
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
     std::vector<VkPushConstantRange> pushConstants;
@@ -66,7 +57,7 @@ struct PipelineConfig
     PipelineBlendConfig blend;
     PipelineDepthConfig depth;
     PipelineVertexInputConfig input;
-    PipelineUniformConfig uniform;
+    PipelineLayoutConfig uniform;
 
     VkRenderPass renderPass = VK_NULL_HANDLE;
     uint32_t subpass = 0;
@@ -83,7 +74,7 @@ public:
     PipelineBuilder &setDynamicStates(const std::vector<VkDynamicState> &states);
     PipelineBuilder &setRasterizer(const PipelineRasterConfig &);
     PipelineBuilder &setRenderPass(VkRenderPass renderPass, uint32_t subpass = 0);
-    PipelineBuilder &setUniform(const PipelineUniformConfig &uniform);
+    PipelineBuilder &setUniform(const PipelineLayoutConfig &uniform);
     PipelineBuilder &setBlend(const PipelineBlendConfig &);
     PipelineBuilder &setDepthConfig(const PipelineDepthConfig &);
     PipelineBuilder &setDepthTest(bool enable);
@@ -129,26 +120,6 @@ private:
     VkPipelineCache mPipelineCache = VK_NULL_HANDLE;
 };
 
-/*
-hreaded Pipeline Creation
-
-Pipeline creation can be very slow (100s of ms per pipeline).
-
-Many engines create them asynchronously in worker threads at load time.
-
-Manager could expose async APIs:
-
-
-
-Reflection-Based Descriptor Layouts
-
-Use SPIR-V reflection to automatically build descriptor set layouts & push constant ranges.
-
-That way, you don’t hardcode layouts in PipelineConfig.
-
-Eases integration with shader authoring tools.
-
-*/
 
 namespace vkUtils
 {
@@ -175,3 +146,32 @@ Cache creation and Compute Pipeliens
 
 
 */
+/*
+hreaded Pipeline Creation
+
+Pipeline creation can be very slow (100s of ms per pipeline).
+
+Many engines create them asynchronously in worker threads at load time.
+
+Manager could expose async APIs:
+
+
+
+Reflection-Based Descriptor Layouts
+
+Use SPIR-V reflection to automatically build descriptor set layouts & push constant ranges.
+
+That way, you don’t hardcode layouts in PipelineConfig.
+
+Eases integration with shader authoring tools.
+
+*/
+
+
+//TODO: Multi Pipeline Creation + Multi Threated creation from cache
+
+// Shader Module Abstraction ?
+// ShaderModule → wraps VkShaderModule.
+
+// Compiling shader on the fly in Oopengl was the usual
+// CHeck if equivalent is possible in vulkan

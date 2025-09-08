@@ -118,11 +118,3 @@ QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surfa
 }
 
 
-
-/*
-Why the different treamtent
-Present support is platform-specific and surface-specific.
- A queue family might support graphics operations, 
- but not be able to present images to a given surface — especially on systems with multiple GPUs
-Thus physical device propeties would not cut 
-*/

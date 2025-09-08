@@ -1,3 +1,5 @@
+#pragma once
+
 #include "BaseVk.h"
 #include <glm/glm.hpp>
 #include <array>
@@ -54,6 +56,7 @@ public:
 
         mDescriptorSets.clear();
     }
+
     void allocateDescriptorSets(VkDevice device, uint32_t setCount);
     void updateDescriptorSet(VkDevice device, uint32_t setIndex,
                              const std::vector<VkWriteDescriptorSet> &writes);

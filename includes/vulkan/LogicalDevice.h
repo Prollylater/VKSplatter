@@ -21,15 +21,15 @@ public:
 
     ~LogicalDeviceManager() = default;
 
-    void createLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices indices);
+    void createLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices indices, const std::vector<const char *> &validationLayers, const DeviceSelectionCriteria &criteria);
     VkDevice getLogicalDevice() const;
     void DestroyDevice();
+
     VkQueue getGraphicsQueue() const { return mGraphicsQueue; }
     VkQueue getPresentQueue() const { return mPresentQueue; }
 
     VkQueue getComputeQueue() const { return mComputeQueue; };
     VkQueue getTransferQueue() const { return mTransferQueue; };
-
     VkQueue getQueue(uint32_t familyIndex, uint32_t queueIndex = 0) const;
 
     // Todo: Move higher to renderer or so on

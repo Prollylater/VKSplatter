@@ -214,7 +214,7 @@ std::pair<VkPipeline, VkPipelineLayout> PipelineBuilder::build(VkDevice device, 
     {
         throw std::runtime_error("No shaders provided for pipeline.");
     }
-    std::cout << "HHEre" << std::endl;
+    
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
     if (vertModule != VK_NULL_HANDLE)
     {
@@ -228,7 +228,6 @@ std::pair<VkPipeline, VkPipelineLayout> PipelineBuilder::build(VkDevice device, 
     {
         shaderStages.push_back(vkUtils::Shaders::createShaderStage(VK_SHADER_STAGE_GEOMETRY_BIT, geomModule));
     }
-    std::cout << "HHEre" << std::endl;
 
     // Dynamic state, set the dynamic state available
     VkPipelineDynamicStateCreateInfo dynamicState{};
@@ -324,7 +323,7 @@ PipelineBuilder &PipelineBuilder::setRenderPass(VkRenderPass renderPass, uint32_
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::setUniform(const PipelineUniformConfig &uniform)
+PipelineBuilder &PipelineBuilder::setUniform(const PipelineLayoutConfig &uniform)
 {
     mConfig.uniform.descriptorSetLayouts = uniform.descriptorSetLayouts;
     mConfig.uniform.pushConstants = uniform.pushConstants;

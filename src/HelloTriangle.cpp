@@ -10,7 +10,6 @@ Pointer to custom allocator callbacks, always nullptr in this tutorial
 Pointer to the variable that stores the handle to the new object
 */
 
-
 // GLFW Functions
 void HelloTriangleApplication::initWindow()
 {
@@ -23,19 +22,25 @@ void HelloTriangleApplication::initWindow()
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 }
 
-// Very long call so fare as i have yet to decide how to handle to pass so elements
 void HelloTriangleApplication::initVulkan()
 {
-    renderer.associateContext(context);
+    ContextCreateInfo info = ContextCreateInfo::Default();
+    // Non essential line, just exist
+    SwapChainConfig swapChain = SwapChainConfig::Default();
+    info.getSwapChainConfig() = swapChain;
+
+    context.initVulkanBase(window, info);
+    renderer.initialize(context);
     renderer.registerSceneFormat();
-    
-    context.initVulkanBase(window);
     context.initRenderInfrastructure();
-    context.initPipelineAndDescriptors(renderer.flag);
 
-    renderer.uploadScene();
-
-    context.initAll(window);
+    PipelineLayoutDescriptor layout;
+    layout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    layout.addDescriptor(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    layout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformBufferObject));
+    context.initPipelineAndDescriptors(layout, renderer.flag);
+    
+    renderer.initSceneRessources();
 }
 
 void HelloTriangleApplication::mainLoop()
@@ -47,7 +52,6 @@ void HelloTriangleApplication::mainLoop()
     }
     // Make sure the program exit properly once windows is closed
     context.mLogDeviceM.waitIdle();
-    //Remove: vkDeviceWaitIdle(context.mLogDeviceM.getLogicalDevice());
 }
 
 void HelloTriangleApplication::cleanup()

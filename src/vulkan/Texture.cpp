@@ -4,7 +4,7 @@
 #include "SwapChain.h"
 
 // TODO: Rethink how command are passed
-
+//Store laytour for given rendereingn post and pre renderpass  ?
 template <typename T>
 ImageData<T> LoadImageTemplate(
     const std::string &filepath,
@@ -159,10 +159,10 @@ void Texture::createTextureSampler(VkDevice device, VkPhysicalDevice physDevice)
 
 // Look into what is necessary for Texture and not
 void Texture::createTextureImage(VkPhysicalDevice physDevice,
-                                 const LogicalDeviceManager &deviceM,
+                                 const LogicalDeviceManager &deviceM, const std::string& filepath,
                                  const QueueFamilyIndices &indice)
 {
-    ImageData<stbi_uc> textureData = LoadImageTemplate<stbi_uc>(TEXTURE_PATH.c_str(), STBI_rgb_alpha);
+    ImageData<stbi_uc> textureData = LoadImageTemplate<stbi_uc>(filepath.c_str(), STBI_rgb_alpha);
     VkDeviceSize imageSize = textureData.width * textureData.height * textureData.channels;
 
     // Todo:
@@ -606,7 +606,7 @@ namespace vkUtils
             cmdPoolM.destroyCommandPool();
         }
 
-        // return rather than references ?
+        //Very limited customization for now
         VkSampler createSampler(VkDevice device, VkPhysicalDevice physDevice, int mipmaplevel)
         {
             VkSampler sampler;

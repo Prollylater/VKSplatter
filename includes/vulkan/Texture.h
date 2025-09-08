@@ -215,7 +215,7 @@ private:
 
 */
 
-// Semantic Helper
+// Semantic Helper to create Texture
 class Texture
 {
 public:
@@ -224,7 +224,7 @@ public:
 
     // Introduce parameter to decide mMipLevel and format etc..
     void createTextureImage(VkPhysicalDevice physDevice,
-                            const LogicalDeviceManager &deviceM,
+                            const LogicalDeviceManager &deviceM,const std::string& filepath,
                             const QueueFamilyIndices &indices);
 
     void createTextureImageView(VkDevice device);

@@ -3,7 +3,7 @@
 
 #include <unordered_set>
 
-void PhysicalDeviceManager::pickPhysicalDevice(VkInstance instance, const SwapChainManager &swapManager)
+void PhysicalDeviceManager::pickPhysicalDevice(VkInstance instance, const SwapChainManager &swapManager, const DeviceSelectionCriteria& criteria)
 {
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -27,7 +27,7 @@ void PhysicalDeviceManager::pickPhysicalDevice(VkInstance instance, const SwapCh
 
     for (int index = 0; index < static_cast<int>(devices.size()); index++)
     {
-        int score = rateDeviceSuitability(devices[index], swapManager);
+        int score = rateDeviceSuitability(devices[index], swapManager, criteria);
         if (score > bestScore)
         {
             bestCandidateIndex = index;
@@ -57,13 +57,14 @@ VkPhysicalDevice PhysicalDeviceManager::getPhysicalDevice() const
 }
 
 // Concern the suitability Indiices wise
-bool PhysicalDeviceManager::isDeviceQueueSuitable(VkPhysicalDevice device, VkSurfaceKHR surface)
+bool PhysicalDeviceManager::isDeviceQueueSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, const DeviceSelectionCriteria& criteria)
 {
-    mIndices = findQueueFamilies(device, surface, ContextVk::contextInfo.getDeviceSelector());
-    return mIndices.isComplete(ContextVk::contextInfo.getDeviceSelector());
+    mIndices = findQueueFamilies(device, surface, criteria);
+    return mIndices.isComplete(criteria);
 }
 
-bool PhysicalDeviceManager::areRequiredExtensionsSupported(VkPhysicalDevice device)
+
+bool PhysicalDeviceManager::areRequiredExtensionsSupported(VkPhysicalDevice device, const std::vector<const char *> & deviceExtensions)
 {
     // Again double enumerate in a std::vector data pattern
     uint32_t extensionCount;
@@ -78,7 +79,7 @@ bool PhysicalDeviceManager::areRequiredExtensionsSupported(VkPhysicalDevice devi
     }
 
     // If one required is not found early exist
-    for (const auto &required : ContextVk::contextInfo.deviceExtensions)
+    for (const auto &required : deviceExtensions)
     {
         if (requiredExtensions.find(required) == requiredExtensions.end())
         {
@@ -89,7 +90,7 @@ bool PhysicalDeviceManager::areRequiredExtensionsSupported(VkPhysicalDevice devi
     return true;
 }
 
-int PhysicalDeviceManager::rateDeviceSuitability(VkPhysicalDevice device, const SwapChainManager &swapManager)
+int PhysicalDeviceManager::rateDeviceSuitability(VkPhysicalDevice device, const SwapChainManager &swapManager, const DeviceSelectionCriteria& criteria)
 {
     int score = 0;
 
@@ -105,27 +106,29 @@ int PhysicalDeviceManager::rateDeviceSuitability(VkPhysicalDevice device, const 
     }*/
 
     // Must-have features
-    if (ContextVk::contextInfo.getDeviceSelector().requireGeometryShader && !deviceFeatures.geometryShader)
+    if (criteria.requireGeometryShader && !deviceFeatures.geometryShader)
     {
         return 0;
     }
-    if (ContextVk::contextInfo.getDeviceSelector().requireTessellationShader && !deviceFeatures.tessellationShader)
+
+    //Other features
+    if (criteria.requireTessellationShader && !deviceFeatures.tessellationShader)
     {
         return 0;
     }
-    if (ContextVk::contextInfo.getDeviceSelector().requireSamplerAnisotropy && !deviceFeatures.samplerAnisotropy)
+    if (criteria.requireSamplerAnisotropy && !deviceFeatures.samplerAnisotropy)
     {
         return 0;
     }
 
     // Required extensions
-    if (!areRequiredExtensionsSupported(device))
+    if (!areRequiredExtensionsSupported(device, criteria.deviceExtensions))
     {
         return 0;
     };
 
     // Queue family support
-    if (!isDeviceQueueSuitable(device, swapManager.GetSurface()))
+    if (!isDeviceQueueSuitable(device, swapManager.GetSurface(), criteria))
     {
         return 0;
     }
@@ -142,7 +145,7 @@ int PhysicalDeviceManager::rateDeviceSuitability(VkPhysicalDevice device, const 
 
     // Rating
 
-    if (deviceProperties.deviceType == ContextVk::contextInfo.getDeviceSelector().preferredType)
+    if (deviceProperties.deviceType == criteria.preferredType)
     {
         score += 1000;
     }

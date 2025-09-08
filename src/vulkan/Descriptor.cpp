@@ -1,5 +1,5 @@
 
-#include "Uniforms.h"
+#include "Descriptor.h"
 #include "Buffer.h"
 
 ///////////////////////////////////
@@ -28,7 +28,7 @@ void DescriptorManager::createDescriptorPool(VkDevice device, uint32_t maxSets,
   poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
   poolInfo.pPoolSizes = poolSizes.data();
-  poolInfo.maxSets = static_cast<uint32_t>(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
+  poolInfo.maxSets = maxSets;
 
   if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &mDescriptorPool) != VK_SUCCESS)
   {
@@ -74,7 +74,7 @@ void DescriptorManager::createDescriptorSetLayout(VkDevice device, std::vector<V
 
   if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &mDescriptorSetLayout) != VK_SUCCESS)
   {
-    throw std::runtime_error("failed to create descriptor set layout!");
+    throw std::runtime_error("Failed to create descriptor set layout!");
   }
 }
 

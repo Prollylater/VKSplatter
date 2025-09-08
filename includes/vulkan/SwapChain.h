@@ -2,19 +2,18 @@
 
 #include "BaseVk.h"
 
-// Todo: Look into those include
+// Todo: Look into those include and all the other
 
 #include "SyncObjects.h"
 #include "CommandPool.h"
 #include "Buffer.h"
+#include "Descriptor.h"
 
 // Querying details of swap chain support
 // Structure used to query details of a swap chain support
 
 class PhysicalDeviceManager;
 class LogicalDeviceManager;
-class DepthRessources;
-class SwapChainRessources;
 
 struct SwapChainSupportDetails
 {
@@ -23,160 +22,10 @@ struct SwapChainSupportDetails
     std::vector<VkPresentModeKHR> presentModes;
 };
 
-// Temp
-struct UniformBufferObject
-{
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
-};
-
-struct FrameResources
-{
-    CommandPoolManager mCommandPool;
-    FrameSyncObjects mSyncObjects;
-
-    Buffer mCameraBuffer;
-    void *mCameraMapping;
-
-    /*
-    VkFramebuffer framebuffer;
-    //Render Target Swapchain + depth + other attachments
-
-    VkBuffer uniformBuffer;
-    VkDeviceMemory uniformMemory;
-    */
-};
-
-struct SwapChainConfig
-{
-    VkSurfaceFormatKHR preferredFormat = {VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
-    std::vector<VkPresentModeKHR> preferredPresentModes = {
-        VK_PRESENT_MODE_FIFO_KHR,
-        VK_PRESENT_MODE_MAILBOX_KHR
-
-    };
-    // Triple buffering by default
-    const uint32_t preferredImageCount = 3;
-    // 0 means "derive from window"
-    VkExtent2D preferredExtent = {0, 0};
-    bool allowExclusiveSharing = true;
-};
-
-
-/*
-TODO:
-Recreating render pass shoudl be implemented, 
-Not Pipelines ?
-Swapchain images (implicitly destroyed by vkDestroySwapchainKHR)
-
-Image views for swapchain images
-
-Depth buffer image + image view (extent changes with the swapchain)
-
-Framebuffers (point to swapchain + depth attachments, so must be rebuilt)
-
-Render pass (if its attachments depend on swapchain format/extent — often yes)
-
-Pipelines (if they use the swapchain extent for viewport/scissor baked into state)
-*/
-
-class SwapChainManager
-{
-public:
-    SwapChainManager() = default;
-    ~SwapChainManager() = default;
-
-    void createSurface(VkInstance instance, GLFWwindow *window);
-    void DestroySurface();
-    VkSurfaceKHR GetSurface() const;
-
-    void createSwapChain(VkPhysicalDevice device, VkDevice logicalDevice, GLFWwindow *window, const SwapChainConfig &config);
-    void DestroySwapChain(VkDevice logicalDevice);
-
-    bool aquireNextImage(VkDevice device, VkSemaphore semaphore, uint32_t &imageIndex);
-    VkSwapchainKHR GetChain() const;
-
-    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) const;
-    VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
-    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &, const std::vector<VkPresentModeKHR> &);
-
-    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities, GLFWwindow *window);
-
-    const std::vector<VkImage> &GetSwapChainImages() const
-    {
-        return mSwapChainImages;
-    }
-
-    void createImageViews(VkDevice device);
-
-    void DestroyImageViews(VkDevice device);
-
-    const std::vector<VkImageView> &GetSwapChainImageViews() const
-    {
-        return mSChainImageViews;
-    }
-    const VkSurfaceFormatKHR getSwapChainImageFormat() const
-    {
-        return mSwapChainImageFormat;
-    }
-
-    const VkExtent2D getSwapChainExtent() const
-    {
-        return mSwapChainExtent;
-    }
-
-    // const FrameResources &getCurrentFrameData() const;
-
-    // Todo: Not too sure about  exposing this
-    FrameResources &getCurrentFrameData();
-
-    const int getCurrentFrameIndex() const;
-
-    void advanceFrame();
-
-    void createFramesData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice);
-    void destroyFramesData(VkDevice device);
-
-private:
-    VkSurfaceKHR mSurface = VK_NULL_HANDLE;
-    VkSwapchainKHR mSwapChain = VK_NULL_HANDLE;
-
-    // Remove
-    VkInstance mInstance;
-    SwapChainSupportDetails mSupportDetails;
-    VkSurfaceFormatKHR mSwapChainImageFormat;
-    VkExtent2D mSwapChainExtent;
-    
-    std::vector<VkImage> mSwapChainImages;
-    std::vector<VkImageView> mSChainImageViews;
-
-    uint32_t currentFrame = 0;
-    std::vector<FrameResources> mFramesData;
-
-    void createFrameData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice);
-    void destroyFrameData(VkDevice device);
-};
-
-/*
-[ Shadow Pass       ] → writes depth-only
-       ↓
-[ G-Buffer Pass     ] → writes to multiple attachments (albedo, normal, etc.)
-       ↓
-[ Lighting Pass     ] → reads G-buffer, outputs lit result
-       ↓
-[ Post-Processing   ] → bloom, tone mapping, etc.
-       ↓
-[ **Swapchain Pass** ] → Single Color Attachment
-*/
-
-/*
-a framebuffer references image views that are to be used for color, depth and stencil targets.
-*/
 class SwapChainResources
 {
 public:
-    void createFramebuffers(VkDevice device, const SwapChainManager &swapChain, const DepthRessources &depthRess, VkRenderPass renderPass);
+    void createFramebuffers(VkDevice device, VkExtent2D extent, const std::vector<VkImageView> &attachments, VkRenderPass renderPass);
 
     void destroyFramebuffers(VkDevice device);
 
@@ -210,6 +59,126 @@ private:
     VkImageView mDepthView = VK_NULL_HANDLE;
     VkFormat mDepthFormat;
 };
+
+// Temp
+struct UniformBufferObject
+{
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
+struct FrameResources
+{
+    CommandPoolManager mCommandPool;
+    FrameSyncObjects mSyncObjects;
+    DescriptorManager mDescriptor;
+    Buffer mCameraBuffer;
+    void *mCameraMapping;
+
+    SwapChainResources mFramebuffer;
+};
+
+/*
+Swapchain images (implicitly destroyed by vkDestroySwapchainKHR)
+Image views for swapchain images
+Depth buffer image + image view (extent changes with the swapchain)
+Framebuffers (point to swapchain + depth attachments, so must be rebuilt)
+Render pass (if its attachments depend on swapchain format/extent — often yes)
+Pipelines (if they use the swapchain extent for viewport/scissor baked into state)
+*/
+
+class SwapChainManager
+{
+public:
+    SwapChainManager() = default;
+    ~SwapChainManager() = default;
+
+    void createSurface(VkInstance instance, GLFWwindow *window);
+    void destroySurface();
+    VkSurfaceKHR GetSurface() const;
+
+    void createSwapChain(VkPhysicalDevice device, VkDevice logicalDevice, GLFWwindow *window, const SwapChainConfig &config, const QueueFamilyIndices &indices);
+    void reCreateSwapChain(VkDevice device, VkPhysicalDevice physDevice, GLFWwindow *window, VkRenderPass renderPass, const DepthRessources &depthRess, uint32_t indice);
+
+    void destroySwapChain(VkDevice logicalDevice);
+
+    bool aquireNextImage(VkDevice device, VkSemaphore semaphore, uint32_t &imageIndex);
+    VkSwapchainKHR GetChain() const;
+
+    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) const;
+    VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
+    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &, const std::vector<VkPresentModeKHR> &);
+
+    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities, GLFWwindow *window);
+
+    const std::vector<VkImage> &GetSwapChainImages() const
+    {
+        return mSwapChainImages;
+    }
+
+    void createImageViews(VkDevice device);
+
+    void DestroyImageViews(VkDevice device);
+
+    const std::vector<VkImageView> &GetSwapChainImageViews() const
+    {
+        return mSChainImageViews;
+    }
+    const VkSurfaceFormatKHR getSwapChainImageFormat() const
+    {
+        return mSwapChainImageFormat;
+    }
+
+    const VkExtent2D getSwapChainExtent() const
+    {
+        return mSwapChainExtent;
+    }
+
+    FrameResources &getCurrentFrameData();
+    const int getCurrentFrameIndex() const;
+    void advanceFrame();
+    void createFramesData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice, uint32_t framesInFlightCount);
+    void createFramesSetLayout(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding> &layouts);
+    void createFrameSwapChainRessources(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass);
+
+    void destroyFramesData(VkDevice device);
+
+private:
+    VkSurfaceKHR mSurface = VK_NULL_HANDLE;
+    VkSwapchainKHR mSwapChain = VK_NULL_HANDLE;
+
+    // Remove ?
+    VkInstance mInstance;
+    SwapChainSupportDetails mSupportDetails;
+    VkSurfaceFormatKHR mSwapChainImageFormat;
+    VkExtent2D mSwapChainExtent;
+
+    std::vector<VkImage> mSwapChainImages;
+    std::vector<VkImageView> mSChainImageViews;
+
+    uint32_t currentFrame = 0;
+    std::vector<FrameResources> mFramesData;
+
+    void createFrameData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice);
+    void destroyFrameData(VkDevice device);
+};
+
+/*
+[ Shadow Pass       ] → writes depth-only
+       ↓
+[ G-Buffer Pass     ] → writes to multiple attachments (albedo, normal, etc.)
+       ↓
+[ Lighting Pass     ] → reads G-buffer, outputs lit result
+       ↓
+[ Post-Processing   ] → bloom, tone mapping, etc.
+       ↓
+[ **Swapchain Pass** ] → Single Color Attachment
+*/
+
+/*
+a framebuffer references image views that are to be used for color, depth and stencil targets.
+*/
 
 /*
 VulkanContext

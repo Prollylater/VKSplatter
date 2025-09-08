@@ -8,12 +8,10 @@
 #include <cstring>
 #include <vector>
 
-
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
-//TODO: This should definitly change
-//TODO: Important
+// TODO: Important
 const std::string vertPath = "./ressources/shaders/vert.spv";
 const std::string fragPath = "./ressources/shaders/frag.spv";
 const std::string MODEL_PATH = "./ressources/models/hearthspring.obj";
@@ -21,29 +19,87 @@ const std::string TEXTURE_PATH = "./ressources/models/hearthspring.png";
 
 // Also repass on fucntion while looking into the structure
 
-struct DeviceSelectionCriteria {
+struct DeviceSelectionCriteria
+{
+    // Somehow stand for queue and Shader
     bool requireGraphics = true;
     bool requirePresent = true;
     bool requireCompute = false;
-    bool requireTransferQueue = false; //Not implemented yet
+    bool requireTransferQueue = false; // Not implemented yet
 
-    bool requireGeometryShader = true;
+    bool requireGeometryShader = false;
     bool requireTessellationShader = false;
     bool requireSamplerAnisotropy = true;
 
-    //depth Clamp/vias/multiple viewports
+    // depth Clamp/vias/multiple viewports
     VkPhysicalDeviceType preferredType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+
+    std::vector<const char *> deviceExtensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+    // Todo: Implement builder here too
 };
 
+struct SwapChainConfig
+{
+    VkSurfaceFormatKHR preferredFormat = {VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+    std::vector<VkPresentModeKHR> preferredPresentModes = {
+        VK_PRESENT_MODE_FIFO_KHR,
+        VK_PRESENT_MODE_MAILBOX_KHR};
+    // Triple buffering by default
+    uint32_t preferredImageCount = 3;
+    VkExtent2D preferredExtent = {0, 0}; // 0 means "derive size from window"
+    bool allowExclusiveSharing = true;
+
+    static SwapChainConfig Default() { return SwapChainConfig(); }
+
+    // Setters
+    SwapChainConfig &setPreferredFormat(VkSurfaceFormatKHR format)
+    {
+        preferredFormat = format;
+        return *this;
+    }
+
+    SwapChainConfig &addPreferredPresentMode(VkPresentModeKHR mode)
+    {
+        preferredPresentModes.push_back(mode);
+        return *this;
+    }
+
+    SwapChainConfig &clearPreferredPresentMode(VkPresentModeKHR mode)
+    {
+        preferredPresentModes.clear();
+        return *this;
+    }
+
+    SwapChainConfig &setPreferredImageCount(uint32_t count)
+    {
+        preferredImageCount = count;
+        return *this;
+    }
+
+    SwapChainConfig &setPreferredExtent(uint32_t width, uint32_t height)
+    {
+        preferredExtent = {width, height};
+        return *this;
+    }
+
+    SwapChainConfig &allowSharing(bool allow)
+    {
+        allowExclusiveSharing = allow;
+        return *this;
+    }
+};
 
 class VulkanContext;
-//Should eventually not be a variable but just a bunch of static element
+
 struct ContextCreateInfo
 {
 public:
-    const uint32_t MAX_FRAMES_IN_FLIGHT = 3;
+    // Non const ?
+    static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
 
-    //friend VulkanContext;
+    // friend VulkanContext;
     uint32_t versionMajor = 1;
     uint32_t versionMinor = 2;
 
@@ -52,9 +108,7 @@ public:
         "VK_LAYER_KHRONOS_validation"};
 
     std::vector<const char *> instanceExtensions;
-
-    std::vector<const char *> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    
 
     bool enableValidationLayers =
 #ifndef NDEBUG
@@ -63,42 +117,112 @@ public:
         false;
 #endif
 
-
     DeviceSelectionCriteria selectionCriteria;
+    SwapChainConfig swapchainConfig;
     // Getters
     uint32_t getVersionMajor() const { return versionMajor; }
     uint32_t getVersionMinor() const { return versionMinor; }
 
-    const std::vector<const char *> &getValidationLayers() const { return validationLayers; }
+    const std::vector<const char *> &getValidationLayers() const
+    {
+        static const std::vector<const char *> dummy;
+        if (enableValidationLayers)
+        {
+            return validationLayers;
+        }
+        return dummy;
+    };
+
+    static ContextCreateInfo Default() { return ContextCreateInfo(); }
     const std::vector<const char *> &getInstanceExtensions() const { return instanceExtensions; }
-    const std::vector<const char *> &getDeviceExtensions() const { return deviceExtensions; }
+    const std::vector<const char *> &getDeviceExtensions() const { return selectionCriteria.deviceExtensions; }
     const DeviceSelectionCriteria &getDeviceSelector() const { return selectionCriteria; }
+    SwapChainConfig &getSwapChainConfig() { return swapchainConfig; }
 
     bool isValidationLayersEnabled() const { return enableValidationLayers; }
 
-    // Setters
 private:
-    void setVersionMajor(uint32_t major) { versionMajor = major; }
-    void setVersionMinor(uint32_t minor) { versionMinor = minor; }
+    // Setters
+    ContextCreateInfo &setApiVersion(uint32_t major, uint32_t minor)
+    {
+        versionMajor = major;
+        versionMinor = minor;
+        return *this;
+    };
 
-    void setValidationLayers(const std::vector<const char *> &layers) { validationLayers = layers; }
-    void setInstanceExtensions(const std::vector<const char *> &extensions) { instanceExtensions = extensions; }
-    void setDeviceExtensions(const std::vector<const char *> &extensions) { deviceExtensions = extensions; }
+    ContextCreateInfo &setEnableValidationLayers(bool enable)
+    {
+        enableValidationLayers = enable;
+        return *this;
+    };
+
+    ContextCreateInfo &setValidationLayers(const std::vector<const char *> &layers)
+    {
+        validationLayers = layers;
+        return *this;
+    };
+
+    ContextCreateInfo &addValidationLayer(const char *layer)
+    {
+        validationLayers.push_back(layer);
+        return *this;
+    };
+
+    ContextCreateInfo &setInstanceExtensions(const std::vector<const char *> &exts)
+    {
+        instanceExtensions = exts;
+        return *this;
+    };
+
+    ContextCreateInfo &addInstanceExtension(const char *name)
+    {
+        instanceExtensions.push_back(name);
+        return *this;
+    };
+
+    ContextCreateInfo &setDeviceExtensions(const std::vector<const char *> &exts)
+    {
+        selectionCriteria.deviceExtensions = exts;
+        return *this;
+    };
+
+    ContextCreateInfo &addDeviceExtension(const char *name)
+    {
+        selectionCriteria.deviceExtensions.push_back(name);
+        return *this;
+    };
+
+    ContextCreateInfo &setDeviceSelectionCriteria(const DeviceSelectionCriteria &criteria)
+    {
+        selectionCriteria = criteria;
+        return *this;
+    };
+};
+
+// Todo; Also Spir V reflect seem to the best way to go about this
+// Todo; Not sure about the position
+struct PipelineLayoutDescriptor
+{
+    std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayouts;
+    std::vector<VkPushConstantRange> pushConstants;
+
+    void addDescriptor(uint32_t location, VkDescriptorType type, VkShaderStageFlags stageFlag,  uint32_t count =1,
+                                 const VkSampler *sampler = nullptr)
+    {
+        descriptorSetLayouts.push_back({location, type, count, stageFlag, sampler});
+    }
+
+    void addPushConstant(VkShaderStageFlags stageFlag, uint32_t offset, uint32_t size)
+    {
+        pushConstants.push_back({stageFlag, offset, size});
+    }
+
     
-    void addDeviceExtension(const char *name, bool optional = false, void *featureStruct = nullptr);
-    void addInstanceExtension(const char *name, bool optional = false, void *featureStruct = nullptr);
-
-    void setEnableValidationLayers(bool enable) { enableValidationLayers = enable; };
 };
 
 // Or have the setter being private only accessible
 
-
-//Should end up being a Variable passed into The context 
-namespace ContextVk
-{
-    inline ContextCreateInfo contextInfo;
-}
+// Should end up being a Variable passed into The context
 
 /*
 A frame in flight refers to a rendering operation that
@@ -116,4 +240,3 @@ A frame in flight refers to a rendering operation that
     OR not ? It's weird wait for the chapter
     Depth Buffer/Stencil Buffer (Only used during rendering. Sent for rendering, consumed there and  ignried)
 */
- 

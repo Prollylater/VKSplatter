@@ -1,16 +1,17 @@
 #include "VulkanInstance.h"
 #include "VulkanUtils.h"
 
+// Vulkan instance
+void VulkanInstanceManager::createInstance(uint32_t majorVer, uint32_t minorVer, const std::vector<const char *> &validationLayers, const std::vector<const char *> &instanceExt)
+{
 
-//Vulkan instance
-void VulkanInstanceManager::createInstance(){
+    mEnabledValidationLayer = !validationLayers.empty();
 
-
-    if (ContextVk::contextInfo.enableValidationLayers && !checkValidationLayerSupport())
+    if (mEnabledValidationLayer && !checkValidationLayerSupport(validationLayers))
     {
         throw std::runtime_error("validation layers requested, but not available!");
     }
-    
+
     // Optional but potentially useful
     VkApplicationInfo appInfo{};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -29,19 +30,19 @@ void VulkanInstanceManager::createInstance(){
     // Extensions
     //  fill extensioncount with the number of extensions required to interface with the window
     // Fill glfwExtensions with them
-    auto extensions = getRequiredExtensions();
+    auto extensions = getRequiredInstanceExt();
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
-    
+
     // Additional debug utils for creation and destroy
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
 
     // Global validation Layers
-    if (ContextVk::contextInfo.enableValidationLayers)
+    if (mEnabledValidationLayer)
     {
-        
-        createInfo.enabledLayerCount = static_cast<uint32_t>(ContextVk::contextInfo.getValidationLayers().size());
-        createInfo.ppEnabledLayerNames = ContextVk::contextInfo.getValidationLayers().data();
+
+        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+        createInfo.ppEnabledLayerNames = validationLayers.data();
         populateDebugMessengerCreateInfo(debugCreateInfo);
         // Create a separate  messenger that can handle create and failure
         createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debugCreateInfo;
@@ -51,39 +52,40 @@ void VulkanInstanceManager::createInstance(){
         createInfo.enabledLayerCount = 0;
     }
 
-    VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
+    VkResult result = vkCreateInstance(&createInfo, nullptr, &mInstance);
 
     if (result != VK_SUCCESS)
     {
-           std::cerr << "vkCreateInstance failed with error code: " << result << std::endl;
-             throw std::runtime_error("failed to create instance!");
+        std::cerr << "vkCreateInstance failed with error code: " << result << std::endl;
+        throw std::runtime_error("failed to create instance!");
     }
-
-
 };
 
+void VulkanInstanceManager::destroyInstance()
+{
 
-void VulkanInstanceManager::destroyInstance(){
-
-    if (ContextVk::contextInfo.enableValidationLayers)
+    if (mEnabledValidationLayer)
     {
-        DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+        DestroyDebugUtilsMessengerEXT(mInstance, debugMessenger, nullptr);
     }
-    if( instance ) { 
-        vkDestroyInstance( instance, nullptr ); 
-        instance = VK_NULL_HANDLE; 
-    }      
+    if (mInstance != VK_NULL_HANDLE)
+    {
+        vkDestroyInstance(mInstance, nullptr);
+        mInstance = VK_NULL_HANDLE;
+    }
 };
 
-VkInstance& VulkanInstanceManager::getInstance(){
-    return instance;
+VkInstance &VulkanInstanceManager::getInstance()
+{
+    return mInstance;
 };
-VkInstance* VulkanInstanceManager::getInstancePtr(){
-    return &instance;
+VkInstance *VulkanInstanceManager::getInstancePtr()
+{
+    return &mInstance;
 };
 
 // Extensions
-std::vector<const char *> VulkanInstanceManager::getRequiredExtensions()
+std::vector<const char *> VulkanInstanceManager::getRequiredInstanceExt()
 {
     uint32_t glfwExtensionCount = 0;
     const char **glfwExtensions;
@@ -94,8 +96,11 @@ std::vector<const char *> VulkanInstanceManager::getRequiredExtensions()
     // Similar to const char*[] and const char**
     std::vector<const char *> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
-    if (ContextVk::contextInfo.enableValidationLayers)
+    std::cout << "Adding VK_EXT_DEBUG_UTILS_EXTENSION_NAME extensions" << std::endl;
+
+    if (mEnabledValidationLayer)
     {
+        std::cout << "Added VK_EXT_DEBUG_UTILS_EXTENSION_NAME extensions" << std::endl;
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
 
@@ -121,12 +126,11 @@ bool VulkanInstanceManager::checkExtensionsSupport()
 }
 
 ////////////////////////////////////////
-//Validation Layer set up
+// Validation Layer set up
 ////////////////////////////////////////
 
-
-
-// Debug Call nacl
+// Todo: Look into it again
+//  Debug Call nacl
 /*
 //messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
 VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: Diagnostic message
@@ -163,19 +167,18 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
 void VulkanInstanceManager::setupDebugMessenger()
 {
-    if (!ContextVk::contextInfo.enableValidationLayers)
-        return;
-
     // Used to captrue events occuring while creating and destroying an instance of a applicatrion
     // So with or debuger not yet created
     // passed to the instance
     // Create info
-    VkDebugUtilsMessengerCreateInfoEXT createInfo;
-    populateDebugMessengerCreateInfo(createInfo);
-
-    if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
+    if (mEnabledValidationLayer)
     {
-        throw std::runtime_error("failed to set up debug messenger!");
+        VkDebugUtilsMessengerCreateInfoEXT createInfo;
+        populateDebugMessengerCreateInfo(createInfo);
+        if (CreateDebugUtilsMessengerEXT(mInstance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
+        {
+            throw std::runtime_error("failed to set up debug messenger!");
+        }
     }
 }
 
@@ -190,13 +193,11 @@ void VulkanInstanceManager::populateDebugMessengerCreateInfo(VkDebugUtilsMesseng
 
     // pointerFunction custom call back
     createInfo.pfnUserCallback = debugCallback;
-    createInfo.pUserData = nullptr; // Optionals
+    createInfo.pUserData = nullptr;
 }
-
 
 // Object creation  with pointer to object debug function, no allcoator
 // Should not be owned
-
 VkResult VulkanInstanceManager::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pDebugMessenger)
 {
     auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -219,7 +220,6 @@ void VulkanInstanceManager::DestroyDebugUtilsMessengerEXT(VkInstance instance, V
     }
 }
 
-
 /////////////////////////////
-//Callback
+// Callback
 ////////////////////////

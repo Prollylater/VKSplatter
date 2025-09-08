@@ -76,7 +76,6 @@ void RenderPassManager::createRenderPass(VkDevice device, const RenderPassConfig
     renderPassInfo.pSubpasses = vkSubpasses.data();
     renderPassInfo.dependencyCount = configStruct.dependencies.size();
     renderPassInfo.pDependencies = configStruct.dependencies.data();
-    ;
 
     if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &mRenderPass) != VK_SUCCESS)
     {

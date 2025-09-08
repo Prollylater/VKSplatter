@@ -26,15 +26,18 @@ enum VertexFlags : uint32_t
     Vertex_Pos = 1 << 0,
     Vertex_Normal = 1 << 1,
     Vertex_UV = 1 << 2,
+    //Unecessary
     Vertex_Color = 1 << 3,
     Vertex_Indices = 1 << 4,
 
 };
+
 // Namespace
 inline VkVertexInputBindingDescription makeVtxInputBinding(
-    uint32_t binding,
-    uint32_t stride,
+    uint32_t binding, //Same opaque stuff designing "bugger"
+    uint32_t stride, //In binded vertex, after how many data we reach next object
     VkVertexInputRate inputRate = VK_VERTEX_INPUT_RATE_VERTEX);
+    
 inline VkVertexInputAttributeDescription makeVtxInputAttr(
     uint32_t location,
     uint32_t binding,
@@ -112,11 +115,12 @@ struct Mesh
     std::vector<glm::vec3> colors;
     std::vector<uint32_t> indices;
 
-    // Awful really
     VertexFlags inputFlag;
-    // BufferHandle vertexBuffer
-    // BufferHandle indexBuffer;
+    // VkBuffer vertexBuffer
+    // VkBuffer indexBuffer;
     // uint32_t indexCount;
+    // int textureIndex;
+
     size_t vertexCount() const
     {
         return positions.size(); // assume others match or are empty
@@ -182,229 +186,4 @@ Attributes (shader inputs)
        └─────── shader vertex input ────────▶
 
 
-{
-  "name": "PosNormalUV",
-  "binding": {
-    "binding": 0,
-    "stride": 32,
-    "inputRate": "vertex"
-  },
-  "attributes": [
-    {
-      "location": 0,
-      "binding": 0,
-      "format": "R32G32B32_SFLOAT",
-      "offset": 0
-    },
-    {
-      "location": 1,
-      "binding": 0,
-      "format": "R32G32B32_SFLOAT",
-      "offset": 12
-    },
-    {
-      "location": 2,
-      "binding": 0,
-      "format": "R32G32_SFLOAT",
-      "offset": 24
-    }
-  ]
-}
-
----
-
-### 🧠 Loader Code
-
-```cpp
-#include <nlohmann/json.hpp>
-
-VkFormat parseFormatString(const std::string& fmt) {
-    static std::unordered_map<std::string, VkFormat> formatMap = {
-        {"R32G32B32_SFLOAT", VK_FORMAT_R32G32B32_SFLOAT},
-        {"R32G32_SFLOAT", VK_FORMAT_R32G32_SFLOAT},
-        // Add more as needed
-    };
-    return formatMap.at(fmt);
-}
-
-VertexFormat loadVertexFormatFromJSON(const nlohmann::json& j) {
-    VertexFormat format;
-
-    // Binding
-    const auto& b = j["binding"];
-    format.binding.binding = b["binding"];
-    format.binding.stride = b["stride"];
-    format.binding.inputRate = (b["inputRate"] == "instance") ?
-        VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
-
-    // Attributes
-    for (const auto& attr : j["attributes"]) {
-        VkVertexInputAttributeDescription d{};
-        d.location = attr["location"];
-        d.binding = attr["binding"];
-        d.format = parseFormatString(attr["format"]);
-        d.offset = attr["offset"];
-        format.attributes.push_back(d);
-    }
-
-    return format;
-}
-```
-
----
-
-```
-
-### 🔧 C++ Parse Example (with `nlohmann/json`)
-
-```cpp
-VertexFormat loadFormatFromJSON(const nlohmann::json& j);
-```
-
-You then `registerFormat(name, loadedFormat)` to plug it into your system.
-
----
-
-# ⚙️ 4. Pipeline Cache Design
-
-## ✅ Goals
-
-* Cache pipelines per shader + vertex format
-* Efficient reuse; variant support
-
-### 🔧 Design Concept
-
-```cpp
-struct PipelineKey {
-    std::string shaderID;
-    std::string vertexFormat;
-
-    bool operator==(const PipelineKey& other) const {
-        return shaderID == other.shaderID && vertexFormat == other.vertexFormat;
-    }
-};
-
-namespace std {
-template <>
-struct hash<PipelineKey> {
-    std::size_t operator()(const PipelineKey& k) const {
-        return hash<string>()(k.shaderID) ^ hash<string>()(k.vertexFormat);
-    }
-};
-}
-```
-
-```cpp
-class PipelineCache {
-public:
-    VkPipeline getOrCreatePipeline(const PipelineKey& key);
-private:
-    std::unordered_map<PipelineKey, VkPipeline> pipelineMap;
-};
-```
-
-**Bonus**: Add support for pipeline derivatives or libraries for efficiency.
-
----
-
-Yes — **absolutely**. You're on the right track.
-
-In real engines, the **vertex format isn't just a global thing** — it’s often tightly tied to **assets**, like a `Mesh`, `SubMesh`, or even a `Material`. Here's the big idea:
-
----
-
-
-
-
-
-
-```
-
-This is parsed at load time, and you assign the `vertexFormatName` accordingly.
-
----
-
-
-# ✅ PART 2: Shader + Reflection + Format Matcher
-
-
-# 🧠 2. Shader Reflection-Based Layout Extraction (SPIRV-Cross)
-
-## ✅ Goals
-
-* Use SPIRV-Cross to read input attributes
-* Match against registry or auto-generate
-
-### 🔧 Sample Code (using SPIRV-Cross)
-
-```cpp
-spirv_cross::Compiler comp(spirvBinary);
-auto resources = comp.get_shader_resources();
-
-for (const auto& input : resources.stage_inputs) {
-    auto loc = comp.get_decoration(input.id, spv::DecorationLocation);
-    auto type = comp.get_type(input.type_id);
-    std::string name = input.name;
-
-    // Detect type, vector size, etc.
-    // You can use this to auto-fill VkVertexInputAttributeDescription
-}
-```
-
-You can also **generate a VertexFormat struct** directly from reflection or **verify consistency** against registered formats.
-
----
-#include <spirv_cross/spirv_cross.hpp>
-
-struct ShaderInputAttribute {
-    uint32_t location;
-    std::string name;
-    VkFormat expectedFormat; // Optional
-};
-
-std::vector<ShaderInputAttribute> extractInputsFromShader(const std::vector<uint32_t>& spirv) {
-    spirv_cross::Compiler comp(spirv);
-    auto resources = comp.get_shader_resources();
-
-    std::vector<ShaderInputAttribute> result;
-
-    for (const auto& input : resources.stage_inputs) {
-        auto loc = comp.get_decoration(input.id, spv::DecorationLocation);
-        auto type = comp.get_type(input.type_id);
-        uint32_t vecSize = type.vecsize;
-
-        // Simple match (expand to handle matrix, integer, etc.)
-        VkFormat fmt = VK_FORMAT_UNDEFINED;
-        if (type.basetype == spirv_cross::SPIRType::Float && vecSize == 3)
-            fmt = VK_FORMAT_R32G32B32_SFLOAT;
-        else if (vecSize == 2)
-            fmt = VK_FORMAT_R32G32_SFLOAT;
-
-        result.push_back({ loc, input.name, fmt });
-    }
-
-    return result;
-}
-```
-
----
-
-### ✅ Validation Example
-
-```cpp
-bool validateFormatAgainstShader(const VertexFormat& fmt, const std::vector<ShaderInputAttribute>& inputs) {
-    for (const auto& attr : inputs) {
-        auto it = std::find_if(fmt.attributes.begin(), fmt.attributes.end(), [&](const auto& a) {
-            return a.location == attr.location && a.format == attr.expectedFormat;
-        });
-        if (it == fmt.attributes.end()) {
-            std::cerr << "Mismatch at location " << attr.location << ": missing or wrong format\n";
-            return false;
-        }
-    }
-    return true;
-}
-```
-
----
 */

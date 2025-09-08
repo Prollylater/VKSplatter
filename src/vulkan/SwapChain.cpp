@@ -7,23 +7,31 @@
 #include "PhysicalDevice.h"
 #include "CommandPool.h"
 
+/*
+//Shoudl stay with UBO since really onliy it use it
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+*/
 
 // Todo: Important consider manual transition of arrachement images when not Present and what it would mean
+// Todo: Reconsider how are used all std::runtimeError
+/////////////////////////////////
+//////////////////////////Surface
+/////////////////////////////////
+
 void SwapChainManager::createSurface(VkInstance instance, GLFWwindow *window)
 {
   // Thank to glfw we avoid the hardway
   mInstance = instance;
   if (glfwCreateWindowSurface(mInstance, window, nullptr, &mSurface) != VK_SUCCESS)
   {
-    throw std::runtime_error("failed to create window surface!");
+    throw std::runtime_error("Failed to create window surface!");
   }
 };
 
-void SwapChainManager::DestroySurface()
+void SwapChainManager::destroySurface()
 {
   vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
 };
@@ -32,6 +40,10 @@ VkSurfaceKHR SwapChainManager::GetSurface() const
 {
   return mSurface;
 };
+
+/////////////////////////////////
+//////////////////////////SwapChain
+/////////////////////////////////
 
 SwapChainSupportDetails SwapChainManager::querySwapChainSupport(VkPhysicalDevice device) const
 {
@@ -47,7 +59,7 @@ SwapChainSupportDetails SwapChainManager::querySwapChainSupport(VkPhysicalDevice
     vkGetPhysicalDeviceSurfaceFormatsKHR(device, mSurface, &formatCount, details.formats.data());
   }
 
-  // PResent Mode: Around Line 7517 in Vulkan.h in an enum
+  // Present Mode: Around Line 7517 in Vulkan.h in an enum
 
   uint32_t presentModeCount;
   vkGetPhysicalDeviceSurfacePresentModesKHR(device, mSurface, &presentModeCount, nullptr);
@@ -91,7 +103,6 @@ VkPresentModeKHR SwapChainManager::chooseSwapPresentMode(const std::vector<VkPre
 VkExtent2D SwapChainManager::chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities, GLFWwindow *window)
 {
   // Swap extent == resolution of swpa chain images in pixel coordiantes
-  // Useful link describing the spec: https://registry.khronos.org/vulkan/specs/latest/man/html/VkSurfaceCapabilitiesKHR.html
   // And the limit
   if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
   {
@@ -139,9 +150,8 @@ bool SwapChainManager::aquireNextImage(VkDevice device, VkSemaphore semaphore, u
   return true;
 }
 
-void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice logicalDevice, GLFWwindow *window, const SwapChainConfig &config)
+void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice logicalDevice, GLFWwindow *window, const SwapChainConfig &config, const QueueFamilyIndices &indices)
 {
-  mFramesData.resize(ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHT);
   mSupportDetails = querySwapChainSupport(physDevice);
 
   VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(mSupportDetails.formats);
@@ -172,7 +182,6 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice log
   createInfo.imageArrayLayers = 1; // Not sure
   createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-  QueueFamilyIndices indices = findQueueFamilies(physDevice, mSurface, ContextVk::contextInfo.getDeviceSelector());
   uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
   if (indices.graphicsFamily != indices.presentFamily)
@@ -214,9 +223,35 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice log
   mSwapChainImageFormat = surfaceFormat;
 }
 
-void SwapChainManager::DestroySwapChain(VkDevice logicalDevice)
+void SwapChainManager::reCreateSwapChain(VkDevice device, VkPhysicalDevice physDevice, GLFWwindow *window, VkRenderPass renderPass, const DepthRessources &depthRess, uint32_t indice)
 {
-  vkDestroySwapchainKHR(logicalDevice, mSwapChain, nullptr);
+  std::cout << "Recreato,g" << std::endl;
+  for (int i = currentFrame; i < mSChainImageViews.size(); i++)
+  {
+    getCurrentFrameData().mFramebuffer.destroyFramebuffers(device);
+    advanceFrame();
+  }
+  DestroyImageViews(device);
+  destroySwapChain(device);
+
+  // Swap Chain M should be able to handle this
+  // But this would imply mswapCHainRess would be owned by it
+  // SwapChain
+  SwapChainConfig defConfigSwapChain;
+  // createSwapChain(physDevice, device, window, defConfigSwapChain);
+  createImageViews(device);
+  for (int i = currentFrame; i < mSChainImageViews.size(); i++)
+  {
+    getCurrentFrameData().mFramebuffer.createFramebuffers(device, getSwapChainExtent(), {GetSwapChainImageViews()[i], depthRess.getView()}, renderPass);
+    advanceFrame();
+  }
+  std::cout << "Recreato,ged" << std::endl;
+}
+
+void SwapChainManager::destroySwapChain(VkDevice device)
+{
+  currentFrame = 0;
+  vkDestroySwapchainKHR(device, mSwapChain, nullptr);
   // Actual content is handled alongside instructions above
   mSwapChainImages.clear();
 }
@@ -267,6 +302,7 @@ const int SwapChainManager::getCurrentFrameIndex() const
 void SwapChainManager::advanceFrame()
 {
   currentFrame++;
+
   if (currentFrame >= mFramesData.size())
   {
     currentFrame = 0;
@@ -296,18 +332,58 @@ void SwapChainManager::destroyFrameData(VkDevice device)
   frameData.mCameraBuffer.destroyBuffer();
 };
 
-void SwapChainManager::createFramesData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice)
+void SwapChainManager::createFramesData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice, uint32_t frameInFlightCount)
 {
+  mFramesData.resize(frameInFlightCount);
   currentFrame = 0;
-
   for (int i = 0; i < mFramesData.size(); i++)
   {
     createFrameData(device, physDevice, queueIndice);
     advanceFrame();
   }
-  currentFrame = 0;
 };
 
+void SwapChainManager::createFramesSetLayout(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding> &layouts)
+{
+  // Todo: Allow more than 1 element down the road
+  std::vector<VkDescriptorPoolSize> poolSize;
+  for (const auto &layout : layouts)
+  {
+    //5 is just a magic number for a number that seemed "fine"
+    poolSize.push_back({layout.descriptorType, 5});
+  }
+
+  for (int i = 0; i < mFramesData.size(); i++)
+  {
+    auto &descriptor = getCurrentFrameData().mDescriptor;
+    descriptor.createDescriptorSetLayout(device, layouts);
+    descriptor.createDescriptorPool(device, 3, poolSize);
+    // Frame ressoources bait
+    descriptor.allocateDescriptorSets(device, 1);
+    advanceFrame();
+  }
+}
+
+void SwapChainManager::createFrameSwapChainRessources(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass)
+{
+
+  std::vector<VkImageView> fbAttachments(1 + attachments.size());
+  std::copy(attachments.begin(), attachments.end(), fbAttachments.begin() + 1);
+
+  for (int i = 0; i < mFramesData.size(); i++)
+  {
+    auto &frameBuffer = getCurrentFrameData().mFramebuffer;
+    const VkImageView imageView = GetSwapChainImageViews()[getCurrentFrameIndex()];
+
+    fbAttachments[0] = GetSwapChainImageViews()[getCurrentFrameIndex()];
+
+    frameBuffer.createFramebuffers(device, mSwapChainExtent, fbAttachments, renderPass);
+    advanceFrame();
+  }
+}
+// This delete all frame dates including those used in Pipeline
+// Not too sure how many thing mifght need to be rebinded
+// Just don't use it for now
 void SwapChainManager::destroyFramesData(VkDevice device)
 {
   currentFrame = 0;
@@ -320,35 +396,24 @@ void SwapChainManager::destroyFramesData(VkDevice device)
 };
 
 // Passes Ressources
-//Todo::
-void SwapChainResources::createFramebuffers(VkDevice device, const SwapChainManager &swapChain, const DepthRessources &depthRess, VkRenderPass renderPass)
+// Todo::
+void SwapChainResources::createFramebuffers(VkDevice device, VkExtent2D extent, const std::vector<VkImageView> &attachments, VkRenderPass renderPass)
 {
-  const auto &imageViews = swapChain.GetSwapChainImageViews();
-  VkExtent2D extent = swapChain.getSwapChainExtent();
 
-  mFramebuffers.resize(imageViews.size());
+  // Not sure of why sam depth Ressources, seem like a bad idea
+  mFramebuffers.resize(1);
+  VkFramebufferCreateInfo framebufferInfo{};
+  framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+  framebufferInfo.renderPass = renderPass;
+  framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+  framebufferInfo.pAttachments = attachments.data();
+  framebufferInfo.width = extent.width;
+  framebufferInfo.height = extent.height;
+  framebufferInfo.layers = 1; // Array
 
-  for (size_t i = 0; i < imageViews.size(); i++)
+  if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, mFramebuffers.data()) != VK_SUCCESS)
   {
-    std::array<VkImageView, 2> attachments = {
-        imageViews[i],
-        depthRess.getView()};
-
-    // Not sure of why sam depth Ressources, seem like a bad idea
-
-    VkFramebufferCreateInfo framebufferInfo{};
-    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebufferInfo.renderPass = renderPass;
-    framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-    framebufferInfo.pAttachments = attachments.data();
-    framebufferInfo.width = extent.width;
-    framebufferInfo.height = extent.height;
-    framebufferInfo.layers = 1; // Array
-
-    if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &mFramebuffers[i]) != VK_SUCCESS)
-    {
-      throw std::runtime_error("failed to create framebuffer!");
-    }
+    throw std::runtime_error("failed to create framebuffer!");
   }
 }
 

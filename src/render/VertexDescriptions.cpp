@@ -93,16 +93,16 @@ void Mesh::loadModel(std::string filename)
 
     // Set flags based on what's filled
     inputFlag = Vertex_None;
-    if (!positions.empty())
-        inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_Pos);
-    if (!normals.empty())
-        inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_Normal);
-    if (!uvs.empty())
-        inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_UV);
-    if (!colors.empty())
-        inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_Color);
-    if (!indices.empty())
-        inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_Indices);
+    if (!positions.empty()){
+        inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_Pos);}
+    if (!normals.empty()){
+        inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_Normal);}
+    if (!uvs.empty()){
+        inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_UV);}
+    if (!colors.empty()){//Color is so so ? Same as indices to be quite fair
+        inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_Color);}
+    if (!indices.empty()){
+        inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_Indices);}
 }
 
 VkVertexInputBindingDescription makeVtxInputBinding(
@@ -233,14 +233,14 @@ VertexFormat VertexFormatRegistry::generateInterleavedVertexFormat(VertexFlags f
     vf.mVertexFlags = flags;
     vf.mInterleaved = true;
 
-    if (flags & Vertex_Pos)
-        stride += sizeof(glm::vec3);
-    if (flags & Vertex_Normal)
-        stride += sizeof(glm::vec3);
-    if (flags & Vertex_UV)
-        stride += sizeof(glm::vec2);
-    if (flags & Vertex_Color)
-        stride += sizeof(glm::vec3);
+    if (flags & Vertex_Pos){
+        stride += sizeof(glm::vec3);}
+    if (flags & Vertex_Normal){
+        stride += sizeof(glm::vec3);}
+    if (flags & Vertex_UV){
+        stride += sizeof(glm::vec2);}
+    if (flags & Vertex_Color){
+        stride += sizeof(glm::vec3);}
 
     vf.bindings.push_back(makeVtxInputBinding(0, stride));
 

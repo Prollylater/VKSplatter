@@ -18,27 +18,26 @@ set(THIRD_PARTY thirdparty)
 set(SOURCES
     ${SOURCE_DIR}/main.cpp
     ${SOURCE_DIR}/HelloTriangle.cpp  
-    ${SOURCE_DIR}/Buffer.cpp   
-    ${SOURCE_DIR}/CommandPool.cpp   
-    ${SOURCE_DIR}/LogicalDevice.cpp   
-    ${SOURCE_DIR}/PhysicalDevice.cpp   
-    ${SOURCE_DIR}/Pipeline.cpp   
 
-    ${SOURCE_DIR}/ContextController.cpp   
+    ${SOURCE_DIR}/vulkan/Buffer.cpp   
+    ${SOURCE_DIR}/vulkan/CommandPool.cpp   
+    ${SOURCE_DIR}/vulkan/LogicalDevice.cpp   
+    ${SOURCE_DIR}/vulkan/PhysicalDevice.cpp   
+    ${SOURCE_DIR}/vulkan/Pipeline.cpp   
+    ${SOURCE_DIR}/vulkan/ContextController.cpp   
+    ${SOURCE_DIR}/vulkan/Texture.cpp   
+    ${SOURCE_DIR}/vulkan/RenderPass.cpp   
+    ${SOURCE_DIR}/vulkan/SwapChain.cpp   
+    ${SOURCE_DIR}/vulkan/SyncObjects.cpp   
+    ${SOURCE_DIR}/vulkan/QueueFam.cpp   
+    ${SOURCE_DIR}/vulkan/Descriptor.cpp   
+    ${SOURCE_DIR}/vulkan/VulkanInstance.cpp
 
-    ${SOURCE_DIR}/Texture.cpp   
+    ${SOURCE_DIR}/render/VertexDescriptions.cpp   
+    ${SOURCE_DIR}/render/Renderer.cpp   
 
-    ${SOURCE_DIR}/RenderPass.cpp   
-    ${SOURCE_DIR}/SwapChain.cpp   
-    ${SOURCE_DIR}/SyncObjects.cpp   
-    ${SOURCE_DIR}/QueueFam.cpp   
-    ${SOURCE_DIR}/Uniforms.cpp   
-    ${SOURCE_DIR}/VertexDescriptions.cpp   
 
-    ${SOURCE_DIR}/VulkanInstance.cpp
-    ${SOURCE_DIR}/Texture.cpp
     ${THIRD_PARTY}/stb_image_loader.cpp
-
 )
 
 file(COPY ressources DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
@@ -51,6 +50,8 @@ target_include_directories(VulkanGLFWExample PRIVATE
 ${Vulkan_INCLUDE_DIRS} 
 ${GLFW_INCLUDE_DIRS}
 ${INCLUDE_DIR}
+${INCLUDE_DIR}/vulkan
+${INCLUDE_DIR}/render
 ${THIRD_PARTY})
 
 # Link libraries
