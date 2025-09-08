@@ -2,8 +2,9 @@
 
 #include "ContextController.h"
 
-void VulkanContext::initVulkanBase(GLFWwindow *window)
+void VulkanContext::initVulkanBase(GLFWwindow *window, ContextCreateInfo& info)
 {
+    mCreateInfo = info;
     mInstanceM.createInstance();
 
     mInstanceM.setupDebugMessenger();
