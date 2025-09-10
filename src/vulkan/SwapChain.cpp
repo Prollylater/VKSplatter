@@ -223,9 +223,16 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice log
   mSwapChainImageFormat = surfaceFormat;
 }
 
-void SwapChainManager::reCreateSwapChain(VkDevice device, VkPhysicalDevice physDevice, GLFWwindow *window, VkRenderPass renderPass, const DepthRessources &depthRess, uint32_t indice)
+void SwapChainManager::reCreateSwapChain(VkDevice device, VkPhysicalDevice physDevice, GLFWwindow *window, VkRenderPass renderPass, const GBuffers &depthRess, uint32_t indice)
 {
-  std::cout << "Recreato,g" << std::endl;
+  std::cout << "Recreatingg" << std::endl;
+  std::cout << "Recreatingg" << std::endl;
+  std::cout << "Recreatingg" << std::endl;
+  std::cout << "Recreatingg" << std::endl;
+  std::cout << "Recreatingg" << std::endl;
+  std::cout << "Recreatingg" << std::endl;
+  std::cout << "RecrWHICH SHOULD NOT BE CALLED RIGHT NOWeatingg" << std::endl;
+
   for (int i = currentFrame; i < mSChainImageViews.size(); i++)
   {
     getCurrentFrameData().mFramebuffer.destroyFramebuffers(device);
@@ -242,7 +249,7 @@ void SwapChainManager::reCreateSwapChain(VkDevice device, VkPhysicalDevice physD
   createImageViews(device);
   for (int i = currentFrame; i < mSChainImageViews.size(); i++)
   {
-    getCurrentFrameData().mFramebuffer.createFramebuffers(device, getSwapChainExtent(), {GetSwapChainImageViews()[i], depthRess.getView()}, renderPass);
+    //getCurrentFrameData().mFramebuffer.createFramebuffers(device, getSwapChainExtent(), {GetSwapChainImageViews()[i], depthRess.getView()}, renderPass);
     advanceFrame();
   }
   std::cout << "Recreato,ged" << std::endl;
@@ -349,7 +356,7 @@ void SwapChainManager::createFramesSetLayout(VkDevice device, const std::vector<
   std::vector<VkDescriptorPoolSize> poolSize;
   for (const auto &layout : layouts)
   {
-    //5 is just a magic number for a number that seemed "fine"
+    // 5 is just a magic number for a number that seemed "fine"
     poolSize.push_back({layout.descriptorType, 5});
   }
 
@@ -364,10 +371,23 @@ void SwapChainManager::createFramesSetLayout(VkDevice device, const std::vector<
   }
 }
 
-void SwapChainManager::createFrameSwapChainRessources(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass)
+void SwapChainManager::createFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass)
 {
 
+  for (int i = 0; i < mFramesData.size(); i++)
+  {
+    auto &frameBuffer = getCurrentFrameData().mFramebuffer;
+    const VkImageView imageView = GetSwapChainImageViews()[getCurrentFrameIndex()];
+
+    frameBuffer.createFramebuffers(device, mSwapChainExtent, attachments, renderPass);
+    advanceFrame();
+  }
+}
+
+void SwapChainManager::completeFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass)
+{
   std::vector<VkImageView> fbAttachments(1 + attachments.size());
+  //Copy from index 1 to end of the attachments
   std::copy(attachments.begin(), attachments.end(), fbAttachments.begin() + 1);
 
   for (int i = 0; i < mFramesData.size(); i++)
@@ -381,6 +401,7 @@ void SwapChainManager::createFrameSwapChainRessources(VkDevice device, const std
     advanceFrame();
   }
 }
+
 // This delete all frame dates including those used in Pipeline
 // Not too sure how many thing mifght need to be rebinded
 // Just don't use it for now
@@ -429,30 +450,51 @@ void SwapChainResources::destroyFramebuffers(VkDevice device)
   mFramebuffers.clear();
 }
 
-void DepthRessources::createDepthBuffer(const LogicalDeviceManager &logDeviceM,
-                                        const SwapChainManager &swapChain, const PhysicalDeviceManager &physDeviceM)
+void GBuffers::createGBuffers(
+    const LogicalDeviceManager &logDevice,
+    const PhysicalDeviceManager &physDevice,
+    const std::vector<VkFormat> &formats)
+{
+  gBuffers.reserve(formats.size());
+
+  for (auto format : formats)
+  {
+    vkUtils::Texture::ImageCreateConfig cfg{};
+    cfg.device = logDevice.getLogicalDevice();
+    cfg.physDevice = physDevice.getPhysicalDevice();
+    cfg.height = mSize.height;
+    cfg.width = mSize.width;
+    cfg.format = format;
+
+    //Notes that createImage has currently an hidden Transfer dst bit addition
+    cfg.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
+                VK_IMAGE_USAGE_STORAGE_BIT;
+                //VK_IMAGE_USAGE_SAMPLED_BIT;
+
+    gBuffers.push_back({});
+    gBuffers.back().createImage(cfg);
+    gBuffers.back().createImageView(cfg.device, VK_IMAGE_ASPECT_COLOR_BIT);
+  }
+  // Left by default as undefined, all transition are handled in shader
+}
+
+void GBuffers::createDepthBuffer(const LogicalDeviceManager &logDeviceM,
+                                 const PhysicalDeviceManager &physDeviceM, VkFormat format)
 {
   // Todo: compare with creating sampled image
-  mDepthFormat = physDeviceM.findDepthFormat();
-
-  bool hasStencil = (mDepthFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || mDepthFormat == VK_FORMAT_D24_UNORM_S8_UINT);
-
-  auto swapChainExtent = swapChain.getSwapChainExtent();
+  //mDepthFormat = physDeviceM.findDepthFormat();
+  bool hasStencil = (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT);
 
   vkUtils::Texture::ImageCreateConfig depthConfig;
   depthConfig.device = logDeviceM.getLogicalDevice();
   depthConfig.physDevice = physDeviceM.getPhysicalDevice();
-  depthConfig.imageMemory = mDepthMemory;
-  depthConfig.height = swapChainExtent.height;
-  depthConfig.width = swapChainExtent.width;
-  depthConfig.format = mDepthFormat;
-  depthConfig.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-  depthConfig.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+  depthConfig.height = mSize.height;
+  depthConfig.width = mSize.width;
+  depthConfig.format = format;
+  depthConfig.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-  mDepthImage = vkUtils::Texture::createImage(depthConfig);
-  mDepthMemory = depthConfig.imageMemory;
-  mDepthView = vkUtils::Texture::createImageView(logDeviceM.getLogicalDevice(), mDepthImage, mDepthFormat,
-                                                 VK_IMAGE_ASPECT_DEPTH_BIT);
+  gBufferDepth.createImage(depthConfig);
 
   const auto indices = physDeviceM.getIndices();
 
@@ -461,23 +503,67 @@ void DepthRessources::createDepthBuffer(const LogicalDeviceManager &logDeviceM,
   {
     imgAspectFlag |= VK_IMAGE_ASPECT_STENCIL_BIT;
   }
-  vkUtils::Texture::ImageTransition transitionObject = vkUtils::Texture::makeTransition(mDepthImage, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                                                        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, imgAspectFlag);
-  vkUtils::Texture::transitionImageLayout(transitionObject, logDeviceM, indices.graphicsFamily.value());
+  gBufferDepth.createImageView(depthConfig.device, imgAspectFlag);
+
+  // Left by default as undefined, all transition are handled in shader
+}
+void GBuffers::destroy(VkDevice device)
+{
+  for (auto &gBuffer : gBuffers)
+  {
+    gBuffer.destroyImage(device);
+  };
+
+  gBufferDepth.destroyImage(device);
 }
 
-void DepthRessources::destroyDepthBuffer(VkDevice device)
+VkExtent2D GBuffers::getSize() const
 {
-  if (mDepthImage != VK_NULL_HANDLE)
+  return mSize;
+};
+VkImage GBuffers::getColorImage(uint32_t index) const
+{
+  return gBuffers[index].getImage();
+};
+VkImage GBuffers::getDepthImage() const
+{
+  return gBufferDepth.getImage();
+};
+VkImageView GBuffers::getColorImageView(uint32_t index) const
+{
+  return gBuffers[index].getView();
+};
+VkImageView GBuffers::getDepthImageView() const
+{
+  return gBufferDepth.getView();
+};
+VkFormat GBuffers::getColorFormat(uint32_t index) const
+{
+  return gBuffers[index].getFormat();
+};
+VkFormat GBuffers::getDepthFormat() const
+{
+  return gBufferDepth.getFormat();
+};
+VkDescriptorImageInfo GBuffers::getGBufferDescriptor(uint32_t index) const
+{
+  return gBuffers[index].getDescriptor();
+};
+
+/*
+ void GBuffers::destroyDepthBuffer(VkDevice device)
   {
-    vkDestroyImageView(device, mDepthView, nullptr);
-    vkDestroyImage(device, mDepthImage, nullptr);
-    vkFreeMemory(device, mDepthMemory, nullptr);
-    mDepthView = VK_NULL_HANDLE;
-    mDepthImage = VK_NULL_HANDLE;
-    mDepthMemory = VK_NULL_HANDLE;
+    if (mDepthImage != VK_NULL_HANDLE)
+    {
+      vkDestroyImageView(device, mDepthView, nullptr);
+      vkDestroyImage(device, mDepthImage, nullptr);
+      vkFreeMemory(device, mDepthMemory, nullptr);
+      mDepthView = VK_NULL_HANDLE;
+      mDepthImage = VK_NULL_HANDLE;
+      mDepthMemory = VK_NULL_HANDLE;
+    }
   }
-}
+*/
 
 // Querying details of swap chain support
 

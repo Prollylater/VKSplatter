@@ -27,14 +27,14 @@ struct AttachmentConfig
     // Clear at render pass start
     VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     // Store after render pass
-
     VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    VkAttachmentLoadOp stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    VkAttachmentStoreOp stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkImageLayout finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // or SHADER_READ, etc.
 
-    VkImageLayout usedLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    // VkAttachmentLoadOp stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    // VkAttachmentStoreOp stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+    ////
 };
 
 struct SubpassConfig
@@ -45,14 +45,9 @@ struct SubpassConfig
         VkImageLayout layout;
     };
 
-    // indices into RenderPassConfig  attachment  which will translate to location
-    // std::vector<uint32_t> colorAttachments;
-    // int depthAttachment = -1;
-    // std::vector<uint32_t> inputAttachments;  // read-only attachments
-    // std::vector<uint32_t> resolveAttachments; // for MSAA resolve
     std::vector<AttachmentRef> colorAttachments;
     std::optional<AttachmentRef> depthAttachment;
-    std::vector<AttachmentRef> inputAttachments; // optional, for read-only
+    std::vector<AttachmentRef> inputAttachments;
     // std::vector<AttachmentRef> resolveAttachments; // for MSAA resolve
 };
 
@@ -64,6 +59,76 @@ struct RenderPassConfig
 
     bool enableDepth = true;
     bool enableMSAA = false;
+
+    std::vector<VkFormat> getAttachementsFormat()
+    {
+        std::vector<VkFormat> attachmentFormat(attachments.size());
+        for (const auto &attachment : attachments)
+        {
+            attachmentFormat.push_back(attachment.format);
+        }
+        return attachmentFormat;
+    }
+
+    RenderPassConfig &addAttachment(
+        VkFormat format,
+        VkImageLayout finalLayout,
+        VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_STORE)
+    {
+        attachments.push_back({.format = format,
+                               .samples = VK_SAMPLE_COUNT_1_BIT,
+                               .loadOp = loadOp,
+                               .storeOp = storeOp,
+                               .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                               .finalLayout = finalLayout});
+        return *this;
+    }
+
+    RenderPassConfig &addSubpass()
+    {
+        subpasses.emplace_back();
+        return *this;
+    }
+
+    RenderPassConfig &useColorAttachment(uint32_t index, VkImageLayout layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+    {
+        subpasses.back().colorAttachments.push_back({index, layout});
+        return *this;
+    }
+
+    RenderPassConfig &useDepthAttachment(uint32_t index, VkImageLayout layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+    {
+        subpasses.back().depthAttachment = SubpassConfig::AttachmentRef{index, layout};
+        return *this;
+    }
+
+    RenderPassConfig &addDependency(uint32_t srcSubpass, uint32_t dstSubpass,
+                                    VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage,
+                                    VkAccessFlags srcAccess, VkAccessFlags dstAccess)
+    {
+        VkSubpassDependency dep{};
+        dep.srcSubpass = srcSubpass;
+        dep.dstSubpass = dstSubpass;
+        dep.srcStageMask = srcStage;
+        dep.dstStageMask = dstStage;
+        dep.srcAccessMask = srcAccess;
+        dep.dstAccessMask = dstAccess;
+        dependencies.push_back(dep);
+        return *this;
+    }
+
+    static RenderPassConfig defaultForward(VkFormat colorFormat, VkFormat depthFormat)
+    {
+        RenderPassConfig defConfigRenderPass;
+        defConfigRenderPass.addAttachment(colorFormat, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
+            .addAttachment(depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE)
+            .addSubpass()
+            .useColorAttachment(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+            .useDepthAttachment(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+            .addDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+        return defConfigRenderPass;
+    }
 };
 
 /*
@@ -84,9 +149,18 @@ public:
 
     void destroyRenderPass(VkDevice device);
 
+    void initConfiguration(RenderPassConfig & config){
+        mConfiguration = config;
+    }
+    const RenderPassConfig &getConfiguration() const
+    {
+        return mConfiguration;
+    }
+
 private:
     VkDevice mDevice = VK_NULL_HANDLE;
     VkRenderPass mRenderPass = VK_NULL_HANDLE;
+    RenderPassConfig mConfiguration;
 };
 
 /*
@@ -120,7 +194,6 @@ namespace vkUtils
         {
 
             RenderPassConfig defConfigRenderPass;
-            // Define the Render Pass Config
 
             defConfigRenderPass.attachments.push_back({.format = swpachChainFormat,
                                                        .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -184,7 +257,7 @@ namespace vkUtils
                                                        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL});
 
             // Define the Render Pass Config
-            //Image must have been created with INputAttachemtnBit
+            // Image must have been created with INputAttachemtnBit
             defConfigRenderPass.attachments.push_back({.format = swpachChainFormat,
                                                        .samples = VK_SAMPLE_COUNT_1_BIT,
                                                        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,

@@ -8,6 +8,10 @@ Cleaning Image/Depth Stencil/Manually clean attachements
 void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
 {
     // Todo: Reintroduce this
+    std::cout<<"Recreated Swapchain" << std::endl;
+    std::cout<<"Recreated Swapchain" << std::endl;
+    std::cout<<"Recreated Swapchain" << std::endl;
+return;
     int width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
     while (width == 0 || height == 0)
@@ -21,7 +25,7 @@ void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
 
     // SwapChainDo you call vkQueuePresentKHR every frame with the image you acquired?
     mContext->mSwapChainM.reCreateSwapChain(device, mContext->mPhysDeviceM.getPhysicalDevice(), window,
-                                            mContext->mRenderPassM.getRenderPass(), mContext->mDepthRessources,
+                                            mContext->mRenderPassM.getRenderPass(), mContext->mGBuffers,
                                             mContext->mPhysDeviceM.getIndices().graphicsFamily.value());
 }
 

@@ -1,7 +1,7 @@
 
 #pragma once
 
-//SOme need stuff is removable
+// SOme need stuff is removable
 #include "VertexDescriptions.h"
 
 #include "VulkanInstance.h"
@@ -15,7 +15,6 @@
 #include "SyncObjects.h"
 #include "Buffer.h"
 
-
 // Todo: Which heap allocation are absolutely needed
 class VulkanContext
 {
@@ -27,14 +26,13 @@ public:
     VulkanInstanceManager mInstanceM;
     PhysicalDeviceManager mPhysDeviceM;
     LogicalDeviceManager mLogDeviceM;
-
     RenderPassManager mRenderPassM;
     PipelineManager mPipelineM;
     SwapChainManager mSwapChainM;
-    // SwapChainResources mSwapChainRess;
-    DepthRessources mDepthRessources;
-    const DepthRessources &getDepthResources() const { return mDepthRessources; }
-    DepthRessources &getDepthResources() { return mDepthRessources; }
+    GBuffers mGBuffers;
+
+    const GBuffers &getDepthResources() const { return mGBuffers; }
+    GBuffers &getDepthResources() { return mGBuffers; }
 
     // Todo: Buffer should not be kept
     std::vector<Buffer> mBufferM;

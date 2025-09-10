@@ -3,7 +3,6 @@
 #include "ContextController.h"
 #include "Texture.h"
 
-
 class Scene
 {
 public:
@@ -24,9 +23,16 @@ public:
     void initialize(VulkanContext &context)
     {
         mContext = &context;
-        //mContext->initRenderInfrastructure();
-        //mContext->initPipelineAndDescriptors();
+    }
 
+    // Todo: Not fan of this at all
+    // Separate Renderer Texture & Context Controller Texture ?
+    void deinit()
+    {
+        for (auto &texture : textures)
+        {
+            texture.destroyTexture(mContext->getLogicalDeviceManager().getLogicalDevice());
+        }
     }
 
     // WHo should actually handle this ?
@@ -49,5 +55,4 @@ private:
     Scene mScene;
     std::vector<MeshGPUResources> gpuMeshes;
     std::vector<Texture> textures;
-
 };

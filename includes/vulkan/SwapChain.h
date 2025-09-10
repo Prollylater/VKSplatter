@@ -38,26 +38,38 @@ private:
     std::vector<VkFramebuffer> mFramebuffers;
 };
 
-class DepthRessources
+
+// Move it Away
+#include "Texture.h"
+class GBuffers
 {
 public:
-    void createDepthBuffer(const LogicalDeviceManager &,
-                           const SwapChainManager &swapChain, const PhysicalDeviceManager &);
-    void destroyDepthBuffer(VkDevice);
-    VkImageView getView() const
-    {
-        return mDepthView;
-    };
-    VkFormat getFormat() const
-    {
-        return mDepthFormat;
-    };
+    void init(VkExtent2D size) {mSize = size;};
+    void createGBuffers(
+        const LogicalDeviceManager &logDevice,
+        const PhysicalDeviceManager &physDevice,
+        const std::vector<VkFormat> &formats);
+    void createDepthBuffer(const LogicalDeviceManager &, const PhysicalDeviceManager &, VkFormat format);
+    void destroy(VkDevice device);
 
+
+    VkExtent2D getSize() const;
+    VkImage getColorImage(uint32_t) const;
+    VkImage getDepthImage() const;
+    VkImageView getColorImageView(uint32_t) const;
+    VkImageView getDepthImageView() const;
+    VkFormat getColorFormat(uint32_t) const;
+    VkFormat getDepthFormat() const;
+    VkDescriptorImageInfo getGBufferDescriptor(uint32_t) const;
+
+   
 private:
-    VkImage mDepthImage = VK_NULL_HANDLE;
-    VkDeviceMemory mDepthMemory = VK_NULL_HANDLE;
-    VkImageView mDepthView = VK_NULL_HANDLE;
-    VkFormat mDepthFormat;
+    std::vector<Image> gBuffers{}; // Hold attachments for multiples usages
+    Image gBufferDepth{};          // Hold attachments for multiples usages
+    VkExtent2D mSize;
+
+    void destroyGBuffers(VkDevice);
+    void destroyDepthBuffer(VkDevice);
 };
 
 // Temp
@@ -99,7 +111,7 @@ public:
     VkSurfaceKHR GetSurface() const;
 
     void createSwapChain(VkPhysicalDevice device, VkDevice logicalDevice, GLFWwindow *window, const SwapChainConfig &config, const QueueFamilyIndices &indices);
-    void reCreateSwapChain(VkDevice device, VkPhysicalDevice physDevice, GLFWwindow *window, VkRenderPass renderPass, const DepthRessources &depthRess, uint32_t indice);
+    void reCreateSwapChain(VkDevice device, VkPhysicalDevice physDevice, GLFWwindow *window, VkRenderPass renderPass, const GBuffers &depthRess, uint32_t indice);
 
     void destroySwapChain(VkDevice logicalDevice);
 
@@ -140,8 +152,15 @@ public:
     void advanceFrame();
     void createFramesData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice, uint32_t framesInFlightCount);
     void createFramesSetLayout(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding> &layouts);
-    void createFrameSwapChainRessources(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass);
+    
+    //Pass the attachments and used them to create framebuffers
+    void createFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass);
 
+    //Misleading 
+    //This add before the framebuffer attachments images views of the swapchain then create framebuffers
+    void completeFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass);
+
+    
     void destroyFramesData(VkDevice device);
 
 private:

@@ -8,12 +8,11 @@ void VulkanContext::initVulkanBase(GLFWwindow *window, ContextCreateInfo &create
     mInstanceM.createInstance(createInfo.getVersionMajor(), createInfo.getVersionMinor(),
                               createInfo.getValidationLayers(), createInfo.getInstanceExtensions());
 
-
-    //Todo: Reread about the subject to understand why it was here
-    //Instance =/= DebugMessenge
+    // Todo: Reread about the subject to understand why it was here
+    // Instance =/= DebugMessenge
     mInstanceM.setupDebugMessenger();
 
-    // Surface 
+    // Surface
     mSwapChainM.createSurface(mInstanceM.getInstance(), window);
 
     // Physical Device
@@ -28,55 +27,60 @@ void VulkanContext::initVulkanBase(GLFWwindow *window, ContextCreateInfo &create
     // SwapChain
     mSwapChainM.createSwapChain(physDevice, device, window, createInfo.getSwapChainConfig(), indicesFamily);
     mSwapChainM.createImageViews(device);
-    
-    // Frame Ressources 
+
+    // Frame Ressources
     mSwapChainM.createFramesData(device, physDevice, indicesFamily.graphicsFamily.value(), createInfo.MAX_FRAMES_IN_FLIGHT);
 
-    //Initialize pipeline Cache
+    // Initialize pipeline Cache
     mPipelineM.initialize(device, "");
 }
 
-//Todo: Depth Ressource  + Textjre
-// Work on this
 void VulkanContext::initRenderInfrastructure()
 {
     std::cout << "initRenderInfrastructure" << std::endl;
 
     const VkDevice &device = mLogDeviceM.getLogicalDevice();
     const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
-    mDepthRessources.createDepthBuffer(mLogDeviceM, mSwapChainM, mPhysDeviceM);
+    mGBuffers.init(mSwapChainM.getSwapChainExtent());
 
-    // Defined the Render Pass Config
-    RenderPassConfig defConfigRenderPass = vkUtils::RenderPass::makeDefaultConfig(mSwapChainM.getSwapChainImageFormat().format,
-                                                                                  mDepthRessources.getFormat());
+    const VkFormat depthFormat = mPhysDeviceM.findDepthFormat();
+
+    // Defining the Render Pass Config as the config can have use in Pipeline Description
+    RenderPassConfig defConfigRenderPass = RenderPassConfig::defaultForward(mSwapChainM.getSwapChainImageFormat().format, depthFormat);
+    mRenderPassM.initConfiguration(defConfigRenderPass);
+
+    // Get the proper format
+    // std::vector<VkFormat> attachementFormat = defConfigRenderPass.getAttachementsFormat();
+    // mGBuffers.createGBuffers(mLogDeviceM, mPhysDeviceM, attachementFormat);
+    mGBuffers.createDepthBuffer(mLogDeviceM, mPhysDeviceM, depthFormat);
     mRenderPassM.createRenderPass(device, defConfigRenderPass);
-    mSwapChainM.createFrameSwapChainRessources(device,{mDepthRessources.getView()},mRenderPassM.getRenderPass());
+
+    // Store the Render Pass conifg ? It give access to multiple elment
+    mSwapChainM.completeFrameBuffers(device, {mGBuffers.getDepthImageView()}, mRenderPassM.getRenderPass());
 };
 
-void VulkanContext::initPipelineAndDescriptors(const PipelineLayoutDescriptor& layoutConfig ,VertexFlags flag)
+void VulkanContext::initPipelineAndDescriptors(const PipelineLayoutDescriptor &layoutConfig, VertexFlags flag)
 {
     std::cout << "initPipelineAndDescriptors" << std::endl;
 
     const VkDevice &device = mLogDeviceM.getLogicalDevice();
 
-    //Todo: Push it upward ?
     PipelineBuilder builder;
     builder.setShaders({vertPath, fragPath})
-    .setInputConfig({.vertexFormat = VertexFormatRegistry::getFormat(flag)}) 
-    .setRenderPass(mRenderPassM.getRenderPass());
-    //Todo:Not too sure of VertexFormatRegisty here
-    //Todo:Not too sure of VertexFormatRegisty here
-    //Todo:Not too sure of VertexFormatRegisty here
-//
+        .setInputConfig({.vertexFormat = VertexFormatRegistry::getFormat(flag)})
+        .setRenderPass(mRenderPassM.getRenderPass());
+    // Todo:Not too sure of VertexFormatRegisty here
+    // Todo:Not too sure of VertexFormatRegisty here
+    // Todo:Not too sure of VertexFormatRegisty here
+
     std::vector<VkDescriptorSetLayoutBinding> layoutBindings = layoutConfig.descriptorSetLayouts;
     mSwapChainM.createFramesSetLayout(device, layoutBindings);
 
     builder.setUniform({{mSwapChainM.getCurrentFrameData().mDescriptor.getDescriptorLat()},
-     layoutConfig.pushConstants});
+                        layoutConfig.pushConstants});
 
     mPipelineM.createPipelineWithBuilder(device, builder);
 };
-
 
 void VulkanContext::destroyAll()
 {
@@ -90,13 +94,13 @@ void VulkanContext::destroyAll()
         buffer.destroyBuffer();
     }
 
-    mDepthRessources.destroyDepthBuffer(device);
+    mGBuffers.destroy(device);
 
     // Important
     // Todo: Better deletion of frames data
     for (int i = 0; i < mSwapChainM.GetSwapChainImageViews().size(); i++)
     {
-        auto& frameData =  mSwapChainM.getCurrentFrameData();
+        auto &frameData = mSwapChainM.getCurrentFrameData();
         frameData.mFramebuffer.destroyFramebuffers(device);
         frameData.mDescriptor.destroyDescriptorLayout(device);
         frameData.mDescriptor.destroyDescriptorPool(device);

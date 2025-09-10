@@ -4,7 +4,8 @@
 #include "SwapChain.h"
 
 // TODO: Rethink how command are passed
-//Store laytour for given rendereingn post and pre renderpass  ?
+// Array untreated
+// Store laytour for given rendereingn post and pre renderpass  ?
 template <typename T>
 ImageData<T> LoadImageTemplate(
     const std::string &filepath,
@@ -47,7 +48,7 @@ ImageData<T> LoadImageTemplate(
     return {data, width, height, desired_channels ? desired_channels : channels};
 }
 
-void Image::createImage(VkDevice device, VkPhysicalDevice physDevice, vkUtils::Texture::ImageCreateConfig &config)
+void Image::createImage(vkUtils::Texture::ImageCreateConfig &config)
 {
     // Linear is better if we need to access ourself the texels
     mMipLevels = config.mipLevels;
@@ -55,9 +56,11 @@ void Image::createImage(VkDevice device, VkPhysicalDevice physDevice, vkUtils::T
     mDescriptor.imageLayout = config.initialLayout;
     mExtent = {config.width, config.height, config.depth};
     mArrayLayers = config.arrayLayers;
-    //  Necessary for blitting and thus for mimaping
-    config.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
+    // Todo: NOt sure if everything having thisis a good idea
+    //   Necessary for blitting and thus for mimaping
+    // Was used Mainly for texture
+  
     mImage = vkUtils::Texture::createImage(config);
     mImageMemory = config.imageMemory;
 }
@@ -85,7 +88,7 @@ void Image::createImage(VkDevice device, VkPhysicalDevice physDevice, VkExtent3D
                        : (extent.depth == 1)                     ? VK_IMAGE_TYPE_2D
                                                                  : VK_IMAGE_TYPE_3D;
 
-    createImage(device, physDevice, config);
+    createImage(config);
 }
 
 void Image::destroyImage(VkDevice device)
@@ -115,18 +118,19 @@ void Image::destroyImage(VkDevice device)
 // Todo: This helper should work with the already exiting value to infer the rest
 void Image::createImageSampler(VkDevice device, VkPhysicalDevice physDevice)
 {
-     mDescriptor.sampler = vkUtils::Texture::createSampler(device, physDevice, mMipLevels);
+    mDescriptor.sampler = vkUtils::Texture::createSampler(device, physDevice, mMipLevels);
 }
 
 // Todo: This helper should work with the already exiting value to infer the rest
-void Image::createImageView(VkDevice device)
+
+void Image::createImageView(VkDevice device, VkImageAspectFlags aspectflag)
 {
     // TOdo:Should also pass the Info or use a make config
     vkUtils::Texture::ImageViewCreateConfig config = {
         .device = device,
         .image = mImage,
-        .format = VK_FORMAT_R8G8B8A8_SRGB,
-        .aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
+        .format = mFormat,
+        .aspectFlags = aspectflag,
         .levelCount = mMipLevels};
     mDescriptor.imageView = vkUtils::Texture::createImageView(config);
     // Change nothing but that'as an example of usage.
@@ -148,7 +152,7 @@ void Image::transitionImage(VkImageLayout newlayout,
 // This should be removed
 void Texture::createTextureImageView(VkDevice device)
 {
-    mImage.createImageView(device);
+    mImage.createImageView(device, VK_IMAGE_ASPECT_COLOR_BIT);
 };
 
 // This should be removed
@@ -159,7 +163,7 @@ void Texture::createTextureSampler(VkDevice device, VkPhysicalDevice physDevice)
 
 // Look into what is necessary for Texture and not
 void Texture::createTextureImage(VkPhysicalDevice physDevice,
-                                 const LogicalDeviceManager &deviceM, const std::string& filepath,
+                                 const LogicalDeviceManager &deviceM, const std::string &filepath,
                                  const QueueFamilyIndices &indice)
 {
     ImageData<stbi_uc> textureData = LoadImageTemplate<stbi_uc>(filepath.c_str(), STBI_rgb_alpha);
@@ -180,11 +184,7 @@ void Texture::createTextureImage(VkPhysicalDevice physDevice,
                                VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     // Could we  just use the upload function ? CUrrenttly no as our upload also copy Buffer data
     vkUtils::BufferHelper::uploadBufferDirect(stagingBuffer.getMemory(), textureData.data, device, imageSize, 0);
-    // void *data;
-    // vkMapMemory(device, stagingBuffer.getMemory(), 0, imageSize, 0, &data);
-    // memcpy(data, textureData.data, static_cast<size_t>(imageSize));
-    // vkUnmapMemory(device, stagingBuffer.getMemory());
-
+  
     textureData.freeImage();
 
     // Texture is freed here, what is actually used in creation are the dimensions
@@ -193,13 +193,13 @@ void Texture::createTextureImage(VkPhysicalDevice physDevice,
     VkImage textureImg = mImage.getImage();
     // Todo: Find a better way to add this to the user option
 
-    mImage.transitionImage(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,VK_IMAGE_ASPECT_COLOR_BIT, deviceM,  indice.graphicsFamily.value());
+    mImage.transitionImage(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, deviceM, indice.graphicsFamily.value());
     vkUtils::Texture::copyBufferToImage(stagingBuffer.getBuffer(), textureImg, mImage.getExtent(), deviceM, indice);
 
     if (mImage.getMipLevels() == 1)
     {
 
-         mImage.transitionImage(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,VK_IMAGE_ASPECT_COLOR_BIT, deviceM,  indice.graphicsFamily.value());
+        mImage.transitionImage(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, deviceM, indice.graphicsFamily.value());
     }
     else
     {
@@ -320,11 +320,10 @@ namespace vkUtils
             {
                 throw std::runtime_error("failed to bind image memory!");
             }
-
             return image;
         }
 
-        //DeviceMemory of an IMage must be initialized with a config that has be tbrough this function
+        // DeviceMemory of an IMage must be initialized with a config that has be tbrough this function
         VkImage createImage(ImageCreateConfig &config)
         {
 
@@ -606,7 +605,7 @@ namespace vkUtils
             cmdPoolM.destroyCommandPool();
         }
 
-        //Very limited customization for now
+        // Very limited customization for now
         VkSampler createSampler(VkDevice device, VkPhysicalDevice physDevice, int mipmaplevel)
         {
             VkSampler sampler;

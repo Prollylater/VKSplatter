@@ -165,8 +165,9 @@ public:
     Image() = default;
     ~Image() = default;
 
+    //More specific version for quick mipmapped texture
     void createImage(VkDevice device, VkPhysicalDevice physDevice, VkExtent3D extent, uint32_t mipLevels);
-    void createImage(VkDevice device, VkPhysicalDevice physDevice, vkUtils::Texture::ImageCreateConfig &config);
+    void createImage( vkUtils::Texture::ImageCreateConfig &config);
 
     // Prefer this function as their is no way to impact descriptor otherwise
     void transitionImage(VkImageLayout newlayout,
@@ -174,7 +175,7 @@ public:
                          const LogicalDeviceManager &deviceM,
                          uint32_t queueIndice);
 
-    void createImageView(VkDevice device);
+    void createImageView(VkDevice device, VkImageAspectFlags aspectflag);
     void createImageSampler(VkDevice device, VkPhysicalDevice physDevice);
 
     void destroyImage(VkDevice device);

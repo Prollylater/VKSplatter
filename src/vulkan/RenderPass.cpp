@@ -17,8 +17,8 @@ void RenderPassManager::createRenderPass(VkDevice device, const RenderPassConfig
         description.samples = att.samples;
         description.loadOp = att.loadOp;
         description.storeOp = att.storeOp;
-        description.stencilLoadOp = att.stencilLoadOp;
-        description.stencilStoreOp = att.stencilStoreOp;
+        //description.stencilLoadOp = att.stencilLoadOp;
+        //description.stencilStoreOp = att.stencilStoreOp;
         description.initialLayout = att.initialLayout;
         description.finalLayout = att.finalLayout;
         attachments.push_back(description);
