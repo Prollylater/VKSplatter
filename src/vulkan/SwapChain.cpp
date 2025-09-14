@@ -352,11 +352,12 @@ void SwapChainManager::createFramesData(VkDevice device, VkPhysicalDevice physDe
 
 void SwapChainManager::createFramesSetLayout(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding> &layouts)
 {
-  // Todo: Allow more than 1 element down the road
+  // Todo: Allow more than 1 set per pool down the road
   std::vector<VkDescriptorPoolSize> poolSize;
   for (const auto &layout : layouts)
   {
-    // 5 is just a magic number for a number that seemed "fine"
+    //Todo:
+    // 5 is just a magic number for a number of uniform that seemed "fine"
     poolSize.push_back({layout.descriptorType, 5});
   }
 

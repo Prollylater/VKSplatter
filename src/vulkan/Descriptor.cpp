@@ -42,6 +42,9 @@ void DescriptorManager::createDescriptorPool(VkDevice device, uint32_t maxSets,
 void DescriptorManager::allocateDescriptorSets(VkDevice device, uint32_t setCount)
 {
   // Use two mDescriptorSetLayout to create two descirptor set
+  if(mDescriptorSetLayout == VK_NULL_HANDLE){
+    return;
+  }
   std::vector<VkDescriptorSetLayout> layouts(setCount, mDescriptorSetLayout);
 
   VkDescriptorSetAllocateInfo allocInfo{};
@@ -51,7 +54,6 @@ void DescriptorManager::allocateDescriptorSets(VkDevice device, uint32_t setCoun
   allocInfo.pSetLayouts = layouts.data();
 
   mDescriptorSets.resize(setCount);
-  // ContextVk::contextInfo.MAX_FRAMES_IN_FLIGHTs
   if (vkAllocateDescriptorSets(device, &allocInfo, mDescriptorSets.data()) != VK_SUCCESS)
   {
     throw std::runtime_error("failed to allocate descriptor sets!");

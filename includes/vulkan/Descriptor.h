@@ -79,6 +79,7 @@ public:
 
 private:
     VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
+    //TODO: Multiple mDescriptorSetLayout
     VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
     std::vector<VkDescriptorSet> mDescriptorSets;
 };
