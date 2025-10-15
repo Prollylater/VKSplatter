@@ -14,9 +14,10 @@ public:
     void createInstance(uint32_t majorVer, uint32_t minorVer, const std::vector<const char *> & validationLayers, const std::vector<const char *> & instanceExt);
     void destroyInstance();
 
-    VkInstance &getInstance();
-    VkInstance *getInstancePtr();
+    VkInstance getInstanceRaw();
+    vk::Instance getInstance();
 
+    
     //Todo:
     void setupDebugMessenger();
     
@@ -27,7 +28,9 @@ private:
 
     //Validation Layer
 
-    VkInstance mInstance = VK_NULL_HANDLE;
+    vk::raii::Context  mContext;
+    vk::raii::Instance mInstance{nullptr};
+    //VkInstance mInstance = VK_NULL_HANDLE;
     bool mEnabledValidationLayer = true;
 
 

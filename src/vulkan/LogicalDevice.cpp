@@ -2,13 +2,8 @@
 #include <set>
 
 void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices indices,
- const std::vector<const char *> & validationLayers, const DeviceSelectionCriteria& criteria)
+                                               const std::vector<const char *> &validationLayers, const DeviceSelectionCriteria &criteria)
 {
-    // Logical device manager get the name of it's corresponding physical device
-    // Reverse shoudl also be true
-
-    // You could use here the QueueFamilyIndices already existing or get a new one by passing the physmanager
-
     std::set<uint32_t> uniqueQueueFamilies;
     for (const auto &family : {
              indices.graphicsFamily,
@@ -28,34 +23,38 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
 
     for (uint32_t queueFamily : uniqueQueueFamilies)
     {
-        VkDeviceQueueCreateInfo queueCreateInfo{};
-        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueCreateInfo.queueFamilyIndex = queueFamily;
+        VkDeviceQueueCreateInfo queueCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = queueFamily,
+            .queueCount = 1,
+            .pQueuePriorities = &queuePriority,
+        };
         // Only a small number of queue by queue family and some may not support more
         // 1 is enough for now
-        // Todo: Think about this (Create Info ?)
-        queueCreateInfo.queueCount = 1;
-        queueCreateInfo.pQueuePriorities = &queuePriority;
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
-    // Todo: Explicit activation ?
-    VkPhysicalDeviceFeatures deviceFeatures{};
-    deviceFeatures.samplerAnisotropy = criteria.requireSamplerAnisotropy;
+    VkPhysicalDeviceVulkan13Features features13 = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    VkPhysicalDeviceFeatures2 deviceFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = &features13};
+    // vkGetPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures);
 
-    // Share idea of vk istance create info
-    // Device is then created using physicail device features and queue create
-    VkDeviceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    // Data and count probbly work together
-    createInfo.pQueueCreateInfos = queueCreateInfos.data();
-    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-    ;
-    createInfo.pEnabledFeatures = &deviceFeatures;
+    features13.dynamicRendering = criteria.requireDynamicRendering;
+    features13.synchronization2 = criteria.requireSynchronization2;
+    deviceFeatures.features.samplerAnisotropy = criteria.requireSamplerAnisotropy;
 
-    // Extension
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(criteria.deviceExtensions.size());
-    createInfo.ppEnabledExtensionNames = criteria.deviceExtensions.data();
+    VkDeviceCreateInfo createInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = &deviceFeatures,
+            .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
+        .pQueueCreateInfos = queueCreateInfos.data(),
+        //.pEnabledFeatures = &deviceFeatures,
+            .enabledExtensionCount = static_cast<uint32_t>(criteria.deviceExtensions.size()),
+        .ppEnabledExtensionNames = criteria.deviceExtensions.data()
+    };
 
     // ValidationLayer
     // Those are actually shared with instance validation layers in up to date vulkan standard
@@ -101,9 +100,9 @@ VkDevice LogicalDeviceManager::getLogicalDevice() const
 
 VkQueue LogicalDeviceManager::getQueue(uint32_t familyIndex, uint32_t queueIndex) const
 {
-        VkQueue queueRef;
-        // vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &queueRef);
-        return queueRef;
+    VkQueue queueRef;
+    // vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &queueRef);
+    return queueRef;
 }
 
 void LogicalDeviceManager::DestroyDevice()
@@ -128,7 +127,7 @@ Then during operation we have
 vkGetDeviceQueue() → retrieve the actual VkQueue handles from the logical device.
 */
 
-//Helper used for submiting to Frame GQueue
+// Helper used for submiting to Frame GQueue
 VkResult LogicalDeviceManager::submitFrameToGQueue(
     VkCommandBuffer cmdBuffer,
     VkSemaphore waitSemaphore,
@@ -139,7 +138,7 @@ VkResult LogicalDeviceManager::submitFrameToGQueue(
 
     std::vector<VkSemaphore> waitSemaphores = {waitSemaphore};
     // Wait for semaphore "confirmation" during the color stage after vertexshader
-    //Could be VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
+    // Could be VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
     std::vector<VkPipelineStageFlags> waitStages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
     std::vector<VkSemaphore> signalSemaphores = {signalSemaphore};

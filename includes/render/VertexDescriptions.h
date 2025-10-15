@@ -33,14 +33,19 @@ enum VertexFlags : uint32_t
 };
 
 // Namespace
+//Bindings: spacing between data and whether the data is per-vertex or per-instance (see instancing)
+
+
 inline VkVertexInputBindingDescription makeVtxInputBinding(
-    uint32_t binding, //Same opaque stuff designing "bugger"
+    uint32_t binding, //"Opaque Index of a Buffer More or less"
     uint32_t stride, //In binded vertex, after how many data we reach next object
     VkVertexInputRate inputRate = VK_VERTEX_INPUT_RATE_VERTEX);
     
+// Attribute descriptions: type of the attributes passed to the vertex shader,
+// which binding ("buffer") to load them from and at which offset
 inline VkVertexInputAttributeDescription makeVtxInputAttr(
     uint32_t location,
-    uint32_t binding,
+    uint32_t binding,//Design the buffer the Attributes is bound to
     VkFormat format,
     uint32_t offset);
 

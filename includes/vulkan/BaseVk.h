@@ -1,13 +1,26 @@
 #pragma once
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+// #define GLFW_INCLUDE_VULKAN
+#define GLFW_INCLUDE_NONE      // we include Vulkan ourselves
+#define VULKAN_HPP_RAII_ENABLE // enable RAII interface
+#define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_raii.hpp> // RAII C++ bindings
+#include <GLFW/glfw3.h>           // window + vk surface helpers
 
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
 #include <cstring>
 #include <vector>
-
+#include <vk_mem_alloc.h>
+/*
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+#include <span>
+#include <array>
+*/
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
@@ -31,12 +44,24 @@ struct DeviceSelectionCriteria
     bool requireTessellationShader = false;
     bool requireSamplerAnisotropy = true;
 
+    bool requireDynamicRendering = true;
+    bool requireSynchronization2 = true;
+
     // depth Clamp/vias/multiple viewports
     VkPhysicalDeviceType preferredType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
 
     std::vector<const char *> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        //VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+        //VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
+        //VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME
+        };
 
+    /*
+vk::KHRSpirv14ExtensionName,
+
+};
+    */
     // Todo: Implement builder here too
 };
 
@@ -108,7 +133,6 @@ public:
         "VK_LAYER_KHRONOS_validation"};
 
     std::vector<const char *> instanceExtensions;
-    
 
     bool enableValidationLayers =
 #ifndef NDEBUG
@@ -201,24 +225,6 @@ private:
 
 // Todo; Also Spir V reflect seem to the best way to go about this
 // Todo; Not sure about the position
-struct PipelineLayoutDescriptor
-{
-    std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayouts;
-    std::vector<VkPushConstantRange> pushConstants;
-
-    void addDescriptor(uint32_t location, VkDescriptorType type, VkShaderStageFlags stageFlag,  uint32_t count =1,
-                                 const VkSampler *sampler = nullptr)
-    {
-        descriptorSetLayouts.push_back({location, type, count, stageFlag, sampler});
-    }
-
-    void addPushConstant(VkShaderStageFlags stageFlag, uint32_t offset, uint32_t size)
-    {
-        pushConstants.push_back({stageFlag, offset, size});
-    }
-
-    
-};
 
 // Or have the setter being private only accessible
 

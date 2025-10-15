@@ -2,7 +2,6 @@
 
 #include "BaseVk.h"
 
-
 // Validation Layer Control
 bool checkValidationLayerSupport(const std::vector<const char *> validationsLayers)
 {
@@ -14,16 +13,11 @@ bool checkValidationLayerSupport(const std::vector<const char *> validationsLaye
 
     for (const char *layerName : validationsLayers)
     {
-        bool layerFound = false;
-
-        for (const auto &layerProperties : availableLayers)
-        {
-            if (strcmp(layerName, layerProperties.layerName) == 0)
-            {
-                layerFound = true;
-                break;
-            }
-        }
+        bool layerFound = std::any_of(availableLayers.begin(), availableLayers.end(),
+                                      [layerName](const VkLayerProperties &props)
+                                      {
+                                          return strcmp(props.layerName, layerName) == 0;
+                                      });
 
         if (!layerFound)
         {

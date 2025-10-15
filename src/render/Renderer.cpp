@@ -1,4 +1,6 @@
 #include "Renderer.h"
+#include "utils/PipelineHelper.h"
+#include "utils/RessourceHelper.h"
 
 /*
 Thing not implementend:
@@ -8,10 +10,10 @@ Cleaning Image/Depth Stencil/Manually clean attachements
 void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
 {
     // Todo: Reintroduce this
-    std::cout<<"Recreated Swapchain" << std::endl;
-    std::cout<<"Recreated Swapchain" << std::endl;
-    std::cout<<"Recreated Swapchain" << std::endl;
-return;
+    std::cout << "Recreated Swapchain" << std::endl;
+    std::cout << "Recreated Swapchain" << std::endl;
+    std::cout << "Recreated Swapchain" << std::endl;
+    return;
     int width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
     while (width == 0 || height == 0)
@@ -28,7 +30,6 @@ return;
                                             mContext->mRenderPassM.getRenderPass(), mContext->mGBuffers,
                                             mContext->mPhysDeviceM.getIndices().graphicsFamily.value());
 }
-
 
 void Renderer::registerSceneFormat()
 {
@@ -72,7 +73,7 @@ void Renderer::initSceneRessources()
     const LogicalDeviceManager &deviceM = mContext->getLogicalDeviceManager();
     const VkDevice &device = mContext->getLogicalDeviceManager().getLogicalDevice();
     auto &swapChainM = mContext->getSwapChainManager();
-   
+
     // Vertex Buffers
     // Index Buffers
     uploadScene();
@@ -107,7 +108,6 @@ void Renderer::initSceneRessources()
         frameData.mDescriptor.updateDescriptorSet(device, 0, writes);
         swapChainM.advanceFrame();
     }
-
 };
 
 void Renderer::uploadScene()
@@ -170,7 +170,8 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
     // Update Camera
     updateUniformBuffers(mContext->mSwapChainM.getSwapChainExtent());
 
-    recordCommandBuffer(imageIndex);
+    //recordCommandBuffer(imageIndex);
+    recordCommandBufferD(imageIndex);
 
     // Submit Info set up
     mContext->mLogDeviceM.submitFrameToGQueue(
@@ -276,3 +277,85 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
     commandPoolM.endRecord();
 }
 
+// Create Transitin based on renderpassinfo when possible
+
+void Renderer::recordCommandBufferD(uint32_t imageIndex)
+{
+    FrameResources &frameRess = mContext->getSwapChainManager().getCurrentFrameData();
+    auto &commandPoolM = frameRess.mCommandPool;
+
+    VkExtent2D frameExtent = mContext->mSwapChainM.getSwapChainExtent();
+    const VkCommandBuffer command = commandPoolM.get();
+    // Todo: Untie Frame Iamge and Other ?
+    const auto &images = mContext->mSwapChainM.GetSwapChainImages();
+
+    commandPoolM.beginRecord();
+
+    // Transition swapchain image to COLOR_ATTACHMENT_OPTIMAL for rendering
+    auto transObj = vkUtils::Texture::makeTransition(images[imageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    transObj.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    transObj.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    transObj.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    vkUtils::Texture::recordImageMemoryBarrier(command, transObj);
+    //  Transition
+  
+
+    vkCmdBeginRendering(command, &frameRess.mDynamicPassInfo.info);
+    vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, mContext->mPipelineM.getPipeline());
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(frameExtent.width);
+    viewport.height = static_cast<float>(frameExtent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(command, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = frameExtent;
+    vkCmdSetScissor(command, 0, 1, &scissor);
+
+    auto &uniqueMesh = gpuMeshes[0];
+    // Currently this is the vertexBuffer
+    VkBuffer vertexBuffers[] = {uniqueMesh.getStreamBuffer(0)};
+    // Currently this is the index Buffer
+    VkBuffer indexBuffer = uniqueMesh.getStreamBuffer(1);
+
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(command, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(command, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+    vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            mContext->mPipelineM.getPipelineLayout(), 0, 1,
+                            &frameRess.mDescriptor.getSet(0), 0,
+                            nullptr);
+
+    vkCmdPushConstants(command, mContext->mPipelineM.getPipelineLayout(),
+                       VK_SHADER_STAGE_VERTEX_BIT,
+                       0, sizeof(UniformBufferObject), frameRess.mCameraMapping);
+
+    size_t bufferSize = uniqueMesh.getStream(1).mView.mSize / sizeof(uint32_t);
+    vkCmdDrawIndexed(command, static_cast<uint32_t>(bufferSize), 1, 0, 0, 0);
+
+    vkCmdEndRendering(command);
+
+    // From here end the old ccode not using Render PAss
+    //  Transition
+    auto transObjb = vkUtils::Texture::makeTransition(images[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
+    transObjb.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    transObjb.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    transObj.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    transObj.dstAccessMask = 0;
+
+    vkUtils::Texture::recordImageMemoryBarrier(command, transObjb);
+
+    commandPoolM.endRecord();
+}
+
+
+
+/*
+*/

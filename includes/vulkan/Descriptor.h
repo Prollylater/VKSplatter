@@ -15,6 +15,8 @@
 // Use alignas
 #include <chrono>
 
+
+//REad on this VK_EXT_descriptor_indexing
 class DescriptorManager
 {
 public:
@@ -84,68 +86,6 @@ private:
     std::vector<VkDescriptorSet> mDescriptorSets;
 };
 
-namespace vkUtils
-{
-
-    namespace Descriptor
-    {
-        inline VkDescriptorSetLayoutBinding makeLayoutBinding(
-            uint32_t binding, VkDescriptorType type, VkShaderStageFlags stages, uint32_t count = 1)
-        {
-            VkDescriptorSetLayoutBinding layout{};
-            layout.binding = binding;
-            layout.descriptorType = type;
-            layout.descriptorCount = count;
-            layout.stageFlags = stages;
-            return layout;
-        }
-
-         inline VkPushConstantRange makePushConstantRange(
-            VkShaderStageFlags flag, uint32_t offset, uint32_t size)
-        {
-            VkPushConstantRange pushConstantRange{};
-            pushConstantRange.stageFlags = flag; 
-            pushConstantRange.offset = 0;
-            pushConstantRange.size = size; 
-            return pushConstantRange;
-        }
-
-        inline VkWriteDescriptorSet makeWriteDescriptor(
-            VkDescriptorSet dstSet, uint32_t binding, VkDescriptorType type,
-            const VkDescriptorBufferInfo *bufferInfo = nullptr,
-            const VkDescriptorImageInfo *imageInfo = nullptr)
-        {
-            VkWriteDescriptorSet write{};
-            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write.dstSet = dstSet;
-            // Beginnig element in Array (We may want to update only part of an Array)
-            // Not implemented yet
-            write.dstArrayElement = 0;
-            write.dstBinding = binding;
-            // Number of elements to update, in an array
-            write.descriptorCount = 1;
-            write.descriptorType = type;
-            write.pBufferInfo = bufferInfo;
-            write.pImageInfo = imageInfo;
-            write.pTexelBufferView = VK_NULL_HANDLE;
-
-            return write;
-        }
-
-    }
-};
-
-/*
-Multiple descriptor sets
-
-As some of the structures and function calls hinted at, it is actually
-possible to bind multiple descriptor sets simultaneously. You need to
-specify a descriptor layout for each descriptor set when creating the
-pipeline layout. Shaders can then reference specific descriptor sets like
-this:
-layout(set = 0, binding = 0) uniform UniformBufferObject { ... }
-
-*/
 
 /*
 SSSBO

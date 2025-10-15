@@ -40,6 +40,7 @@ public:
 
     void updateUniformBuffers(VkExtent2D swapChainExtent);
     void recordCommandBuffer(uint32_t imageIndex);
+    void recordCommandBufferD(uint32_t imageIndex);
 
     void drawFrame(bool framebufferResized, GLFWwindow *window);
 

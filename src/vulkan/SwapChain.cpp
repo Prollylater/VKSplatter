@@ -6,20 +6,10 @@
 #include "LogicalDevice.h"
 #include "PhysicalDevice.h"
 #include "CommandPool.h"
-
-/*
-//Shoudl stay with UBO since really onliy it use it
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-*/
+#include "utils/RessourceHelper.h"
 
 // Todo: Important consider manual transition of arrachement images when not Present and what it would mean
 // Todo: Reconsider how are used all std::runtimeError
-/////////////////////////////////
-//////////////////////////Surface
-/////////////////////////////////
 
 void SwapChainManager::createSurface(VkInstance instance, GLFWwindow *window)
 {
@@ -249,7 +239,7 @@ void SwapChainManager::reCreateSwapChain(VkDevice device, VkPhysicalDevice physD
   createImageViews(device);
   for (int i = currentFrame; i < mSChainImageViews.size(); i++)
   {
-    //getCurrentFrameData().mFramebuffer.createFramebuffers(device, getSwapChainExtent(), {GetSwapChainImageViews()[i], depthRess.getView()}, renderPass);
+    // getCurrentFrameData().mFramebuffer.createFramebuffers(device, getSwapChainExtent(), {GetSwapChainImageViews()[i], depthRess.getView()}, renderPass);
     advanceFrame();
   }
   std::cout << "Recreato,ged" << std::endl;
@@ -356,8 +346,8 @@ void SwapChainManager::createFramesSetLayout(VkDevice device, const std::vector<
   std::vector<VkDescriptorPoolSize> poolSize;
   for (const auto &layout : layouts)
   {
-    //Todo:
-    // 5 is just a magic number for a number of uniform that seemed "fine"
+    // Todo:
+    //  5 is just a magic number for a number of uniform that seemed "fine"
     poolSize.push_back({layout.descriptorType, 5});
   }
 
@@ -370,7 +360,67 @@ void SwapChainManager::createFramesSetLayout(VkDevice device, const std::vector<
     descriptor.allocateDescriptorSets(device, 1);
     advanceFrame();
   }
-}
+};
+
+void SwapChainManager::createFramesDynamicRenderingInfo(const RenderTargetConfig &cfg,
+                                                        const std::vector<VkImageView> &gbufferViews,
+                                                        VkImageView depthView)
+{
+
+  // This act as a complete since
+  for (int i = 0; i < mFramesData.size(); i++)
+  {
+    auto &frameData = getCurrentFrameData();
+    auto &renderColorInfos = frameData.mDynamicPassInfo.colorAttachments;
+    auto &renderDepthInfo = frameData.mDynamicPassInfo.depthAttachment;
+    auto &renderInfo = frameData.mDynamicPassInfo.info;
+
+    // Todo: Really confusing method
+    renderColorInfos.clear();
+    const VkImageView imageView = GetSwapChainImageViews()[getCurrentFrameIndex()];
+
+    // SwapChain image
+    VkRenderingAttachmentInfo swapchainColor;
+    swapchainColor = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+    swapchainColor.imageView = imageView;
+
+    swapchainColor.imageLayout = cfg.attachments[0].finalLayout; // target layout for rendering
+    swapchainColor.loadOp = cfg.attachments[0].loadOp;
+    swapchainColor.storeOp = cfg.attachments[0].storeOp;
+    swapchainColor.clearValue = {{0.2f, 0.2f, 0.2f, 1.0f}};
+    renderColorInfos.push_back(swapchainColor);
+
+    for (size_t i = 0; i < gbufferViews.size(); ++i)
+    {
+      VkRenderingAttachmentInfo colorInfo{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+      colorInfo.imageView = gbufferViews[i];
+      colorInfo.imageLayout = cfg.attachments[i + 1].finalLayout; // target layout for rendering
+      colorInfo.loadOp = cfg.attachments[i + 1].loadOp;
+      colorInfo.storeOp = cfg.attachments[i + 1].storeOp;
+      // colorInfo.clearValue = ... set per-pass per-frame
+      renderColorInfos.push_back(colorInfo);
+    }
+
+    if (cfg.enableDepth && depthView != VK_NULL_HANDLE)
+    {
+      renderDepthInfo = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+      renderDepthInfo.imageView = depthView;
+      renderDepthInfo.imageLayout = cfg.attachments.back().finalLayout;
+      renderDepthInfo.loadOp = cfg.attachments.back().loadOp;
+      renderDepthInfo.storeOp = cfg.attachments.back().storeOp;
+      renderDepthInfo.clearValue = {1.0f, 0};
+    }
+    // fill depth load/store...
+    renderInfo = {.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                  .renderArea = {.offset = {0, 0}, .extent = mSwapChainExtent},
+                  .layerCount = 1,
+                  .colorAttachmentCount = static_cast<uint32_t>(renderColorInfos.size()),
+                  .pColorAttachments = renderColorInfos.data(),
+                  .pDepthAttachment = cfg.enableDepth ? &renderDepthInfo : nullptr};
+    // Todo: set renderArea / layerCount / viewMask as needed
+    advanceFrame();
+  }
+};
 
 void SwapChainManager::createFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass)
 {
@@ -388,7 +438,7 @@ void SwapChainManager::createFrameBuffers(VkDevice device, const std::vector<VkI
 void SwapChainManager::completeFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass)
 {
   std::vector<VkImageView> fbAttachments(1 + attachments.size());
-  //Copy from index 1 to end of the attachments
+  // Copy from index 1 to end of the attachments
   std::copy(attachments.begin(), attachments.end(), fbAttachments.begin() + 1);
 
   for (int i = 0; i < mFramesData.size(); i++)
@@ -467,11 +517,11 @@ void GBuffers::createGBuffers(
     cfg.width = mSize.width;
     cfg.format = format;
 
-    //Notes that createImage has currently an hidden Transfer dst bit addition
+    // Notes that createImage has currently an hidden Transfer dst bit addition
     cfg.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
                 VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
                 VK_IMAGE_USAGE_STORAGE_BIT;
-                //VK_IMAGE_USAGE_SAMPLED_BIT;
+    // VK_IMAGE_USAGE_SAMPLED_BIT;
 
     gBuffers.push_back({});
     gBuffers.back().createImage(cfg);
@@ -484,7 +534,7 @@ void GBuffers::createDepthBuffer(const LogicalDeviceManager &logDeviceM,
                                  const PhysicalDeviceManager &physDeviceM, VkFormat format)
 {
   // Todo: compare with creating sampled image
-  //mDepthFormat = physDeviceM.findDepthFormat();
+  // mDepthFormat = physDeviceM.findDepthFormat();
   bool hasStencil = (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT);
 
   vkUtils::Texture::ImageCreateConfig depthConfig;

@@ -9,6 +9,10 @@
 #include "Buffer.h"
 #include "Descriptor.h"
 
+class RenderTargetConfig;
+
+#include "RenderPass.h"
+
 // Querying details of swap chain support
 // Structure used to query details of a swap chain support
 
@@ -38,20 +42,18 @@ private:
     std::vector<VkFramebuffer> mFramebuffers;
 };
 
-
 // Move it Away
 #include "Texture.h"
 class GBuffers
 {
 public:
-    void init(VkExtent2D size) {mSize = size;};
+    void init(VkExtent2D size) { mSize = size; };
     void createGBuffers(
         const LogicalDeviceManager &logDevice,
         const PhysicalDeviceManager &physDevice,
         const std::vector<VkFormat> &formats);
     void createDepthBuffer(const LogicalDeviceManager &, const PhysicalDeviceManager &, VkFormat format);
     void destroy(VkDevice device);
-
 
     VkExtent2D getSize() const;
     VkImage getColorImage(uint32_t) const;
@@ -61,11 +63,28 @@ public:
     VkFormat getColorFormat(uint32_t) const;
     VkFormat getDepthFormat() const;
     VkDescriptorImageInfo getGBufferDescriptor(uint32_t) const;
+    size_t colorBufferNb()
+    {
+        return gBuffers.size();
+    }
 
-   
+    std::vector<VkFormat> getAllFormats() const
+    {
+        std::vector<VkFormat> formats;
+
+        // Add formats for gBuffers
+        for (const auto &buffer : gBuffers)
+        {
+            formats.push_back(buffer.getFormat());
+        }
+
+        formats.push_back(gBufferDepth.getFormat());
+        return formats;
+    }
+
 private:
-    std::vector<Image> gBuffers{}; // Hold attachments for multiples usages
-    Image gBufferDepth{};          // Hold attachments for multiples usages
+    std::vector<Image> gBuffers{};
+    Image gBufferDepth{};
     VkExtent2D mSize;
 
     void destroyGBuffers(VkDevice);
@@ -80,6 +99,13 @@ struct UniformBufferObject
     glm::mat4 proj;
 };
 
+struct DynamicPassInfo
+{
+    VkRenderingInfo info;
+    std::vector<VkRenderingAttachmentInfo> colorAttachments;
+    VkRenderingAttachmentInfo depthAttachment;
+};
+
 struct FrameResources
 {
     CommandPoolManager mCommandPool;
@@ -88,6 +114,9 @@ struct FrameResources
     Buffer mCameraBuffer;
     void *mCameraMapping;
 
+    // Dynamic Rendering Path
+    DynamicPassInfo mDynamicPassInfo;
+    // Legacy
     SwapChainResources mFramebuffer;
 };
 
@@ -99,7 +128,6 @@ Framebuffers (point to swapchain + depth attachments, so must be rebuilt)
 Render pass (if its attachments depend on swapchain format/extent — often yes)
 Pipelines (if they use the swapchain extent for viewport/scissor baked into state)
 */
-
 class SwapChainManager
 {
 public:
@@ -152,15 +180,16 @@ public:
     void advanceFrame();
     void createFramesData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice, uint32_t framesInFlightCount);
     void createFramesSetLayout(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding> &layouts);
-    
-    //Pass the attachments and used them to create framebuffers
+    void createFramesDynamicRenderingInfo(const RenderTargetConfig &cfg,
+                                          const std::vector<VkImageView> &colorViews,
+                                          VkImageView depthView);
+    // Pass the attachments and used them to create framebuffers
     void createFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass);
 
-    //Misleading 
-    //This add before the framebuffer attachments images views of the swapchain then create framebuffers
+    // Misleading
+    // This add before the framebuffer attachments images views of the swapchain then create framebuffers
     void completeFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass);
 
-    
     void destroyFramesData(VkDevice device);
 
 private:

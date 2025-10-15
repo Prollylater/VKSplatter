@@ -12,27 +12,17 @@ void VulkanInstanceManager::createInstance(uint32_t majorVer, uint32_t minorVer,
         throw std::runtime_error("validation layers requested, but not available!");
     }
 
-    // Optional but potentially useful
-    VkApplicationInfo appInfo{};
-    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "Hello Triangle";
-    appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "No Engine";
-    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_0;
-
-    // Important
-    // Tell Vulkan driver which extensions and validation layers to use
-    VkInstanceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    createInfo.pApplicationInfo = &appInfo;
+    constexpr vk::ApplicationInfo appInfo{.pApplicationName = "Hello Triangle",
+                                          .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
+                                          .pEngineName = "No Engine",
+                                          .engineVersion = VK_MAKE_VERSION(1, 0, 0),
+                                          .apiVersion = VK_MAKE_VERSION(1, 4, 0)};
 
     // Extensions
-    //  fill extensioncount with the number of extensions required to interface with the window
-    // Fill glfwExtensions with them
     auto extensions = getRequiredInstanceExt();
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-    createInfo.ppEnabledExtensionNames = extensions.data();
+
+    // Tell Vulkan driver which extensions and validation layers to use
+    vk::InstanceCreateInfo createInfo{.pApplicationInfo = &appInfo, .enabledExtensionCount = extensions.size(), .ppEnabledExtensionNames = extensions.data()};
 
     // Additional debug utils for creation and destroy
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
@@ -40,7 +30,6 @@ void VulkanInstanceManager::createInstance(uint32_t majorVer, uint32_t minorVer,
     // Global validation Layers
     if (mEnabledValidationLayer)
     {
-
         createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
         createInfo.ppEnabledLayerNames = validationLayers.data();
         populateDebugMessengerCreateInfo(debugCreateInfo);
@@ -52,36 +41,25 @@ void VulkanInstanceManager::createInstance(uint32_t majorVer, uint32_t minorVer,
         createInfo.enabledLayerCount = 0;
     }
 
-    VkResult result = vkCreateInstance(&createInfo, nullptr, &mInstance);
-
-    if (result != VK_SUCCESS)
-    {
-        std::cerr << "vkCreateInstance failed with error code: " << result << std::endl;
-        throw std::runtime_error("failed to create instance!");
-    }
+    mInstance = vk::raii::Instance(mContext, createInfo);
 };
 
 void VulkanInstanceManager::destroyInstance()
 {
-
     if (mEnabledValidationLayer)
     {
-        DestroyDebugUtilsMessengerEXT(mInstance, debugMessenger, nullptr);
-    }
-    if (mInstance != VK_NULL_HANDLE)
-    {
-        vkDestroyInstance(mInstance, nullptr);
-        mInstance = VK_NULL_HANDLE;
+        DestroyDebugUtilsMessengerEXT(*mInstance, debugMessenger, nullptr);
     }
 };
 
-VkInstance &VulkanInstanceManager::getInstance()
+VkInstance VulkanInstanceManager::getInstanceRaw()
 {
-    return mInstance;
+    return static_cast<VkInstance>(*mInstance);
 };
-VkInstance *VulkanInstanceManager::getInstancePtr()
+
+vk::Instance VulkanInstanceManager::getInstance()
 {
-    return &mInstance;
+    return *mInstance;
 };
 
 // Extensions
@@ -96,14 +74,11 @@ std::vector<const char *> VulkanInstanceManager::getRequiredInstanceExt()
     // Similar to const char*[] and const char**
     std::vector<const char *> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
-    std::cout << "Adding VK_EXT_DEBUG_UTILS_EXTENSION_NAME extensions" << std::endl;
-
     if (mEnabledValidationLayer)
     {
         std::cout << "Added VK_EXT_DEBUG_UTILS_EXTENSION_NAME extensions" << std::endl;
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
-
     return extensions;
 }
 
@@ -112,13 +87,15 @@ bool VulkanInstanceManager::checkExtensionsSupport()
     // Additonal test
     // Can't get both elements at the same time
     uint32_t extensionCount = 0;
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-    std::vector<VkExtensionProperties> extensions(extensionCount);
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
+    // Todo : Directly use Context
+    auto extensionProperties = mContext.enumerateInstanceExtensionProperties();
+    // vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+    // std::vector<VkExtensionProperties> extensions(extensionCount);
+    // vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
 
     std::cout << "available extensions: " << extensionCount << " \n ";
 
-    for (const auto &extension : extensions)
+    for (const auto &extension : extensionProperties)
     {
         std::cout << '\t' << extension.extensionName << '\n';
     }
@@ -138,9 +115,6 @@ VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: Informational message like the cre
 VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: Message about behavior that is not necessarily an error, but very likely a bug in your application
 VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: Message about behavior that is invalid and may cause crashes
 
-
-//
-messageType parameter can have the following values:
 VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT: Some event has happened that is unrelated to the specification or performance
 VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT: Something has happened that violates the specification or indicates a possible mistake
 VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT: Potential non-optimal use of Vulkans
@@ -157,7 +131,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
     void *pUserData)
 {
-
     std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
     // Return true == Abort call that triggered this
     return VK_FALSE;
@@ -175,7 +148,7 @@ void VulkanInstanceManager::setupDebugMessenger()
     {
         VkDebugUtilsMessengerCreateInfoEXT createInfo;
         populateDebugMessengerCreateInfo(createInfo);
-        if (CreateDebugUtilsMessengerEXT(mInstance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
+        if (CreateDebugUtilsMessengerEXT(*mInstance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to set up debug messenger!");
         }

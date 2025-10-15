@@ -5,7 +5,7 @@
 
 void PhysicalDeviceManager::pickPhysicalDevice(VkInstance instance, const SwapChainManager &swapManager, const DeviceSelectionCriteria& criteria)
 {
-    uint32_t deviceCount = 0;
+    uint32_t deviceCount;
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
     if (deviceCount == 0)
@@ -73,21 +73,12 @@ bool PhysicalDeviceManager::areRequiredExtensionsSupported(VkPhysicalDevice devi
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
     std::unordered_set<std::string> requiredExtensions;
-    for (const auto &ext : availableExtensions)
-    {
-        requiredExtensions.insert(ext.extensionName);
+    // Erase the available extensions from the required set
+    for (const auto& extension : availableExtensions) {
+        requiredExtensions.erase(extension.extensionName);
     }
 
-    // If one required is not found early exist
-    for (const auto &required : deviceExtensions)
-    {
-        if (requiredExtensions.find(required) == requiredExtensions.end())
-        {
-            return false;
-        }
-    }
-
-    return true;
+    return requiredExtensions.empty();
 }
 
 int PhysicalDeviceManager::rateDeviceSuitability(VkPhysicalDevice device, const SwapChainManager &swapManager, const DeviceSelectionCriteria& criteria)
@@ -96,27 +87,21 @@ int PhysicalDeviceManager::rateDeviceSuitability(VkPhysicalDevice device, const 
 
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
-    VkPhysicalDeviceFeatures deviceFeatures;
-    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
-
-    /*
-    if (!deviceFeatures.geometryShader || !deviceFeatures.tessellationShader || !deviceFeatures.samplerAnisotropy)
-    {
-        return 0;
-    }*/
+    VkPhysicalDeviceFeatures2 deviceFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+    vkGetPhysicalDeviceFeatures2(device, &deviceFeatures);
 
     // Must-have features
-    if (criteria.requireGeometryShader && !deviceFeatures.geometryShader)
+    if (criteria.requireGeometryShader && !deviceFeatures.features.geometryShader)
     {
         return 0;
     }
 
     //Other features
-    if (criteria.requireTessellationShader && !deviceFeatures.tessellationShader)
+    if (criteria.requireTessellationShader && !deviceFeatures.features.tessellationShader)
     {
         return 0;
     }
-    if (criteria.requireSamplerAnisotropy && !deviceFeatures.samplerAnisotropy)
+    if (criteria.requireSamplerAnisotropy && !deviceFeatures.features.samplerAnisotropy)
     {
         return 0;
     }

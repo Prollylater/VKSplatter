@@ -59,11 +59,6 @@ private:
     std::vector<AttributeStream> mStreams;
 };
 
-///////////////////////////////////
-// Buffer
-///////////////////////////////////
-
-uint32_t findMemoryType(const VkPhysicalDevice &device, uint32_t memoryTypeBitsRequirement, const VkMemoryPropertyFlags &requiredProperties);
 
 // A class for holding a buffer (principally for Mesh)
 
@@ -137,62 +132,3 @@ public:
 // Additions
 // Not sure how much use we have of this but
 // But since we use exclusive sharing mode by default
-
-namespace vkUtils
-{
-    namespace BufferHelper
-    {
-        // Buffer View can be recreated even after Buffer has been deleted
-        inline VkBufferView createBufferView(VkDevice device, VkBuffer buffer, VkFormat format, VkDeviceSize offset, VkDeviceSize size = VK_WHOLE_SIZE);
-        ///////////////////////////////////////////////////////////////////
-        ////////////////////////Creation utility///////////////////////////
-        ///////////////////////////////////////////////////////////////////
-
-        ///////////////////////////////////////////////////////////////////
-        ////////////////////////Memory Barrier utility///////////////////////////
-        ///////////////////////////////////////////////////////////////////
-
-        struct BufferTransition
-        {
-            VkBuffer buffer = VK_NULL_HANDLE;
-            VkAccessFlags srcAccessMask = 0;
-            VkAccessFlags dstAccessMask = 0;
-            VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-            VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-            VkDeviceSize offset = 0;
-            VkDeviceSize size = VK_WHOLE_SIZE;
-        };
-
-        // Rename to insert memory Barrier
-        void transitionBuffer(
-            const BufferTransition &transitionObject,
-            const LogicalDeviceManager &deviceM,
-            uint32_t indice);
-
-        /////////////////////////////////////////////////
-        /////////////////Recording Utility///////////////
-        /////////////////////////////////////////////////
-
-        inline void recordCopy(VkCommandBuffer cmdBuffer,
-                               VkBuffer srcBuffer,
-                               VkBuffer dstBuffer,
-                               VkDeviceSize size,
-                               VkDeviceSize srcOffset,
-                               VkDeviceSize dstOffset);
-
-        void copyBufferTransient(VkBuffer srcBuffer, VkBuffer dstBuffer,
-                                 VkDeviceSize size,
-                                 const LogicalDeviceManager &deviceM,
-                                 uint32_t indice,
-                                 VkDeviceSize srcOffset = 0,
-                                 VkDeviceSize dstOffset = 0);
-
-        void uploadBufferDirect(
-            VkDeviceMemory bufferMemory,
-            const void *data,
-            VkDevice device,
-            VkDeviceSize size,
-            VkDeviceSize dstOffset);
-    }
-
-}
