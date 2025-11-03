@@ -26,26 +26,25 @@ enum VertexFlags : uint32_t
     Vertex_Pos = 1 << 0,
     Vertex_Normal = 1 << 1,
     Vertex_UV = 1 << 2,
-    //Unecessary
+    // Unecessary
     Vertex_Color = 1 << 3,
     Vertex_Indices = 1 << 4,
 
 };
 
 // Namespace
-//Bindings: spacing between data and whether the data is per-vertex or per-instance (see instancing)
-
+// Bindings: spacing between data and whether the data is per-vertex or per-instance (see instancing)
 
 inline VkVertexInputBindingDescription makeVtxInputBinding(
     uint32_t binding, //"Opaque Index of a Buffer More or less"
-    uint32_t stride, //In binded vertex, after how many data we reach next object
+    uint32_t stride,  // In binded vertex, after how many data we reach next object
     VkVertexInputRate inputRate = VK_VERTEX_INPUT_RATE_VERTEX);
-    
+
 // Attribute descriptions: type of the attributes passed to the vertex shader,
 // which binding ("buffer") to load them from and at which offset
 inline VkVertexInputAttributeDescription makeVtxInputAttr(
     uint32_t location,
-    uint32_t binding,//Design the buffer the Attributes is bound to
+    uint32_t binding, // Design the buffer the Attributes is bound to
     VkFormat format,
     uint32_t offset);
 
@@ -112,50 +111,6 @@ struct VertexHash
     }
 };
 
-struct Mesh
-{
-    std::vector<glm::vec3> positions;
-    std::vector<glm::vec3> normals;
-    std::vector<glm::vec2> uvs;
-    std::vector<glm::vec3> colors;
-    std::vector<uint32_t> indices;
-
-    VertexFlags inputFlag;
-    // VkBuffer vertexBuffer
-    // VkBuffer indexBuffer;
-    // uint32_t indexCount;
-    // int textureIndex;
-
-    size_t vertexCount() const
-    {
-        return positions.size(); // assume others match or are empty
-    }
-
-    const VertexFormat &getFormat() const
-    {
-        return VertexFormatRegistry::getFormat(inputFlag);
-    }
-
-    const VertexFlags &getflag() const
-    {
-        return inputFlag;
-    }
-
-    bool validateMesh(VertexFlags flags)
-    {
-        size_t count = positions.size();
-        if ((flags & Vertex_Normal) && normals.size() != count)
-            return false;
-        if ((flags & Vertex_Color) && colors.size() != count)
-            return false;
-        if ((flags & Vertex_UV) && uvs.size() != count)
-            return false;
-        return true;
-    }
-
-    void loadModel(std::string);
-};
-
 // Vertex Data used for creation
 struct VertexBufferData
 {
@@ -168,6 +123,22 @@ struct VertexBufferData
 VertexBufferData buildInterleavedVertexBuffer(const std::vector<Mesh> &meshes, const VertexFormat &format);
 VertexBufferData buildSeparatedVertexBuffers(const Mesh &mesh, const VertexFormat &format);
 VertexBufferData buildInterleavedVertexBuffer(const Mesh &mesh, const VertexFormat &format);
+
+inline uint32_t calculateVertexStride(VertexFlags flags)
+{
+    uint32_t stride = 0;
+
+    if (flags & Vertex_Pos)
+        stride += sizeof(glm::vec3);
+    if (flags & Vertex_Normal)
+        stride += sizeof(glm::vec3);
+    if (flags & Vertex_UV)
+        stride += sizeof(glm::vec2);
+    if (flags & Vertex_Color)
+        stride += sizeof(glm::vec3);
+
+    return stride;
+}
 
 /////////////////////////////////////////////////::
 /*

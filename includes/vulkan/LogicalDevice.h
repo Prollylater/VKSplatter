@@ -2,10 +2,11 @@
 #include "BaseVk.h"
 #include "QueueFam.h"
 
+#include <functional>
 ///////////////////////////////////
 // Physical device handling
 ///////////////////////////////////
-
+class CommandPoolManager;
 /*
 
 Modify QueueFamilyIndices and findQueueFamilies to explicitly look for a queue family with the VK_QUEUE_TRANSFER_BIT bit, but not the VK_QUEUE_GRAPHICS_BIT.
@@ -23,6 +24,10 @@ public:
 
     void createLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices indices, const std::vector<const char *> &validationLayers, const DeviceSelectionCriteria &criteria);
     VkDevice getLogicalDevice() const;
+    void createVmaAllocator(VkPhysicalDevice physicalDevice, VkInstance instance);
+    VmaAllocator getVmaAllocator() const;
+    void destroyVmaAllocator();
+
     void DestroyDevice();
 
     VkQueue getGraphicsQueue() const { return mGraphicsQueue; }
@@ -33,6 +38,13 @@ public:
     VkQueue getQueue(uint32_t familyIndex, uint32_t queueIndex = 0) const;
 
     // Todo: Move higher to renderer or so on
+    VkResult immediateSubmit(CommandPoolManager &poolCmd,
+                             std::function<void(VkCommandBuffer)> recordFunction,
+                             VkQueue queue,
+                             VkSemaphore waitSemaphore,
+                             VkSemaphore signalSemaphore,
+                             VkFence fence);
+
     VkResult submitFrameToGQueue(
         VkCommandBuffer cmdBuffers,
         VkSemaphore waitSemaphores,
@@ -49,6 +61,14 @@ public:
         const std::vector<VkSemaphore> &signalSemaphores,
         VkFence fence = VK_NULL_HANDLE);
 
+    VkResult submit2ToQueue(
+        VkQueue queue,
+        const std::vector<VkCommandBuffer> &cmdBuffers,
+        const std::vector<VkSemaphore> &waitSemaphores,
+        const std::vector<VkPipelineStageFlags> &waitStages,
+        const std::vector<VkSemaphore> &signalSemaphores,
+        VkFence fence);
+        
     VkResult waitForQueueIdle(VkQueue queue)
     {
         return vkQueueWaitIdle(queue);
@@ -71,6 +91,8 @@ private:
     // Dedicated Queue for asynchronicity if needed
     VkQueue mComputeQueue = VK_NULL_HANDLE;
     VkQueue mTransferQueue = VK_NULL_HANDLE;
+
+    VmaAllocator mVmaAllocator;
 
     // User defined Queue ?
 };

@@ -10,6 +10,7 @@ find_package(Vulkan REQUIRED)
 # GLFW setup
 find_package(glfw3 REQUIRED)
 
+
 set(SOURCE_DIR src)
 set(INCLUDE_DIR includes)
 set(THIRD_PARTY thirdparty)
@@ -18,6 +19,13 @@ set(THIRD_PARTY thirdparty)
 set(SOURCES
     ${SOURCE_DIR}/main.cpp
     ${SOURCE_DIR}/HelloTriangle.cpp  
+
+    ${SOURCE_DIR}/scene/Camera.cpp   
+    ${SOURCE_DIR}/scene/Drawable.cpp   
+    ${SOURCE_DIR}/scene/Material.cpp   
+    ${SOURCE_DIR}/scene/Mesh.cpp   
+    ${SOURCE_DIR}/scene/Scene.cpp   
+
 
     ${SOURCE_DIR}/vulkan/Buffer.cpp   
     ${SOURCE_DIR}/vulkan/CommandPool.cpp   
@@ -33,12 +41,18 @@ set(SOURCES
     ${SOURCE_DIR}/vulkan/Descriptor.cpp   
     ${SOURCE_DIR}/vulkan/VulkanInstance.cpp
 
+    ${SOURCE_DIR}/render/RenderQueue.cpp   
+    ${SOURCE_DIR}/render/RessourcesGPU.cpp   
     ${SOURCE_DIR}/render/VertexDescriptions.cpp   
     ${SOURCE_DIR}/render/Renderer.cpp   
 
+    ${SOURCE_DIR}/vulkan/utils/RessourceHelper.cpp   
+    ${SOURCE_DIR}/vulkan/utils/PipelineHelper.cpp   
 
     ${THIRD_PARTY}/stb_image_loader.cpp
+    ${THIRD_PARTY}/vkmaUsage.cpp
 )
+
 
 file(COPY ressources DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -52,10 +66,11 @@ ${GLFW_INCLUDE_DIRS}
 ${INCLUDE_DIR}
 ${INCLUDE_DIR}/vulkan
 ${INCLUDE_DIR}/render
+${INCLUDE_DIR}/scene
 ${THIRD_PARTY})
 
 # Link libraries
-#set(LINK_LIBS${Vulkan_LIBRARIES}     glfw)
+#set(LINK_LIBS${Vulkan_LIBRARIES} glfw)
 
 
 # Link libraries

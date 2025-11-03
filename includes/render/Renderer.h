@@ -1,16 +1,12 @@
 #pragma once
 
 #include "ContextController.h"
-#include "Texture.h"
 
-class Scene
-{
-public:
-    std::vector<Mesh> meshes;
-    // std::vector<Material> materials;
-    // std::vector<Textures> Textures;
-    // std::vector<Lights> lights;
-};
+#include "Scene.h"
+#include "RenderQueue.h"
+#include "SwapChain.h"
+
+
 
 class Renderer
 {
@@ -18,42 +14,40 @@ public:
     Renderer() = default;
     ~Renderer() = default;
 
-    // Todo: This can be brittle, something should make it clear if not associated
     // It could also do more work ?
     void initialize(VulkanContext &context)
     {
+        //Todo: Pass the context rather than injecting it
         mContext = &context;
     }
 
-    // Todo: Not fan of this at all
-    // Separate Renderer Texture & Context Controller Texture ?
-    void deinit()
-    {
-        for (auto &texture : textures)
-        {
-            texture.destroyTexture(mContext->getLogicalDeviceManager().getLogicalDevice());
-        }
-    }
-
-    // WHo should actually handle this ?
-    void recreateSwapChain(VkDevice device, GLFWwindow *window);
-
+  
     void updateUniformBuffers(VkExtent2D swapChainExtent);
     void recordCommandBuffer(uint32_t imageIndex);
     void recordCommandBufferD(uint32_t imageIndex);
 
     void drawFrame(bool framebufferResized, GLFWwindow *window);
 
-    void registerSceneFormat();
-
     void uploadScene();
     void initSceneRessources();
-
+    void deinitSceneRessources();
     VertexFlags flag;
 
 private:
     VulkanContext *mContext;
     Scene mScene;
-    std::vector<MeshGPUResources> gpuMeshes;
-    std::vector<Texture> textures;
+    RenderQueue renderQueue;
+    std::vector<MeshGPU> gpuMeshes;
 };
+
+/*
+for (const Drawable* draw : renderQueue.getDrawables()) {
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw->material->pipeline);
+    vkCmdBindDescriptorSets(cmd, ... draw->material->descriptorSets ...);
+    vkCmdBindVertexBuffers(cmd, 0, 1, &draw->mesh->getStreamBuffer(0), offsets);
+    vkCmdBindIndexBuffer(cmd, draw->mesh->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &draw->transform);
+    vkCmdDrawIndexed(cmd, draw->mesh->indexCount, 1, 0, 0, 0);
+}
+
+*/

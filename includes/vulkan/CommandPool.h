@@ -16,7 +16,8 @@ enum class CommandPoolType
     Free
 };
 
-enum class CmdBufferType {
+enum class CmdBufferType
+{
     Primary,
     Secondary
 };
@@ -28,7 +29,7 @@ public:
     CommandPoolManager() = default;
 
     // QueueFamilyIndices queueFamilyIndices
-    void createCommandPool(VkDevice device, CommandPoolType type, uint32_t familyIndex); 
+    void createCommandPool(VkDevice device, CommandPoolType type, uint32_t familyIndex);
 
     void createCommandBuffers(size_t nbBuffers);
 
@@ -38,14 +39,14 @@ public:
 
     void destroyCommandPool();
 
-    // Only available for transient
-
-    void beginRecord( uint32_t index = 0,VkCommandBufferUsageFlags flags = 0,
-        CmdBufferType bufferType = CmdBufferType::Primary,
-        VkCommandBufferInheritanceInfo* inheritance = nullptr);
+    void beginRecord(uint32_t index = 0, VkCommandBufferUsageFlags flags = 0,
+                     CmdBufferType bufferType = CmdBufferType::Primary,
+                     VkCommandBufferInheritanceInfo *inheritance = nullptr);
 
     void endRecord(uint32_t index = 0);
 
+    //Todo: For VkQUee Submit
+    VkCommandBufferSubmitInfo getCmdSubmitInfo(int bufferIndex = 0, uint32_t deviceMask = 0);
     // Transient helpers
     VkCommandBuffer beginSingleTime();
 
@@ -55,8 +56,8 @@ public:
 
     // This does not check if the buffeer was actually allocated hree
     void freeBuffer(VkCommandBuffer commandBuffer);
-    VkCommandBuffer get(int index = 0) const ;
-    VkCommandBuffer *getCmdBufferHandle(int index = 0) ;
+    VkCommandBuffer get(int index = 0) const;
+    VkCommandBuffer *getCmdBufferHandle(int index = 0);
 
 private:
     VkDevice mDevice = VK_NULL_HANDLE;

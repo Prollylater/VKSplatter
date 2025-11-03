@@ -136,7 +136,7 @@ int PhysicalDeviceManager::rateDeviceSuitability(VkPhysicalDevice device, const 
     }
 
     score += deviceProperties.limits.maxImageDimension2D;
-
+    //score += max DescriptorPool sets; ?
     return score;
 }
 

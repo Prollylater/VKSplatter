@@ -1,6 +1,7 @@
 #include "VertexDescriptions.h"
 
 #include <tiny_obj_loader.h>
+#include "Mesh.h"
 
 constexpr uint32_t LOCATION_POS = 0;
 constexpr uint32_t LOCATION_NORMAL = 1;
@@ -12,6 +13,7 @@ constexpr uint32_t LOCATION_COLOR = 3;
 
 void Mesh::loadModel(std::string filename)
 {
+    name = filename;
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -89,8 +91,7 @@ void Mesh::loadModel(std::string filename)
     std::cout << " - Total shapes: " << shapes.size() << std::endl;
     std::cout << " - Total materials: " << materials.size() << std::endl;
 
-    std::cout << " - Vertex attributes loaded: ";
-
+ 
     // Set flags based on what's filled
     inputFlag = Vertex_None;
     if (!positions.empty()){
@@ -99,7 +100,7 @@ void Mesh::loadModel(std::string filename)
         inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_Normal);}
     if (!uvs.empty()){
         inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_UV);}
-    if (!colors.empty()){//Color is so so ? Same as indices to be quite fair
+    if (!colors.empty()){//Color is so so in this ? Same as indices to be quite fair
         inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_Color);}
     if (!indices.empty()){
         inputFlag = static_cast<VertexFlags>(inputFlag | Vertex_Indices);}
@@ -369,10 +370,13 @@ VertexBufferData buildInterleavedVertexBuffer(const Mesh &mesh, const VertexForm
             const glm::vec3 &color = (i < mesh.colors.size()) ? mesh.colors[i] : defaultVec3;
             vbd.appendToBuffer(0, color);
         }
+
+        //Todo: This may be limited if i ever want my Buffer to be more than just this
     }
 
     return vbd;
 }
+
 
 VertexBufferData buildInterleavedVertexBuffer(const std::vector<Mesh> &meshes, const VertexFormat &format)
 {
@@ -395,7 +399,9 @@ VertexBufferData buildInterleavedVertexBuffer(const std::vector<Mesh> &meshes, c
 
     // Keep track of the running vertex index across all meshes
     size_t vertexIndex = 0;
-
+    //Todo: This was not fully coded
+// Interleave vertex attributes into a single buffer
+//Couldalso use submeshes if they become a  thing at  some poitn
     for (const auto &mesh : meshes)
     {
         size_t meshVertexCount = mesh.vertexCount();

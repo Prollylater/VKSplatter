@@ -3,8 +3,29 @@
 #include "config/PipelineConfigs.h"
 
 // Pipeline
+/*
 
+struct PipelineKey {
+    std::string vertShader;        
+    std::string fragShader;
+    uint32_t DescriptorIdentifie;  
+};
+
+Todo: Later Implement Hashing for creating Pipeline instead of handtracking it
+*/
 // TOdo: Not quite sure where the builder stay
+/*
+//Todo: Rethink this
+struct PipelineKey {
+    size_t shaderHash;
+    size_t layoutHash;
+    size_t rasterHash;
+    size_t vertexFormatHash;
+    bool dynamicRender;
+    bool enableAlphaBlend;
+    bool enableDepthTest;
+};
+*/
 class PipelineBuilder
 {
 public:
@@ -20,7 +41,10 @@ public:
     PipelineBuilder &setDepthConfig(const PipelineDepthConfig &);
     PipelineBuilder &setDepthTest(bool enable);
     PipelineBuilder &setInputConfig(const PipelineVertexInputConfig &);
-
+    size_t computehash() const {
+        //BOol and dynamic/renderpass
+        return  mConfig.input.computeHash() ^ mConfig.raster.computeHash() ^ mConfig.raster.computeHash() ^  mConfig.shaders.computeHash();
+    }
     // Returns pipeline + layout
     std::pair<VkPipeline, VkPipelineLayout> build(VkDevice device, VkPipelineCache cache = VK_NULL_HANDLE) const;
 
@@ -127,19 +151,6 @@ namespace vkUtils
 
     }
 };
-
-/*
-TODO
-Multiple descriptor sets
-
-As some of the structures and function calls hinted at, it is actually
-possible to bind multiple descriptor sets simultaneously. You need to
-specify a descriptor layout for each descriptor set when creating the
-pipeline layout. Shaders can then reference specific descriptor sets like
-this:
-layout(set = 0, binding = 0) uniform UniformBufferObject { ... }
-
-*/
 
 // Render Pass
 /*

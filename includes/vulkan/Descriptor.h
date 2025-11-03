@@ -9,14 +9,15 @@
 #include "Buffer.h"
 
 #define GLM_FORCE_RADIANS
-//Default aligned helper
+// Default aligned helper
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glm/gtc/matrix_transform.hpp>
 // Use alignas
 #include <chrono>
 
+size_t hashBindings(const std::vector<VkDescriptorSetLayoutBinding> &bindings);
 
-//REad on this VK_EXT_descriptor_indexing
+// REad on this VK_EXT_descriptor_indexing
 class DescriptorManager
 {
 public:
@@ -28,64 +29,38 @@ public:
 
     // Free only possible if Descriptor was created with
     // VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
+    void freeDescriptorSet(VkDevice device, int index);
+    void freeDescriptorSets(VkDevice device);
+    // Work without VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
+    void resetDescriptorSets(VkDevice device);
 
-    void freeDescriptorSet(VkDevice device, int index)
-    {
-        VkResult result = vkFreeDescriptorSets(device, mDescriptorPool, 1, mDescriptorSets.data() + index);
-    }
+    void allocateDescriptorSets(VkDevice device);
+    int allocateDescriptorSet(VkDevice device, int set);
 
-    void freeDescriptorSets(VkDevice device)
-    {
-        VkResult result = vkFreeDescriptorSets(device, mDescriptorPool, mDescriptorSets.size(), mDescriptorSets.data());
-
-        if (VK_SUCCESS != result)
-        {
-            throw std::runtime_error("failed to free descripto sets!");
-        }
-
-        mDescriptorSets.clear();
-    }
-
-    //Work witout VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
-    void resetDescriptorSets(VkDevice device)
-    {
-        VkResult result = vkResetDescriptorPool(device, mDescriptorPool, 0);
-
-        if (VK_SUCCESS != result)
-        {
-            throw std::runtime_error("Failed to reset descriptor pool!");
-        }
-
-        mDescriptorSets.clear();
-    }
-
-    void allocateDescriptorSets(VkDevice device, uint32_t setCount);
     void updateDescriptorSet(VkDevice device, uint32_t setIndex,
                              const std::vector<VkWriteDescriptorSet> &writes);
-    void createDescriptorSetLayout(VkDevice device, std::vector<VkDescriptorSetLayoutBinding> bindings);
+    // TODO: To uin32_t .
+    int getOrCreateSetLayout(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding> &bindings);
 
     void destroyDescriptorPool(VkDevice device);
     void destroyDescriptorLayout(VkDevice device);
 
-    const VkDescriptorSetLayout getDescriptorLat() const
-    {
+    const VkDescriptorSetLayout getDescriptorLat(int index) const;
 
-        return mDescriptorSetLayout;
-    }
+    const VkDescriptorSet getSet(int index) const ;
 
-    const VkDescriptorSet &getSet(int index) const
-    {
+    VkDescriptorSet &getSet(int index) ; 
 
-        return mDescriptorSets[index];
-    }
+    const size_t getSetNb() const ;
 
 private:
     VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
-    //TODO: Multiple mDescriptorSetLayout
-    VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
+    std::unordered_map<size_t, int> mLayoutHashToIndex;
+    std::vector<VkDescriptorSetLayout> mDescriptorSetLayouts;
+
+    // std::vector<VkDescriptorSetLayout> mDescriptorSetLayouts;
     std::vector<VkDescriptorSet> mDescriptorSets;
 };
-
 
 /*
 SSSBO

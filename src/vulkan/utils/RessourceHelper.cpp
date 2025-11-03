@@ -1,10 +1,11 @@
 
 #include "utils/RessourceHelper.h"
 #include "LogicalDevice.h"
-#include "BaseVk.h" 
-#include "CommandPool.h" 
+#include "BaseVk.h"
+#include "CommandPool.h"
 
-
+#include <deque>
+#include <functional>
 
 ///////////////////////////////////
 // Buffer
@@ -39,7 +40,6 @@ uint32_t findMemoryType(const VkPhysicalDevice &physDevice, uint32_t memoryTypeB
 
     throw std::runtime_error("failed to find suitable memory type!");
 }
-
 
 namespace vkUtils
 {
@@ -88,7 +88,7 @@ namespace vkUtils
         VkImage createImage(
             VkDevice device,
             VkPhysicalDevice physDevice,
-            VkDeviceMemory &imageMemory,
+            VkDeviceMemory *outimageMemory,
             uint32_t width,
             uint32_t height,
             uint32_t depth,
@@ -102,7 +102,9 @@ namespace vkUtils
             uint32_t mipLevels,
             uint32_t arrayLayers,
             VkSampleCountFlagBits samples,
-            VkImageCreateFlags flags)
+            VkImageCreateFlags flags,
+            VmaAllocator allocator,
+            VmaAllocation *outAlloc)
         {
             VkImage image;
             VkImageCreateInfo imageInfo{};
@@ -121,27 +123,40 @@ namespace vkUtils
             imageInfo.samples = samples;
             imageInfo.flags = flags;
 
-            if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS)
+            if (allocator != VK_NULL_HANDLE)
             {
-                throw std::runtime_error("failed to create image!");
+                VmaAllocationCreateInfo allocInfo{};
+                //Todo: should be usage and we decide if it's auto
+                allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+                if (vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, outAlloc, nullptr) != VK_SUCCESS)
+                {
+                    throw std::runtime_error("failed to allocate image through VMA!");
+                }
             }
-
-            VkMemoryRequirements memRequirements;
-            vkGetImageMemoryRequirements(device, image, &memRequirements);
-
-            VkMemoryAllocateInfo allocInfo{};
-            allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-            allocInfo.allocationSize = memRequirements.size;
-            allocInfo.memoryTypeIndex = findMemoryType(physDevice, memRequirements.memoryTypeBits, properties);
-
-            if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
+            else
             {
-                throw std::runtime_error("failed to allocate image memory!");
-            }
+                if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS)
+                {
+                    throw std::runtime_error("failed to create image!");
+                }
 
-            if (vkBindImageMemory(device, image, imageMemory, 0) != VK_SUCCESS)
-            {
-                throw std::runtime_error("failed to bind image memory!");
+                VkMemoryRequirements memRequirements;
+                vkGetImageMemoryRequirements(device, image, &memRequirements);
+
+                VkMemoryAllocateInfo allocInfo{};
+                allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+                allocInfo.allocationSize = memRequirements.size;
+                allocInfo.memoryTypeIndex = findMemoryType(physDevice, memRequirements.memoryTypeBits, properties);
+
+                if (vkAllocateMemory(device, &allocInfo, nullptr, outimageMemory) != VK_SUCCESS)
+                {
+                    throw std::runtime_error("failed to allocate image memory!");
+                }
+
+                if (vkBindImageMemory(device, image, *outimageMemory, 0) != VK_SUCCESS)
+                {
+                    throw std::runtime_error("failed to bind image memory!");
+                }
             }
             return image;
         }
@@ -150,9 +165,9 @@ namespace vkUtils
         VkImage createImage(ImageCreateConfig &config)
         {
 
-            return createImage(config.device, config.physDevice, config.imageMemory, config.width,
+            return createImage(config.device, config.physDevice, &config.imageMemory, config.width,
                                config.height, config.depth, config.format, config.tiling, config.usage, config.properties,
-                               config.imageType, config.initialLayout, config.sharingMode, config.mipLevels, config.arrayLayers, config.samples, config.flags);
+                               config.imageType, config.initialLayout, config.sharingMode, config.mipLevels, config.arrayLayers, config.samples, config.flags, config.allocator, &config.allocation);
         }
         /*
         VkPipelineStageFlags accessToStage(VkAccessFlags access) {
@@ -167,12 +182,12 @@ namespace vkUtils
 
         */
 
-         ImageTransition makeTransition(VkImage image,
-                                              VkImageLayout oldLayout,
-                                              VkImageLayout newLayout,
-                                              VkImageAspectFlags aspectMask,
-                                              uint32_t mipLevels,
-                                              uint32_t layers)
+        ImageTransition makeTransition(VkImage image,
+                                       VkImageLayout oldLayout,
+                                       VkImageLayout newLayout,
+                                       VkImageAspectFlags aspectMask,
+                                       uint32_t mipLevels,
+                                       uint32_t layers)
         {
             ImageTransition transitionObject{};
             transitionObject.image = image;
@@ -188,7 +203,7 @@ namespace vkUtils
 
             // Infer sensible defaults for common transitions
             if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-            {
+            { // Staging image
                 transitionObject.srcAccessMask = 0;
                 transitionObject.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
                 transitionObject.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -217,6 +232,7 @@ namespace vkUtils
             return transitionObject;
         }
 
+        // This version use directly a transient CommandBuffer
         void transitionImageLayout(
             const ImageTransition &transitionObject,
             const LogicalDeviceManager &deviceM,
@@ -260,7 +276,7 @@ namespace vkUtils
                 1, &barrier);
         }
 
-        void generateMipmaps(VkDevice device, VkPhysicalDevice physicalDevice, const QueueFamilyIndices &indices, VkImage image, VkQueue graphicsQueue,
+        void generateMipmaps(VkDevice device, VkPhysicalDevice physicalDevice, uint32_t queueIndice, VkImage image, VkQueue graphicsQueue,
                              VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
         {
 
@@ -274,7 +290,7 @@ namespace vkUtils
             }
 
             CommandPoolManager cmdPoolM;
-            cmdPoolM.createCommandPool(device, CommandPoolType::Transient, indices.graphicsFamily.value());
+            cmdPoolM.createCommandPool(device, CommandPoolType::Transient, queueIndice);
             VkCommandBuffer commandBuffer = cmdPoolM.beginSingleTime();
             // Recording
 
@@ -304,7 +320,8 @@ namespace vkUtils
                                      0, nullptr,
                                      0, nullptr,
                                      1, &barrier);
-
+                // TODO: Blit2
+                // https://vkguide.dev/docs/new_chapter_2/vulkan_new_rendering/
                 VkImageBlit blit{};
                 blit.srcOffsets[0] = {0, 0, 0};
                 blit.srcOffsets[1] = {mipWidth, mipHeight, 1};
@@ -312,6 +329,7 @@ namespace vkUtils
                 blit.srcSubresource.mipLevel = i - 1;
                 blit.srcSubresource.baseArrayLayer = 0;
                 blit.srcSubresource.layerCount = 1;
+
                 blit.dstOffsets[0] = {0, 0, 0};
                 blit.dstOffsets[1] = {mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1};
                 blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -358,17 +376,8 @@ namespace vkUtils
             cmdPoolM.destroyCommandPool();
         }
 
-        // Only copy an entire Buffer to a 2D Image
-        void copyBufferToImage(VkBuffer buffer, VkImage image, VkExtent3D imgData, const LogicalDeviceManager &deviceM,
-                               const QueueFamilyIndices &indices)
+        void copyBufferToImage(VkCommandBuffer cmdBuffer, VkBuffer buffer, VkImage image, VkExtent3D imgData)
         {
-            const auto &graphicsQueue = deviceM.getGraphicsQueue();
-            const auto &device = deviceM.getLogicalDevice();
-
-            CommandPoolManager cmdPoolM;
-            cmdPoolM.createCommandPool(device, CommandPoolType::Transient, indices.graphicsFamily.value());
-            VkCommandBuffer commandBuffer = cmdPoolM.beginSingleTime();
-
             // Recording
             // Single region
             VkBufferImageCopy region{};
@@ -388,29 +397,18 @@ namespace vkUtils
                 imgData.depth};
 
             vkCmdCopyBufferToImage(
-                commandBuffer,
+                cmdBuffer,
                 buffer,
                 image,
                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, // It is either this or General layout
                 1,                                    // Number of regions
                 &region);
-
-            cmdPoolM.endSingleTime(commandBuffer, graphicsQueue);
-            cmdPoolM.destroyCommandPool();
         }
 
         // Images from which we copy data must be created with a VK_BUFFER_USAGE_TRANSFER_SRC_BIT
         // PLus the proper transition
-        void copyImageToBuffer(VkImage image, VkBuffer buffer, VkExtent3D imgData, const LogicalDeviceManager &deviceM,
-                               const QueueFamilyIndices &indices)
+        void copyImageToBuffer(VkCommandBuffer cmdBuffer, VkImage image, VkBuffer buffer, VkExtent3D imgData)
         {
-            const auto &graphicsQueue = deviceM.getGraphicsQueue();
-            const auto &device = deviceM.getLogicalDevice();
-
-            CommandPoolManager cmdPoolM;
-            cmdPoolM.createCommandPool(device, CommandPoolType::Transient, indices.graphicsFamily.value());
-            VkCommandBuffer commandBuffer = cmdPoolM.beginSingleTime();
-
             // Recording
             VkBufferImageCopy region{};
             region.bufferOffset = 0;
@@ -429,15 +427,54 @@ namespace vkUtils
                 imgData.depth};
 
             vkCmdCopyImageToBuffer(
-                commandBuffer,
+                cmdBuffer,
                 image,
                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 buffer,
                 1,
                 &region);
+        }
 
-            cmdPoolM.endSingleTime(commandBuffer, graphicsQueue);
-            cmdPoolM.destroyCommandPool();
+        // Todo:Remove singletime comand BUffer from copyImageToBuffer
+        void copyImageToImage(
+            VkCommandBuffer cmd,
+            VkImage srcImage,
+            VkImage dstImage,
+            VkExtent3D srcExtent,
+            VkExtent3D dstExtent,
+            VkImageLayout srcLayout,
+            VkImageLayout dstLayout,
+            VkFilter filter)
+        {
+            // Define the region to blit
+            VkImageBlit blitRegion{};
+            blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blitRegion.srcSubresource.mipLevel = 0;
+            blitRegion.srcSubresource.baseArrayLayer = 0;
+            blitRegion.srcSubresource.layerCount = 1;
+            blitRegion.srcOffsets[0] = {0, 0, 0};
+            blitRegion.srcOffsets[1] = {
+                static_cast<int32_t>(srcExtent.width),
+                static_cast<int32_t>(srcExtent.height),
+                static_cast<int32_t>(srcExtent.depth)};
+
+            blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blitRegion.dstSubresource.mipLevel = 0;
+            blitRegion.dstSubresource.baseArrayLayer = 0;
+            blitRegion.dstSubresource.layerCount = 1;
+            blitRegion.dstOffsets[0] = {0, 0, 0};
+            blitRegion.dstOffsets[1] = {
+                static_cast<int32_t>(dstExtent.width),
+                static_cast<int32_t>(dstExtent.height),
+                static_cast<int32_t>(dstExtent.depth)};
+
+            // Issue the blit command
+            vkCmdBlitImage(
+                cmd,
+                srcImage, srcLayout,
+                dstImage, dstLayout,
+                1, &blitRegion,
+                filter);
         }
 
         // Very limited customization for now
@@ -507,7 +544,7 @@ namespace vkUtils
     namespace BufferHelper
     {
         // Buffer View can be recreated even after Buffer has been deleted
-         VkBufferView createBufferView(VkDevice device, VkBuffer buffer, VkFormat format, VkDeviceSize offset, VkDeviceSize size)
+        VkBufferView createBufferView(VkDevice device, VkBuffer buffer, VkFormat format, VkDeviceSize offset, VkDeviceSize size)
         {
             VkBufferViewCreateInfo viewInfo{};
             viewInfo.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
@@ -574,12 +611,12 @@ namespace vkUtils
         /////////////////Recording Utility///////////////
         /////////////////////////////////////////////////
 
-         void recordCopy(VkCommandBuffer cmdBuffer,
-                               VkBuffer srcBuffer,
-                               VkBuffer dstBuffer,
-                               VkDeviceSize size,
-                               VkDeviceSize srcOffset,
-                               VkDeviceSize dstOffset)
+        void recordCopy(VkCommandBuffer cmdBuffer,
+                        VkBuffer srcBuffer,
+                        VkBuffer dstBuffer,
+                        VkDeviceSize size,
+                        VkDeviceSize srcOffset,
+                        VkDeviceSize dstOffset)
         {
             // Recording
             VkBufferCopy copyRegion{};
@@ -610,19 +647,67 @@ namespace vkUtils
             cmdPoolM.destroyCommandPool();
         }
 
-        void uploadBufferDirect(
-            VkDeviceMemory bufferMemory,
-            const void *data,
-            VkDevice device,
-            VkDeviceSize size,
-            VkDeviceSize dstOffset)
+        void uploadBufferDirect(VkDevice device, VkDeviceMemory memory,
+                                const void *data, VkDeviceSize size, VkDeviceSize offset )
         {
             void *mapped = nullptr;
-            vkMapMemory(device, bufferMemory, dstOffset, size, 0, &mapped);
-            // Now stagingBufferMemory == mapped
-            memcpy(mapped, data, static_cast<size_t>(size));
-            vkUnmapMemory(device, bufferMemory);
+            if (vkMapMemory(device, memory, offset, size, 0, &mapped) != VK_SUCCESS){
+                throw std::runtime_error("Failed to map Vulkan buffer memory!");}
+
+            std::memcpy(static_cast<char *>(mapped), data, static_cast<size_t>(size));
+            vkUnmapMemory(device, memory);
         }
+
+        void uploadBufferVMA(VmaAllocator allocator, VmaAllocation allocation,
+                             const void *data, VkDeviceSize size, VkDeviceSize offset )
+        {
+            void *mapped = nullptr;
+            if (vmaMapMemory(allocator, allocation, &mapped) != VK_SUCCESS){
+                throw std::runtime_error("Failed to map VMA buffer memory!");}
+
+            std::memcpy(static_cast<char *>(mapped) + offset, data, static_cast<size_t>(size));
+            vmaUnmapMemory(allocator, allocation);
+        }
+
     }
+
+    class DeletionQueue
+    {
+    public:
+        void push(std::function<void()> &&func)
+        {
+            deletions.emplace_back(std::move(func));
+        }
+
+        void flush()
+        {
+            for (auto &deletion : deletions)
+            {
+                if (deletion)
+                {
+                    deletion();
+                }
+            }
+            deletions.clear();
+        }
+
+        void flushR()
+        {
+
+            for (auto it = deletions.rbegin(); it != deletions.rend(); it++)
+            {
+                (*it)();
+            }
+            deletions.clear();
+        }
+
+        void clear()
+        {
+            deletions.clear();
+        }
+
+    private:
+        std::deque<std::function<void()>> deletions;
+    };
 
 }

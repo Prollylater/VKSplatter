@@ -1,6 +1,6 @@
 
 #pragma once
-#include <vulkan/vulkan.h>
+#include "BaseVk.h"
 
 namespace vkUtils
 {
@@ -17,7 +17,7 @@ namespace vkUtils
             uint32_t depth = 1;
             uint32_t mipLevels = 1;
             uint32_t arrayLayers = 1;
-            VkFormat format = VK_FORMAT_B8G8R8A8_SRGB;
+            VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
             VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
             VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT;
             VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -26,6 +26,8 @@ namespace vkUtils
             VkSharingMode sharingMode = VK_SHARING_MODE_EXCLUSIVE;
             VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
             VkImageCreateFlags flags = 0;
+            VmaAllocator allocator = VK_NULL_HANDLE;
+            VmaAllocation allocation = VK_NULL_HANDLE;
         };
 
         struct ImageViewCreateConfig

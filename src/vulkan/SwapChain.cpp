@@ -67,7 +67,7 @@ VkSurfaceFormatKHR SwapChainManager::chooseSwapSurfaceFormat(const std::vector<V
 {
   for (const auto &availableFormat : availableFormats)
   {
-    if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+    if (availableFormat.format == VK_FORMAT_R8G8B8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
     {
       return availableFormat;
     }
@@ -143,9 +143,9 @@ bool SwapChainManager::aquireNextImage(VkDevice device, VkSemaphore semaphore, u
 void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice logicalDevice, GLFWwindow *window, const SwapChainConfig &config, const QueueFamilyIndices &indices)
 {
   mSupportDetails = querySwapChainSupport(physDevice);
-
+  mConfig = config;
   VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(mSupportDetails.formats);
-  VkPresentModeKHR presentMode = chooseSwapPresentMode(mSupportDetails.presentModes, config.preferredPresentModes);
+  VkPresentModeKHR presentMode = chooseSwapPresentMode(mSupportDetails.presentModes, mConfig.preferredPresentModes);
   VkExtent2D extent = chooseSwapExtent(mSupportDetails.capabilities, window);
 
   mSwapChainExtent = extent;
@@ -153,7 +153,7 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice log
   // Seem like being conservative is better as imageCount will be allocated in  vram
   // with image having their own tied element
 
-  uint32_t imageCount = std::max(mSupportDetails.capabilities.minImageCount, config.preferredImageCount);
+  uint32_t imageCount = std::max(mSupportDetails.capabilities.minImageCount, mConfig.preferredImageCount);
 
   if (mSupportDetails.capabilities.maxImageCount > 0 &&
       imageCount > mSupportDetails.capabilities.maxImageCount)
@@ -212,7 +212,7 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice log
 
   mSwapChainImageFormat = surfaceFormat;
 }
-
+/*
 void SwapChainManager::reCreateSwapChain(VkDevice device, VkPhysicalDevice physDevice, GLFWwindow *window, VkRenderPass renderPass, const GBuffers &depthRess, uint32_t indice)
 {
   std::cout << "Recreatingg" << std::endl;
@@ -223,28 +223,10 @@ void SwapChainManager::reCreateSwapChain(VkDevice device, VkPhysicalDevice physD
   std::cout << "Recreatingg" << std::endl;
   std::cout << "RecrWHICH SHOULD NOT BE CALLED RIGHT NOWeatingg" << std::endl;
 
-  for (int i = currentFrame; i < mSChainImageViews.size(); i++)
-  {
-    getCurrentFrameData().mFramebuffer.destroyFramebuffers(device);
-    advanceFrame();
-  }
-  DestroyImageViews(device);
-  destroySwapChain(device);
+  //Todo ok here ?
 
-  // Swap Chain M should be able to handle this
-  // But this would imply mswapCHainRess would be owned by it
-  // SwapChain
-  SwapChainConfig defConfigSwapChain;
-  // createSwapChain(physDevice, device, window, defConfigSwapChain);
-  createImageViews(device);
-  for (int i = currentFrame; i < mSChainImageViews.size(); i++)
-  {
-    // getCurrentFrameData().mFramebuffer.createFramebuffers(device, getSwapChainExtent(), {GetSwapChainImageViews()[i], depthRess.getView()}, renderPass);
-    advanceFrame();
-  }
-  std::cout << "Recreato,ged" << std::endl;
 }
-
+*/
 void SwapChainManager::destroySwapChain(VkDevice device)
 {
   currentFrame = 0;
@@ -312,9 +294,12 @@ void SwapChainManager::createFrameData(VkDevice device, VkPhysicalDevice physDev
   frameData.mSyncObjects.createSyncObjects(device);
   frameData.mCommandPool.createCommandPool(device, CommandPoolType::Frame, queueIndice);
   frameData.mCommandPool.createCommandBuffers(1);
+  frameData.mDescriptor.createDescriptorPool(device, 4, {});
+
 
   VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
+  //UBO
   frameData.mCameraBuffer.createBuffer(device, physDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   // Persistent Mapping
@@ -323,10 +308,13 @@ void SwapChainManager::createFrameData(VkDevice device, VkPhysicalDevice physDev
 
 void SwapChainManager::destroyFrameData(VkDevice device)
 {
+  //Todo some clearing to do in destruction Descriptor
   auto &frameData = mFramesData[currentFrame];
   frameData.mSyncObjects.destroy(device);
   frameData.mCommandPool.destroyCommandPool();
-  frameData.mCameraBuffer.destroyBuffer();
+  frameData.mDescriptor.destroyDescriptorLayout(device);
+  frameData.mDescriptor.destroyDescriptorPool(device);
+  frameData.mCameraBuffer.destroyBuffer(device);
 };
 
 void SwapChainManager::createFramesData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice, uint32_t frameInFlightCount)
@@ -340,24 +328,25 @@ void SwapChainManager::createFramesData(VkDevice device, VkPhysicalDevice physDe
   }
 };
 
-void SwapChainManager::createFramesSetLayout(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding> &layouts)
+void SwapChainManager::createFramesDescriptorSet(VkDevice device, const std::vector<std::vector<VkDescriptorSetLayoutBinding>> &layouts)
 {
-  // Todo: Allow more than 1 set per pool down the road
-  std::vector<VkDescriptorPoolSize> poolSize;
   for (const auto &layout : layouts)
   {
     // Todo:
     //  5 is just a magic number for a number of uniform that seemed "fine"
-    poolSize.push_back({layout.descriptorType, 5});
+    // poolSize.push_back({layout.descriptorType, 10});
   }
 
   for (int i = 0; i < mFramesData.size(); i++)
   {
     auto &descriptor = getCurrentFrameData().mDescriptor;
-    descriptor.createDescriptorSetLayout(device, layouts);
-    descriptor.createDescriptorPool(device, 3, poolSize);
+
+    for (const auto &layout : layouts)
+    {
+      descriptor.getOrCreateSetLayout(device, layout);
+    }
     // Frame ressoources bait
-    descriptor.allocateDescriptorSets(device, 1);
+    descriptor.allocateDescriptorSets(device);
     advanceFrame();
   }
 };
@@ -408,7 +397,7 @@ void SwapChainManager::createFramesDynamicRenderingInfo(const RenderTargetConfig
       renderDepthInfo.imageLayout = cfg.attachments.back().finalLayout;
       renderDepthInfo.loadOp = cfg.attachments.back().loadOp;
       renderDepthInfo.storeOp = cfg.attachments.back().storeOp;
-      renderDepthInfo.clearValue = {1.0f, 0};
+      renderDepthInfo.clearValue = {1.0f, 0}; // Important...
     }
     // fill depth load/store...
     renderInfo = {.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -504,7 +493,8 @@ void SwapChainResources::destroyFramebuffers(VkDevice device)
 void GBuffers::createGBuffers(
     const LogicalDeviceManager &logDevice,
     const PhysicalDeviceManager &physDevice,
-    const std::vector<VkFormat> &formats)
+    const std::vector<VkFormat> &formats,
+    VmaAllocator allocator)
 {
   gBuffers.reserve(formats.size());
 
@@ -516,6 +506,7 @@ void GBuffers::createGBuffers(
     cfg.height = mSize.height;
     cfg.width = mSize.width;
     cfg.format = format;
+    cfg.allocator = allocator;
 
     // Notes that createImage has currently an hidden Transfer dst bit addition
     cfg.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
@@ -531,7 +522,7 @@ void GBuffers::createGBuffers(
 }
 
 void GBuffers::createDepthBuffer(const LogicalDeviceManager &logDeviceM,
-                                 const PhysicalDeviceManager &physDeviceM, VkFormat format)
+                                 const PhysicalDeviceManager &physDeviceM, VkFormat format, VmaAllocator allocator)
 {
   // Todo: compare with creating sampled image
   // mDepthFormat = physDeviceM.findDepthFormat();
@@ -544,6 +535,7 @@ void GBuffers::createDepthBuffer(const LogicalDeviceManager &logDeviceM,
   depthConfig.width = mSize.width;
   depthConfig.format = format;
   depthConfig.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+  depthConfig.allocator = allocator;
 
   gBufferDepth.createImage(depthConfig);
 
@@ -558,14 +550,14 @@ void GBuffers::createDepthBuffer(const LogicalDeviceManager &logDeviceM,
 
   // Left by default as undefined, all transition are handled in shader
 }
-void GBuffers::destroy(VkDevice device)
+void GBuffers::destroy(VkDevice device, VmaAllocator allocator)
 {
   for (auto &gBuffer : gBuffers)
   {
-    gBuffer.destroyImage(device);
+    gBuffer.destroyImage(device, allocator);
   };
 
-  gBufferDepth.destroyImage(device);
+  gBufferDepth.destroyImage(device, allocator);
 }
 
 VkExtent2D GBuffers::getSize() const

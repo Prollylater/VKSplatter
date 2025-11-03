@@ -5,8 +5,7 @@ void CommandPoolManager::createCommandPool(VkDevice device, CommandPoolType type
     mDevice = device;
     mType = type;
 
-    VkCommandPoolCreateInfo info{};
-    info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    VkCommandPoolCreateInfo info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
     info.queueFamilyIndex = familyIndex;
 
     if (type == CommandPoolType::Transient)
@@ -15,7 +14,7 @@ void CommandPoolManager::createCommandPool(VkDevice device, CommandPoolType type
     }
     else
     {
-        // Allow individual reset of command buffer created (explictly and implicitly)
+        // Allow individual reset of command buffer created (explictly?? and implicitly)
         info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     }
 
@@ -23,7 +22,7 @@ void CommandPoolManager::createCommandPool(VkDevice device, CommandPoolType type
         throw std::runtime_error("Failed to create command pool");
 }
 
-//Toodoo:: Add secondary
+// Toodoo:: Add secondary
 void CommandPoolManager::createCommandBuffers(size_t nbBuffers)
 {
     // Allocate primary buffers if this is a frame pool or free
@@ -43,16 +42,16 @@ void CommandPoolManager::createCommandBuffers(size_t nbBuffers)
 
 void CommandPoolManager::resetCommandBuffer(int index) const
 {
-    //    VK_COMMAND_BUFFER_RESET_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+    // VK_COMMAND_BUFFER_RESET_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
     // Explicit individual reset
 
     bool releaseRessources = false;
-    VkCommandBufferResetFlags resetFlag = VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT;
+    VkCommandBufferResetFlags releaseFlag = VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT;
 
     // 0 let the command buffer keep the allocated ressources (drive ressources and cache stuff ?)
     // else, we need to reallocatememory. IT is different from free
 
-    if (vkResetCommandBuffer(mCmdBuffers.at(index), releaseRessources ? resetFlag : 0))
+    if (vkResetCommandBuffer(mCmdBuffers.at(index), releaseRessources ? releaseFlag : 0))
     {
         throw std::runtime_error("Failed to reset command buffer");
     }
@@ -62,8 +61,8 @@ void CommandPoolManager::resetCommandPool() const
 {
     // Explicit reset
     bool releaseRessources = false;
-    VkCommandPoolResetFlags resetFlag = VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT;
-    if (vkResetCommandPool(mDevice, mCmdPool, releaseRessources ? resetFlag : 0))
+    VkCommandPoolResetFlags releaseFlag = VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT;
+    if (vkResetCommandPool(mDevice, mCmdPool, releaseRessources ? releaseFlag : 0))
     {
         throw std::runtime_error("Failed to reset pool");
     }
@@ -71,7 +70,7 @@ void CommandPoolManager::resetCommandPool() const
 
 void CommandPoolManager::destroyCommandPool()
 {
-    //Should vkWaitOn the creation queue here ?
+    // Should vkWaitOn the creation queue here ?
     if (!mCmdBuffers.empty())
     {
         vkFreeCommandBuffers(mDevice, mPool, static_cast<uint32_t>(mCmdBuffers.size()), mCmdBuffers.data());
@@ -83,9 +82,10 @@ void CommandPoolManager::destroyCommandPool()
     }
 }
 
-void CommandPoolManager::beginRecord( uint32_t index,VkCommandBufferUsageFlags flags,
-        CmdBufferType bufferType ,
-        VkCommandBufferInheritanceInfo* inheritance )
+// Notes Implictly reset command buffer
+void CommandPoolManager::beginRecord(uint32_t index, VkCommandBufferUsageFlags flags,
+                                     CmdBufferType bufferType,
+                                     VkCommandBufferInheritanceInfo *inheritance)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -110,6 +110,18 @@ void CommandPoolManager::endRecord(uint32_t index)
     }
 }
 
+
+VkCommandBufferSubmitInfo CommandPoolManager::getCmdSubmitInfo(int bufferIndex, uint32_t deviceMask)
+{
+    VkCommandBufferSubmitInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+    info.pNext = nullptr;
+    info.commandBuffer = mCmdBuffers[bufferIndex];
+    info.deviceMask = deviceMask;
+
+    return info;
+}
+
 // Transient helpers
 VkCommandBuffer CommandPoolManager::beginSingleTime()
 {
@@ -118,6 +130,8 @@ VkCommandBuffer CommandPoolManager::beginSingleTime()
         throw std::runtime_error("beginSingleTime not allowed for Frame pool");
     };
 
+    // Todo: WHy not just store it inside ?
+    // This defeat the point of having it here
     VkCommandBuffer cmd = createTransientBuffer();
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -162,5 +176,3 @@ void CommandPoolManager::freeBuffer(VkCommandBuffer commandBuffer)
 
 VkCommandBuffer CommandPoolManager::get(int index) const { return mCmdBuffers[index]; }
 VkCommandBuffer *CommandPoolManager::getCmdBufferHandle(int index) { return &(mCmdBuffers[index]); }
-
- 

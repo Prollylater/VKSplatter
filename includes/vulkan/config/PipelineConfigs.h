@@ -18,12 +18,45 @@ struct PipelineShaderConfig
     std::string fragShaderPath;
     std::string geomShaderPath;
     std::string computeShaderPath;
+
+    size_t computeHash() const
+    {
+        auto hashCombine = [](size_t currhash, size_t value)
+        {
+            return currhash ^ (value + (currhash << 6));
+        };
+
+        size_t h = 0;
+        h = hashCombine(h, std::hash<std::string>{}(vertShaderPath));
+        h = hashCombine(h, std::hash<std::string>{}(fragShaderPath));
+        h = hashCombine(h, std::hash<std::string>{}(geomShaderPath));
+        h = hashCombine(h, std::hash<std::string>{}(computeShaderPath));
+        return h;
+    }
 };
 
 struct PipelineLayoutConfig
 {
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
     std::vector<VkPushConstantRange> pushConstants;
+
+    size_t computeHash() const
+    {
+       auto hashCombine = [](size_t currhash, size_t value)
+        {
+            return currhash ^ (value + (currhash << 6));
+        };
+        size_t h = 0;
+        for (auto layout : descriptorSetLayouts)
+            h = hashCombine(h, reinterpret_cast<size_t>(layout)); // pointer-based hash
+        for (auto &pc : pushConstants)
+        {
+            h = hashCombine(h, pc.stageFlags);
+            h = hashCombine(h, pc.offset);
+            h = hashCombine(h, pc.size);
+        }
+        return h;
+    }
 };
 
 struct PipelineRasterConfig
@@ -32,6 +65,15 @@ struct PipelineRasterConfig
     VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     // Lines and Point with fillModeNonSolid available with gpu features
     VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL;
+
+    size_t computeHash() const
+    {
+        size_t h = 0;
+        h ^= std::hash<uint32_t>{}(cullMode) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        h ^= std::hash<uint32_t>{}(frontFace) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        h ^= std::hash<uint32_t>{}(polygonMode) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        return h;
+    }
 };
 
 struct PipelineBlendConfig
@@ -49,6 +91,34 @@ struct PipelineVertexInputConfig
     VkPrimitiveTopology topolpgy = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     VkBool32 primitiveRestartEnable = VK_FALSE;
     VertexFormat vertexFormat;
+    size_t computeHash() const
+    {
+        auto hashCombine = [](size_t currhash, size_t value)
+        {
+            return currhash ^ (value + (currhash << 6));
+        };
+        size_t h = 0;
+
+        h = hashCombine(h, static_cast<size_t>(vertexFormat.mInterleaved));
+        h = hashCombine(h, static_cast<size_t>(vertexFormat.mVertexFlags));
+
+        for (auto &b : vertexFormat.bindings)
+        {
+            h = hashCombine(h, b.binding);
+            h = hashCombine(h, b.stride);
+            h = hashCombine(h, b.inputRate);
+        }
+
+        for (auto &a : vertexFormat.attributes)
+        {
+            h = hashCombine(h, a.location);
+            h = hashCombine(h, a.binding);
+            h = hashCombine(h, a.format);
+            h = hashCombine(h, a.offset);
+        }
+
+        return h;
+    }
 };
 
 struct PipelineRenderPassConfig
@@ -68,7 +138,7 @@ struct PipelineConfig
     PipelineBlendConfig blend;
     PipelineDepthConfig depth;
     PipelineVertexInputConfig input;
-    PipelineLayoutConfig uniform;
+    PipelineLayoutConfig uniform; // Uniform is not an appropraite name
     PipelineRenderPassConfig pass;
 
     std::vector<VkDynamicState> dynamicStates = {
@@ -77,8 +147,10 @@ struct PipelineConfig
 };
 
 // Descriptor
+// This only describe a single set layout. Poorly named
 struct PipelineLayoutDescriptor
 {
+    // Bad name
     std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayouts;
     std::vector<VkPushConstantRange> pushConstants;
 

@@ -1,51 +1,15 @@
 #include "Renderer.h"
 #include "utils/PipelineHelper.h"
 #include "utils/RessourceHelper.h"
-
+#include "Texture.h"
+#include "Material.h"
 /*
 Thing not implementend:
 Cleaning Image/Depth Stencil/Manually clean attachements
 */
 
-void Renderer::recreateSwapChain(VkDevice device, GLFWwindow *window)
-{
-    // Todo: Reintroduce this
-    std::cout << "Recreated Swapchain" << std::endl;
-    std::cout << "Recreated Swapchain" << std::endl;
-    std::cout << "Recreated Swapchain" << std::endl;
-    return;
-    int width = 0, height = 0;
-    glfwGetFramebufferSize(window, &width, &height);
-    while (width == 0 || height == 0)
-    {
-        glfwGetFramebufferSize(window, &width, &height);
-        glfwWaitEvents();
-    }
-
-    // Pause application until gpu is done before recreating everything
-    mContext->mLogDeviceM.waitIdle();
-
-    // SwapChainDo you call vkQueuePresentKHR every frame with the image you acquired?
-    mContext->mSwapChainM.reCreateSwapChain(device, mContext->mPhysDeviceM.getPhysicalDevice(), window,
-                                            mContext->mRenderPassM.getRenderPass(), mContext->mGBuffers,
-                                            mContext->mPhysDeviceM.getIndices().graphicsFamily.value());
-}
-
-void Renderer::registerSceneFormat()
-{
-    // Renderer.cpp
-    mScene.meshes.emplace_back(Mesh());
-    Mesh &mesh = mScene.meshes.back();
-    mesh.loadModel(MODEL_PATH);
-    // Todo: Properly awful
-    flag = mesh.getflag();
-    VertexFormatRegistry::addFormat(mesh);
-}
-
 void Renderer::updateUniformBuffers(VkExtent2D swapChainExtent)
 {
-    // Todo:
-    //  A more efficient way to pass a small buffer of data to shaders are push constants.
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -71,30 +35,38 @@ void Renderer::initSceneRessources()
     const VkPhysicalDevice &physDevice = mContext->getPhysicalDeviceManager().getPhysicalDevice();
     const QueueFamilyIndices &indicesFamily = mContext->getPhysicalDeviceManager().getIndices();
     const LogicalDeviceManager &deviceM = mContext->getLogicalDeviceManager();
+    const VmaAllocator &allocator = mContext->getLogicalDeviceManager().getVmaAllocator();
     const VkDevice &device = mContext->getLogicalDeviceManager().getLogicalDevice();
+    const uint32_t indice = indicesFamily.graphicsFamily.value();
     auto &swapChainM = mContext->getSwapChainManager();
 
-    // Vertex Buffers
-    // Index Buffers
-    uploadScene();
-
-    // Update/Store UBO
-    // Pretty bad function all thing considerated
-
-    updateUniformBuffers(swapChainM.getSwapChainExtent());
-
-    // Texture
-    // Limited custom when
-    textures.push_back(Texture{});
-    for (auto &texture : textures)
+    // Defer to some registry
+    // Mesh reading
+    mScene.registerSceneFormat();
+    // Todo:Bad
+    mContext->mSceneLayout = mScene.sceneLayout;
+    // Texture reading
+    mScene.textures.push_back(Texture{});
+    for (auto &texture : mScene.textures)
     {
-        texture.createTextureImage(physDevice, deviceM, TEXTURE_PATH, indicesFamily);
+        texture.createTextureImage(physDevice, deviceM, TEXTURE_PATH, indice, allocator);
         texture.createTextureImageView(device);
         texture.createTextureSampler(device, physDevice);
     }
 
-    // Should be global and scene tied
-    auto descriptorTexture = textures[0].getImage().getDescriptor();
+    // Materials reading
+    mScene.material.push_back(Material{});
+    for (auto &mat : mScene.material)
+    {
+        mat.albedoMap = &mScene.textures.back();
+        mat.requestPipeline(*mContext, mScene.flag);
+    }
+    // Defer to some registry
+
+    // Upload GPU Data
+    //  Vertex Buffers
+    //  Index Buffers
+    uploadScene();
 
     // Effective Binding of Desciptor
     for (int i = 0; i < swapChainM.GetSwapChainImageViews().size(); i++)
@@ -102,13 +74,27 @@ void Renderer::initSceneRessources()
         auto &frameData = swapChainM.getCurrentFrameData();
         auto descriptorBuffer = frameData.mCameraBuffer.getDescriptor();
 
+        std::cout<<"Updating Frame Data Set" << std::endl;
+        //Todo: Should be elsewhere 
+        // Update descriptor sets with actual data
         std::vector<VkWriteDescriptorSet> writes = {
-            vkUtils::Descriptor::makeWriteDescriptor(frameData.mDescriptor.getSet(0), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &descriptorBuffer),
-            vkUtils::Descriptor::makeWriteDescriptor(frameData.mDescriptor.getSet(0), 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &descriptorTexture)};
+            vkUtils::Descriptor::makeWriteDescriptor(frameData.mDescriptor.getSet(0), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &descriptorBuffer)};
         frameData.mDescriptor.updateDescriptorSet(device, 0, writes);
         swapChainM.advanceFrame();
     }
+
+    // Update/Store UBO
+    // Pretty bad function all thing considerated
+    updateUniformBuffers(swapChainM.getSwapChainExtent());
+    // Upload GPU Data
+    std::cout<<"Scene Ressources Initialized"<<std::endl;
 };
+
+void Renderer::deinitSceneRessources()
+{
+    const auto allocator = mContext->getLogicalDeviceManager().getVmaAllocator();
+    mScene.destroy(mContext->getLogicalDeviceManager().getLogicalDevice(), allocator);
+}
 
 void Renderer::uploadScene()
 {
@@ -116,26 +102,26 @@ void Renderer::uploadScene()
     const auto &deviceM = mContext->getLogicalDeviceManager();
     const auto &physDevice = mContext->getPhysicalDeviceManager().getPhysicalDevice();
     const auto &indice = mContext->getPhysicalDeviceManager().getIndices().graphicsFamily.value();
-    std::cout << "InitMesh" << std::endl;
-    for (const auto &mesh : mScene.meshes)
+    const auto &allocator = mContext->getLogicalDeviceManager().getVmaAllocator();
+
+    std::cout << "Upload Ressources" << std::endl;
+    mScene.drawables.reserve(mScene.meshes.size());
+    for (auto &mesh : mScene.meshes)
     {
-        mContext->getBufferManager().reserve(2);
-        mContext->getBufferManager().push_back(Buffer());
-        auto &vertexBuffer = mContext->getBufferManager().back();
-        vertexBuffer.createVertexBuffers(deviceM.getLogicalDevice(), physDevice,
-                                         mesh, deviceM, indice);
 
-        mContext->getBufferManager().push_back(Buffer());
-        auto &indexBuffer = mContext->getBufferManager().back();
-        indexBuffer.createIndexBuffers(deviceM.getLogicalDevice(), physDevice,
-                                       mesh, deviceM, indice);
+        mScene.drawables.push_back(Drawable());
+        mScene.drawables.back().mesh = &mesh;
+        // Todo: SHould work like that
+        //  mScene.drawables.back().material = &mesh.material;
+        mScene.drawables.back().material = &mScene.material.back();
+        mScene.drawables.back().createMeshGPU(deviceM, physDevice, indice);
+        // Notes:
+        // The above might also just be a material Id for sorting as full access to material is not needed pas upload ?
+        // Same as for mesh to be honest ?
 
-        gpuMeshes.push_back(MeshGPUResources());
-        auto &meshGpu = gpuMeshes.back();
-
-        meshGpu.addStream(vertexBuffer.getView(), sizeof(glm::vec3), AttributeStream::Type::Attributes);
-        meshGpu.addStream(indexBuffer.getView(), sizeof(uint32_t), AttributeStream::Type::Index);
+        mScene.drawables.back().createMaterialGPU(deviceM, mContext->mMaterialManager, physDevice, indice);
     }
+    std::cout << "Ressourcess uploaded" << std::endl;
 }
 
 // Semaphore and command buffer tied to frames
@@ -170,7 +156,9 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
     // Update Camera
     updateUniformBuffers(mContext->mSwapChainM.getSwapChainExtent());
 
-    //recordCommandBuffer(imageIndex);
+    //
+    renderQueue.build(mScene);
+    // recordCommandBuffer(imageIndex);
     recordCommandBufferD(imageIndex);
 
     // Submit Info set up
@@ -238,33 +226,46 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
     instanceCount: Used for instanced rendering, use 1 if you're not doing that.
     firstVertex: Used as an offset into the vertex buffer, defines the lowest value of gl_VertexIndex.
     firstInstance: Used as an offset for instanced rendering, defines the lowest value of gl_InstanceIndex.
+
+    for each view {
+  bind global resourcees          // set 0
+
+  for each shader {
+    bind shader pipeline
+    for each material {
+      bind material resources  // sets 2,3
+    }
+  }
+}
     */
 
-    auto &uniqueMesh = gpuMeshes[0];
-    // Currently this is the vertexBuffer
-    VkBuffer vertexBuffers[] = {uniqueMesh.getStreamBuffer(0)};
-    // Currently this is the index Buffer
-    VkBuffer indexBuffer = uniqueMesh.getStreamBuffer(1);
-
-    VkDeviceSize offsets[] = {0};
     // 0 is not quite right
     // I m also not quite sure how location is determined, just through the attributes description
     // 1 interleaved buffer here
-    vkCmdBindVertexBuffers(command, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(command, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            mContext->mPipelineM.getPipelineLayout(), 0, 1,
-                            &frameRess.mDescriptor.getSet(0), 0,
-                            nullptr);
+    // MESH DRAWING
 
-    vkCmdPushConstants(command, mContext->mPipelineM.getPipelineLayout(),
-                       VK_SHADER_STAGE_VERTEX_BIT,
-                       0, sizeof(UniformBufferObject), frameRess.mCameraMapping);
+    vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, mContext->mPipelineM.getPipeline());
 
-    size_t bufferSize = uniqueMesh.getStream(1).mView.mSize / sizeof(uint32_t);
-    vkCmdDrawIndexed(command, static_cast<uint32_t>(bufferSize), 1, 0, 0, 0);
+    VkDeviceSize offsets[] = {0};
 
+    for (const Drawable *draw : renderQueue.getDrawables())
+    {
+        std::cout<<"Buffer Non D " << " Frame then material" << std::endl;
+        std::vector<VkDescriptorSet> sets = {frameRess.mDescriptor.getSet(0),
+                                             mContext->mMaterialManager.getSet(draw->materialGPU.descriptorIndex)};
+
+        vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                mContext->mPipelineM.getPipelineLayout(), 0, sets.size(),
+                                sets.data(), 0,
+                                nullptr);
+        vkCmdBindVertexBuffers(command, 0, 1, &draw->meshGPU.vertexBuffer, offsets);
+        vkCmdBindIndexBuffer(command, draw->meshGPU.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdPushConstants(command, mContext->mPipelineM.getPipelineLayout(),
+                           VK_SHADER_STAGE_VERTEX_BIT,
+                           0, sizeof(UniformBufferObject), frameRess.mCameraMapping);
+        vkCmdDrawIndexed(command, draw->meshGPU.indexCount, 1, 0, 0, 0);
+    }
     // Multi Viewport is basically this
     /*
     viewport.width = static_cast<float>(frameExtent.width);
@@ -277,8 +278,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
     commandPoolM.endRecord();
 }
 
-// Create Transitin based on renderpassinfo when possible
-
+// Create Transition based on renderpassinfo when possible
 void Renderer::recordCommandBufferD(uint32_t imageIndex)
 {
     FrameResources &frameRess = mContext->getSwapChainManager().getCurrentFrameData();
@@ -299,10 +299,8 @@ void Renderer::recordCommandBufferD(uint32_t imageIndex)
 
     vkUtils::Texture::recordImageMemoryBarrier(command, transObj);
     //  Transition
-  
 
     vkCmdBeginRendering(command, &frameRess.mDynamicPassInfo.info);
-    vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, mContext->mPipelineM.getPipeline());
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -318,28 +316,30 @@ void Renderer::recordCommandBufferD(uint32_t imageIndex)
     scissor.extent = frameExtent;
     vkCmdSetScissor(command, 0, 1, &scissor);
 
-    auto &uniqueMesh = gpuMeshes[0];
-    // Currently this is the vertexBuffer
-    VkBuffer vertexBuffers[] = {uniqueMesh.getStreamBuffer(0)};
-    // Currently this is the index Buffer
-    VkBuffer indexBuffer = uniqueMesh.getStreamBuffer(1);
+    // MESH DRAWING
+
+    vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, mContext->mPipelineM.getPipeline());
 
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(command, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(command, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            mContext->mPipelineM.getPipelineLayout(), 0, 1,
-                            &frameRess.mDescriptor.getSet(0), 0,
-                            nullptr);
+    for (const Drawable *draw : renderQueue.getDrawables())
+    {
+        std::cout<<"Buffer D " << " Frame then material" << std::endl;
 
-    vkCmdPushConstants(command, mContext->mPipelineM.getPipelineLayout(),
-                       VK_SHADER_STAGE_VERTEX_BIT,
-                       0, sizeof(UniformBufferObject), frameRess.mCameraMapping);
+        std::vector<VkDescriptorSet> sets = {frameRess.mDescriptor.getSet(0),
+                                             mContext->mMaterialManager.getSet(draw->materialGPU.descriptorIndex)};
 
-    size_t bufferSize = uniqueMesh.getStream(1).mView.mSize / sizeof(uint32_t);
-    vkCmdDrawIndexed(command, static_cast<uint32_t>(bufferSize), 1, 0, 0, 0);
-
+        vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                mContext->mPipelineM.getPipelineLayout(), 0, sets.size(),
+                                sets.data(), 0,
+                                nullptr);
+        vkCmdBindVertexBuffers(command, 0, 1, &draw->meshGPU.vertexBuffer, offsets);
+        vkCmdBindIndexBuffer(command, draw->meshGPU.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdPushConstants(command, mContext->mPipelineM.getPipelineLayout(),
+                           VK_SHADER_STAGE_VERTEX_BIT,
+                           0, sizeof(UniformBufferObject), frameRess.mCameraMapping);
+        vkCmdDrawIndexed(command, draw->meshGPU.indexCount, 1, 0, 0, 0);
+    }
     vkCmdEndRendering(command);
 
     // From here end the old ccode not using Render PAss
@@ -355,7 +355,5 @@ void Renderer::recordCommandBufferD(uint32_t imageIndex)
     commandPoolM.endRecord();
 }
 
-
-
 /*
-*/
+ */

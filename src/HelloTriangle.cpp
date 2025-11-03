@@ -20,6 +20,7 @@ void HelloTriangleApplication::initWindow()
 
     glfwSetWindowUserPointer(window, this);
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+    wdwInitialized = true;
 }
 
 void HelloTriangleApplication::initVulkan()
@@ -28,53 +29,46 @@ void HelloTriangleApplication::initVulkan()
     // Non essential line, just exist
     SwapChainConfig swapChain = SwapChainConfig::Default();
     info.getSwapChainConfig() = swapChain;
-    context.initVulkanBase(window, info);
+
     renderer.initialize(context);
-    renderer.registerSceneFormat();
+
+    // Context set up
+    context.initVulkanBase(window, info);
+    context.initMaterialPool();
     context.initRenderInfrastructure();
-
-    // Todo better mangament of this. Like creating here and passing it to context etc...
-    // Decide if Config shoudl all belong to an unique file
-    RenderPassConfig renderPassConfig = context.getRenderPassManager().getConfiguration();
-    // In the case of compute shader we should get InputAttachement Descriptor from configuration above.
-    
-    PipelineLayoutDescriptor layout;
-    layout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-    layout.addDescriptor(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    layout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformBufferObject));
-    //Then i could reflect the InputAttachment from render pass Config after this
-    //Second Problem is the number of RenderPass probably
-
-    context.initPipelineAndDescriptors(layout, renderer.flag);
-
     renderer.initSceneRessources();
+    // TODO:
+    // Render Pass Buildder/ Pipelien Builder might stay in Renderer if pre existing Rnderer are made
+    //  Todo better mangament of this. Like creating here and passing it to context etc...
+    //  Decide if Config shoudl all belong to an unique file
+   // RenderPassConfig renderPassConfig = context.getRenderPassManager().getConfiguration();
+    // In the case of compute shader we should get InputAttachement Descriptor from configuration above.
+
+   // Then i could reflect the InputAttachment from render pass Config after this
+   // Second Problem is the number of RenderPass probably
+   //contefxt.initPipelineAndDescriptors(layout, renderer.flag);
+
+ 
+    vkInitialized = true;
 }
 
 void HelloTriangleApplication::mainLoop()
 {
     while (!glfwWindowShouldClose(window))
     {
+        // Input and stuff
         glfwPollEvents();
         renderer.drawFrame(framebufferResized, window);
     }
+
     // Make sure the program exit properly once windows is closed
     context.mLogDeviceM.waitIdle();
 }
 
 void HelloTriangleApplication::cleanup()
 {
-    renderer.deinit();
+    renderer.deinitSceneRessources();
     context.destroyAll();
     glfwDestroyWindow(window);
     glfwTerminate();
 }
-
-/*
-
-
-I guess for deferred rendering we would have a configuration with 4 attachement  like albedo, normal depthot create the Gbuffer
-Then we read then
-Part if this might be set in pipeleine
-
-Read on render graph, that could get a pass object and read the info of a texture that will be added
-*/

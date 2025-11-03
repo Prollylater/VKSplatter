@@ -1,0 +1,99 @@
+#pragma once
+#include "BaseVk.h"
+
+struct Mesh;
+struct Material;
+class LogicalDeviceManager;
+class DescriptorManager;
+
+
+struct MaterialGPU {
+    int pipelineEntryIndex = -1;   
+    //int materialIndex = -1;    
+    int descriptorIndex = -1;    
+
+    //Not allocated
+    VkDescriptorSet materialSet = VK_NULL_HANDLE; //Don't own
+    VkBuffer uniformBuffer = VK_NULL_HANDLE;;              // Material constants
+    VmaAllocation uniformBufferAlloc = VK_NULL_HANDLE;    // Memory handle
+    VkDeviceMemory uniformBufferMem = VK_NULL_HANDLE;
+
+    static MaterialGPU createMaterialGPU(const Material &material,  const LogicalDeviceManager &deviceM, DescriptorManager& descriptor, VkPhysicalDevice physDevice, uint32_t indice);
+    void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
+};
+
+
+struct MeshGPU
+{
+    //TOdo: SHould i derectly use my Buffer class ?
+    // Cleanup object in case the mesh buffer is not kept
+    VkBuffer vertexBuffer = VK_NULL_HANDLE;
+    VkBuffer indexBuffer = VK_NULL_HANDLE;
+    VmaAllocation vertexAlloc = VK_NULL_HANDLE;
+    VmaAllocation indexAlloc = VK_NULL_HANDLE;
+    VkDeviceMemory vertexMem = VK_NULL_HANDLE;
+    VkDeviceMemory indexMem = VK_NULL_HANDLE;
+
+    VkDeviceAddress vertexAddress = 0;
+    VkDeviceAddress indexAddress = 0;
+
+    uint32_t vertexCount = 0; //????
+    uint32_t indexCount = 0;
+    uint32_t vertexStride = 0;
+
+    static MeshGPU createMeshGPU(const Mesh &mesh,  const LogicalDeviceManager &deviceM, const VkPhysicalDevice &physDevice, uint32_t indice, bool SSBO = false);
+    void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
+};
+
+/*
+// Notes: Rework the class vision
+
+struct GPUBufferView
+{
+    VkBuffer mBuffer = VK_NULL_HANDLE;
+    VkDeviceAddress mVertexBufferAddress = 0;
+    // Goal would be to pass this to an Uniform Buffer
+    VkDeviceSize mOffset = 0;
+    VkDeviceSize mSize = 0;
+};
+
+struct AttributeStream // An elements ?
+{
+    GPUBufferView mView;
+    uint32_t mStride = 0;
+    // Todo:
+    // Decide how to handle it in regard to the actual buffer
+    // Specifally with the build interleaved and so on
+    // This is only really fine due to how we construct our stuff but it render the whole MeshGPuRessources abstraction useless
+    // Since the descriptor handle everything well enough
+    // Using Attributes just assume everything is neatly deferred to the descriptor
+    // Main use so far is for non interleaved and to allow us to drop the Buffer once created
+    enum class Type
+    {
+        Attributes,
+        /*Pos, Normal, UV, Color,* / Index
+    } mType;
+};
+
+class MeshGPUResources
+{
+public:
+    void addStream(GPUBufferView view, uint32_t stride, AttributeStream::Type type)
+    {
+        mStreams.push_back({view, stride, type});
+    };
+
+    AttributeStream getStream(uint32_t index)
+    {
+        return mStreams[index];
+    }
+
+    VkBuffer getStreamBuffer(uint32_t index)
+    {
+        return mStreams[index].mView.mBuffer;
+    }
+
+private:
+    std::vector<AttributeStream> mStreams;
+};
+*/

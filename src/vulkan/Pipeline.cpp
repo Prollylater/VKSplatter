@@ -58,10 +58,19 @@ void PipelineManager::initialize(VkDevice device, const std::string &cacheFile)
         throw std::runtime_error("Failed to create pipeline cache!");
     }
 }
-void PipelineManager::createPipelineWithBuilder(VkDevice device, const PipelineBuilder &builder)
+int PipelineManager::createPipelineWithBuilder(VkDevice device, const PipelineBuilder &builder)
 {
+    size_t hash = builder.computehash();
+    auto it = mIndexByKey.find(hash);
+    if (it != mIndexByKey.end())
+    {
+        return it->second;
+    }
+
     auto [pipeline, layout] = builder.build(mDevice, mPipelineCache);
+    int index = mPipelines.size();
     mPipelines.push_back({pipeline, layout});
+    return index;
 }
 
 void PipelineManager::destroyPipeline(VkDevice device, uint32_t index)
@@ -180,12 +189,24 @@ std::pair<VkPipeline, VkPipelineLayout> PipelineBuilder::build(VkDevice device, 
     // Branch out if a compute Shadder is present
     if (hasCompute)
     {
+        /*
         VkPipeline pipeline;
         VkPipelineLayout pipelineLayout;
 
         // Create compute shader module
         VkShaderModule computeModule = vkUtils::Shaders::createShaderModule(device, vkUtils::Shaders::readShaderFile(mConfig.shaders.computeShaderPath));
 
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+        azazazpipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pipelineLayoutInfo.pSetLayouts = mConfig.uniform.descriptorSetLayouts.data();
+        pipelineLayoutInfo.setLayoutCount = mConfig.uniform.descriptorSetLayouts.size();
+        pipelineLayoutInfo.pPushConstantRanges = mConfig.uniform.pushConstants.data();
+        pipelineLayoutInfo.pushConstantRangeCount = mConfig.uniform.pushConstants.size();
+
+        // Push constant too ?
+        if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
+        {
+        }
         // Build VkComputePipelineCreateInfo with just pipelineLayout and computeModule
         VkComputePipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
@@ -194,7 +215,7 @@ std::pair<VkPipeline, VkPipelineLayout> PipelineBuilder::build(VkDevice device, 
 
         vkCreateComputePipelines(device, cache, 1, &pipelineInfo, nullptr, &pipeline);
 
-        vkDestroyShaderModule(device, computeModule, nullptr);
+        vkDestroyShaderModule(device, computeModule, nullptr);*/
         return {pipeline, pipelineLayout};
     }
 
@@ -297,10 +318,6 @@ std::pair<VkPipeline, VkPipelineLayout> PipelineBuilder::build(VkDevice device, 
     }
     else // Dynamic rendering first introduction
     {
-        std::cout<<"HEEHEHEE"<<std::endl;
-        std::cout<<"HEEHEHEE"<<std::endl;
-        std::cout<<"HEEHEHEE"<<std::endl;
-
         pipelineRender = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                           .colorAttachmentCount = static_cast<uint32_t>(mConfig.pass.colorAttachments.size()),
                           .pColorAttachmentFormats = mConfig.pass.colorAttachments.data(),

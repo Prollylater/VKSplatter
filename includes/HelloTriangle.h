@@ -35,12 +35,12 @@ private:
     void mainLoop();
     void cleanup();
 
-
     VulkanContext context;
     Renderer renderer; 
-
+    bool vkInitialized = false;
+    bool wdwInitialized = false;
     bool framebufferResized;
-    GLFWwindow *window;
+    GLFWwindow *window = nullptr;
 };
 
 

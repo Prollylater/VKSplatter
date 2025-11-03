@@ -5,10 +5,8 @@
 struct QueueFamilyIndices;
 class LogicalDeviceManager;
 
-
-//Undecided on this position
+// Undecided on this position
 uint32_t findMemoryType(const VkPhysicalDevice &device, uint32_t memoryTypeBitsRequirement, const VkMemoryPropertyFlags &requiredProperties);
-
 
 namespace vkUtils
 {
@@ -16,7 +14,7 @@ namespace vkUtils
     {
         // Second namespace here
         // Too big need to rework
-        void generateMipmaps(VkDevice device, VkPhysicalDevice physicalDevice, const QueueFamilyIndices &indices, VkImage image, VkQueue graphicsQueue,
+        void generateMipmaps(VkDevice device, VkPhysicalDevice physicalDevice, uint32_t queueIndice, VkImage image, VkQueue graphicsQueue,
                              VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 
         ImageTransition makeTransition(VkImage image,
@@ -32,10 +30,18 @@ namespace vkUtils
             uint32_t queueIndice);
 
         // void record
-        void copyBufferToImage(VkBuffer buffer, VkImage image, VkExtent3D imgData, const LogicalDeviceManager &deviceM,
-                               const QueueFamilyIndices &indices);
-        void copyImageToBuffer(VkImage image, VkBuffer buffer, const LogicalDeviceManager &deviceM,
-                               const QueueFamilyIndices &indices);
+
+        void copyBufferToImage(VkCommandBuffer cmdBuffer, VkBuffer buffer, VkImage image, VkExtent3D imgData);
+        void copyImageToBuffer(VkCommandBuffer cmdBuffer, VkImage image, VkBuffer buffer, const LogicalDeviceManager &deviceM);
+        void copyImageToImage(
+            VkCommandBuffer cmd,
+            VkImage srcImage,
+            VkImage dstImage,
+            VkExtent3D srcExtent,
+            VkExtent3D dstExtent,
+            VkImageLayout srcLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VkImageLayout dstLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VkFilter filter = VK_FILTER_LINEAR);
 
         VkSampler createSampler(VkDevice device, VkPhysicalDevice physDevice, int mipmaplevel);
 
@@ -49,6 +55,7 @@ namespace vkUtils
             VkDeviceMemory &imageMemory,
             uint32_t width,
             uint32_t height,
+            uint32_t depth,
             VkFormat format,
             VkImageTiling tiling,
             VkImageUsageFlags usage,
@@ -59,7 +66,9 @@ namespace vkUtils
             uint32_t mipLevels = 1,
             uint32_t arrayLayers = 1,
             VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT,
-            VkImageCreateFlags flags = 0);
+            VkImageCreateFlags flags = 0,
+            VmaAllocator allocator = VK_NULL_HANDLE,
+            VmaAllocation *outAlloc = nullptr);
 
         VkImage createImage(ImageCreateConfig &);
 
@@ -89,7 +98,7 @@ namespace vkUtils
     namespace BufferHelper
     {
         // Buffer View can be recreated even after Buffer has been deleted
-         VkBufferView createBufferView(VkDevice device, VkBuffer buffer, VkFormat format, VkDeviceSize offset, VkDeviceSize size = VK_WHOLE_SIZE);
+        VkBufferView createBufferView(VkDevice device, VkBuffer buffer, VkFormat format, VkDeviceSize offset, VkDeviceSize size = VK_WHOLE_SIZE);
         ///////////////////////////////////////////////////////////////////
         ////////////////////////Creation utility///////////////////////////
         ///////////////////////////////////////////////////////////////////
@@ -108,12 +117,12 @@ namespace vkUtils
         /////////////////Recording Utility///////////////
         /////////////////////////////////////////////////
 
-         void recordCopy(VkCommandBuffer cmdBuffer,
-                               VkBuffer srcBuffer,
-                               VkBuffer dstBuffer,
-                               VkDeviceSize size,
-                               VkDeviceSize srcOffset,
-                               VkDeviceSize dstOffset);
+        void recordCopy(VkCommandBuffer cmdBuffer,
+                        VkBuffer srcBuffer,
+                        VkBuffer dstBuffer,
+                        VkDeviceSize size,
+                        VkDeviceSize srcOffset,
+                        VkDeviceSize dstOffset);
 
         void copyBufferTransient(VkBuffer srcBuffer, VkBuffer dstBuffer,
                                  VkDeviceSize size,
@@ -122,12 +131,12 @@ namespace vkUtils
                                  VkDeviceSize srcOffset = 0,
                                  VkDeviceSize dstOffset = 0);
 
-        void uploadBufferDirect(
-            VkDeviceMemory bufferMemory,
-            const void *data,
-            VkDevice device,
-            VkDeviceSize size,
-            VkDeviceSize dstOffset);
+        void uploadBufferDirect(VkDevice device, VkDeviceMemory memory,
+                          const void *data, VkDeviceSize size, VkDeviceSize offset = 0);
+
+        void uploadBufferVMA(VmaAllocator allocator, VmaAllocation allocation,
+                       const void *data, VkDeviceSize size, VkDeviceSize offset = 0);
+
     }
 
 }

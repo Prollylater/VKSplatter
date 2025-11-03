@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_raii.hpp> // RAII C++ bindings
 #include <GLFW/glfw3.h>           // window + vk surface helpers
+#include  "vk_mem_alloc.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -21,6 +22,8 @@
 #include <span>
 #include <array>
 */
+
+//Todo: Where this ? In Application ?
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
@@ -67,7 +70,7 @@ vk::KHRSpirv14ExtensionName,
 
 struct SwapChainConfig
 {
-    VkSurfaceFormatKHR preferredFormat = {VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+    VkSurfaceFormatKHR preferredFormat = {VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
     std::vector<VkPresentModeKHR> preferredPresentModes = {
         VK_PRESENT_MODE_FIFO_KHR,
         VK_PRESENT_MODE_MAILBOX_KHR};
@@ -221,6 +224,16 @@ private:
         selectionCriteria = criteria;
         return *this;
     };
+};
+
+#include <glm/glm.hpp>
+
+// Todo: Move it somewhere else close to Vertex maybe in a common Tpes
+struct UniformBufferObject
+{
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
 };
 
 // Todo; Also Spir V reflect seem to the best way to go about this

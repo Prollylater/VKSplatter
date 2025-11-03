@@ -1,6 +1,32 @@
 #include "LogicalDevice.h"
 #include <set>
+#include "CommandPool.h"
+////////////
+void LogicalDeviceManager::createVmaAllocator(VkPhysicalDevice physicalDevice, VkInstance instance)
+{
+    // Initialize the memory allocator
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.physicalDevice = physicalDevice;
+    allocatorInfo.device = device;
+    allocatorInfo.instance = instance;
+    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    vmaCreateAllocator(&allocatorInfo, &mVmaAllocator);
+}
 
+void LogicalDeviceManager::destroyVmaAllocator()
+{
+    if (mVmaAllocator)
+    {
+        vmaDestroyAllocator(mVmaAllocator);
+        mVmaAllocator = VK_NULL_HANDLE;
+    }
+}
+
+VmaAllocator LogicalDeviceManager::getVmaAllocator()const
+{
+    return mVmaAllocator;
+}
+////////////
 void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices indices,
                                                const std::vector<const char *> &validationLayers, const DeviceSelectionCriteria &criteria)
 {
@@ -34,27 +60,37 @@ void LogicalDeviceManager::createLogicalDevice(VkPhysicalDevice physicalDevice, 
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
+    // vulkan 1.3 features
     VkPhysicalDeviceVulkan13Features features13 = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    features13.dynamicRendering = criteria.requireDynamicRendering;
+    // Todo: Introduce properly VkPipelineStage2, VkAccess2,
+    features13.synchronization2 = criteria.requireSynchronization2;
+
+    // vulkan 1.2 features
+    // Todo: Not default activation ?
+    VkPhysicalDeviceVulkan12Features features12{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+    // Raytraccing/Gpu memory pointer
+    features12.bufferDeviceAddress = true;
+    // Notes : Bindless and somewhat relevant https://alextardif.com/Bindless.html
+    features12.descriptorIndexing = true;
+
+    // Chain the pNext pointers: features13 → features12 → deviceFeatures
+    features12.pNext = &features13;
     VkPhysicalDeviceFeatures2 deviceFeatures = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-        .pNext = &features13};
-    // vkGetPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures);
+        .pNext = &features12};
 
-    features13.dynamicRendering = criteria.requireDynamicRendering;
-    features13.synchronization2 = criteria.requireSynchronization2;
     deviceFeatures.features.samplerAnisotropy = criteria.requireSamplerAnisotropy;
 
-    VkDeviceCreateInfo createInfo
-    {
+    VkDeviceCreateInfo createInfo{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pNext = &deviceFeatures,
-            .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
+        .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
         .pQueueCreateInfos = queueCreateInfos.data(),
         //.pEnabledFeatures = &deviceFeatures,
-            .enabledExtensionCount = static_cast<uint32_t>(criteria.deviceExtensions.size()),
-        .ppEnabledExtensionNames = criteria.deviceExtensions.data()
-    };
+        .enabledExtensionCount = static_cast<uint32_t>(criteria.deviceExtensions.size()),
+        .ppEnabledExtensionNames = criteria.deviceExtensions.data()};
 
     // ValidationLayer
     // Those are actually shared with instance validation layers in up to date vulkan standard
@@ -177,6 +213,94 @@ VkResult LogicalDeviceManager::submitToQueue(
     submitInfo.pSignalSemaphores = signalSemaphores.data();
 
     return vkQueueSubmit(queue, 1, &submitInfo, fence);
+}
+
+//Todo: Consider this 
+//https://vkguide.dev/docs/new_chapter_2/vulkan_imgui_setup/
+VkResult LogicalDeviceManager::immediateSubmit(CommandPoolManager &poolCmd,
+                                               std::function<void(VkCommandBuffer)> recordFunction,
+                                               VkQueue queue,
+                                               VkSemaphore waitSemaphore,
+                                               VkSemaphore signalSemaphore,
+                                               VkFence fence)
+{
+    // Allocate and record the command buffer via CommandPoolManager
+    VkCommandBuffer cmdBuffer = poolCmd.get(0);
+    poolCmd.beginRecord();
+    recordFunction(cmdBuffer);
+    poolCmd.endRecord();
+
+    // Submit the command buffer to the Vulkan queue immediately
+    std::vector<VkCommandBuffer> cmdBuffers = {cmdBuffer};
+    std::vector<VkSemaphore> waitSemaphores = {waitSemaphore};
+    std::vector<VkPipelineStageFlags> waitStages = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    std::vector<VkSemaphore> signalSemaphores = {signalSemaphore};
+
+    return submitToQueue(queue, cmdBuffers, waitSemaphores, waitStages, signalSemaphores, fence);
+}
+
+// Todo VkSubmitInfo2 and  https://vkguide.dev/docs/new_chapter_1/vulkan_mainloop_code/
+VkResult LogicalDeviceManager::submit2ToQueue(
+    VkQueue queue,
+    const std::vector<VkCommandBuffer> &cmdBuffers,
+    const std::vector<VkSemaphore> &waitSemaphores,
+    const std::vector<VkPipelineStageFlags> &waitStages,
+    const std::vector<VkSemaphore> &signalSemaphores,
+    VkFence fence)
+{
+    // Prepare the wait semaphores  VkSemaphoreSubmitInfo
+    std::vector<VkSemaphoreSubmitInfo> waitSemaphoreInfos(waitSemaphores.size());
+    for (size_t i = 0; i < waitSemaphores.size(); ++i)
+    {
+        waitSemaphoreInfos[i] = {};
+        waitSemaphoreInfos[i].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+        waitSemaphoreInfos[i].pNext = nullptr;
+        waitSemaphoreInfos[i].semaphore = waitSemaphores[i];
+        waitSemaphoreInfos[i].stageMask = waitStages[i]; // Set the pipeline stage for wait
+    }
+
+    // Prepare the signal semaphores  VkSemaphoreSubmitInfo
+    std::vector<VkSemaphoreSubmitInfo> signalSemaphoreInfos(signalSemaphores.size());
+    for (size_t i = 0; i < signalSemaphores.size(); ++i)
+    {
+        signalSemaphoreInfos[i] = {};
+        signalSemaphoreInfos[i].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+        signalSemaphoreInfos[i].pNext = nullptr;
+        signalSemaphoreInfos[i].semaphore = signalSemaphores[i];
+        signalSemaphoreInfos[i].stageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT; // Default to bottom of pipe
+    }
+
+    // Prepare the command buffers  VkCommandBufferSubmitInfo
+    std::vector<VkCommandBufferSubmitInfo> commandBufferInfos(cmdBuffers.size());
+    for (size_t i = 0; i < cmdBuffers.size(); ++i)
+    {
+        commandBufferInfos[i] = {};
+        commandBufferInfos[i].sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+        commandBufferInfos[i].pNext = nullptr;
+        commandBufferInfos[i].commandBuffer = cmdBuffers[i];
+        commandBufferInfos[i].deviceMask = 0;
+    }
+
+    // Prepare VkSubmitInfo2 structure
+    VkSubmitInfo2 submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+    submitInfo.pNext = nullptr;
+    submitInfo.flags = 0; // No specific flags by default
+    submitInfo.waitSemaphoreInfoCount = static_cast<uint32_t>(waitSemaphoreInfos.size());
+    submitInfo.pWaitSemaphoreInfos = waitSemaphoreInfos.data();
+    submitInfo.commandBufferInfoCount = static_cast<uint32_t>(commandBufferInfos.size());
+    submitInfo.pCommandBufferInfos = commandBufferInfos.data();
+    submitInfo.signalSemaphoreInfoCount = static_cast<uint32_t>(signalSemaphoreInfos.size());
+    submitInfo.pSignalSemaphoreInfos = signalSemaphoreInfos.data();
+
+    // Submit the command buffers to the Vulkan queue
+    VkResult result = vkQueueSubmit2(queue, 1, &submitInfo, fence);
+    if (result != VK_SUCCESS)
+    {
+        std::cerr << "Failed to submit command buffer to queue!" << std::endl;
+    }
+
+    return result;
 }
 
 VkResult LogicalDeviceManager::presentImage(

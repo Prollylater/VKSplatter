@@ -45,11 +45,11 @@ namespace vkUtils
 class Image
 {
 public:
-    Image() = default;
+    Image() {};
     ~Image() = default;
 
     // More specific version for quick mipmapped texture
-    void createImage(VkDevice device, VkPhysicalDevice physDevice, VkExtent3D extent, uint32_t mipLevels);
+    void createImage(VkDevice device, VkPhysicalDevice physDevice, VkExtent3D extent, uint32_t mipLevels, VmaAllocator alloc = VK_NULL_HANDLE);
     void createImage(vkUtils::Texture::ImageCreateConfig &config);
 
     // Prefer this function as their is no way to impact descriptor otherwise
@@ -61,7 +61,7 @@ public:
     void createImageView(VkDevice device, VkImageAspectFlags aspectflag);
     void createImageSampler(VkDevice device, VkPhysicalDevice physDevice);
 
-    void destroyImage(VkDevice device);
+    void destroyImage(VkDevice device, VmaAllocator = VK_NULL_HANDLE);
 
     // Getters
     VkImage getImage() const { return mImage; }
@@ -78,16 +78,18 @@ public:
 private:
     VkImage mImage = VK_NULL_HANDLE;
     VkDeviceMemory mImageMemory = VK_NULL_HANDLE;
-    // VkImageView mImageView = VK_NULL_HANDLE;
-
-    // Attributes of the Image
+    VmaAllocation mImageAlloc{};
+    bool useVma = false;
+    // TODO: The whole Vma should be rethought
+    //  Attributes of the Image
     VkExtent3D mExtent = {1, 1, 1};
     VkFormat mFormat = VK_FORMAT_UNDEFINED;
     uint32_t mMipLevels = 1;
     VkSampleCountFlagBits mSamples = VK_SAMPLE_COUNT_1_BIT; // MSAA Not introduced yet
     uint32_t mArrayLayers = 1;
 
-    // VkImageLayout mLayout; // Undecided
+    // Todo:
+    //  VkImageLayout mLayout; // Undecided and would
 
     VkDescriptorImageInfo mDescriptor{};
 };
@@ -109,16 +111,35 @@ public:
     // Introduce parameter to decide mMipLevel and format etc..
     void createTextureImage(VkPhysicalDevice physDevice,
                             const LogicalDeviceManager &deviceM, const std::string &filepath,
-                            const QueueFamilyIndices &indices);
-
+                            uint32_t queuIndice, VmaAllocator alloc = VK_NULL_HANDLE);
+    void createTextureImage(VkPhysicalDevice physDevice,
+                            const LogicalDeviceManager &deviceM, ImageData<stbi_uc> &textureData,
+                            uint32_t queuIndice, VmaAllocator allocator = VK_NULL_HANDLE);
     void createTextureImageView(VkDevice device);
     void createTextureSampler(VkDevice device, VkPhysicalDevice physDevice);
 
-    void destroyTexture(VkDevice device);
+    void destroyTexture(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
 
     const Image &getImage() const { return mImage; }
     VkImageView getView() const { return mImage.getView(); }
     VkSampler getSampler() const { return mImage.getSampler(); }
+
+    static Texture *getDummyAlbedo(VkPhysicalDevice physDevice,
+                                   const LogicalDeviceManager &deviceM,
+                                   uint32_t queuIndice,
+                                   VmaAllocator allocator);
+    static Texture *getDummyNormal(VkPhysicalDevice physDevice,
+                                   const LogicalDeviceManager &deviceM,
+                                   uint32_t queuIndice,
+                                   VmaAllocator allocator);
+    static Texture *getDummyMetallic(VkPhysicalDevice physDevice,
+                                     const LogicalDeviceManager &deviceM,
+                                     uint32_t queuIndice,
+                                     VmaAllocator allocator);
+    static Texture *getDummyRoughness(VkPhysicalDevice physDevice,
+                                      const LogicalDeviceManager &deviceM,
+                                      uint32_t queuIndice,
+                                      VmaAllocator allocator);
 
 private:
     Image mImage;
