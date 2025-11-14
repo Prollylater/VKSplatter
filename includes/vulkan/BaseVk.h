@@ -23,7 +23,10 @@
 #include <array>
 */
 
-//Todo: Where this ? In Application ?
+//Todo:Book https://vkguide.dev/docs/extra-chapter/intro_to_simd/ + https://vkguide.dev/docs/new_chapter_5/faster_draw/ + https://vkguide.dev/docs/gpudriven
+//Todo: Clean the includes in general
+//Todo: Multithreading https://vkguide.dev/docs/extra-chapter/multithreading/
+//Todo: Where this ? In Application ? Windows Class ?
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
@@ -34,7 +37,7 @@ const std::string MODEL_PATH = "./ressources/models/hearthspring.obj";
 const std::string TEXTURE_PATH = "./ressources/models/hearthspring.png";
 
 // Also repass on fucntion while looking into the structure
-
+//https://docs.vulkan.org/tutorial/latest/12_Ecosystem_Utilities_and_Compatibility.html#_supporting_older_gpus
 struct DeviceSelectionCriteria
 {
     // Somehow stand for queue and Shader
@@ -259,3 +262,30 @@ A frame in flight refers to a rendering operation that
     OR not ? It's weird wait for the chapter
     Depth Buffer/Stencil Buffer (Only used during rendering. Sent for rendering, consumed there and  ignried)
 */
+
+
+//Should not be here either
+// Todo:
+// Undecided on the need for templating here for our need
+
+#define INVALID_ASSET_ID 0
+enum class AssetType
+{
+    Mesh,
+    Texture,
+    Material
+};
+template <typename T>
+struct AssetID
+{
+    uint32_t id = INVALID_ASSET_ID; // Private
+
+    AssetID() = default;
+    explicit AssetID(uint32_t id) : id(id) {}
+
+    uint32_t getID() const { return id; }
+    bool isValid() const { return id != INVALID_ASSET_ID; }
+
+    bool operator==(const AssetID &other) const { return id == other.id; }
+    bool operator!=(const AssetID &other) const { return id != other.id; }
+};

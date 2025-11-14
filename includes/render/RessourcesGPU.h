@@ -1,15 +1,16 @@
 #pragma once
 #include "BaseVk.h"
 
+
 struct Mesh;
 struct Material;
 class LogicalDeviceManager;
 class DescriptorManager;
+class AssetRegistry;
 
-
+//Todo: Can this also be shared ? Depending on howw other color data are handled
 struct MaterialGPU {
     int pipelineEntryIndex = -1;   
-    //int materialIndex = -1;    
     int descriptorIndex = -1;    
 
     //Not allocated
@@ -18,7 +19,7 @@ struct MaterialGPU {
     VmaAllocation uniformBufferAlloc = VK_NULL_HANDLE;    // Memory handle
     VkDeviceMemory uniformBufferMem = VK_NULL_HANDLE;
 
-    static MaterialGPU createMaterialGPU(const Material &material,  const LogicalDeviceManager &deviceM, DescriptorManager& descriptor, VkPhysicalDevice physDevice, uint32_t indice);
+    static MaterialGPU createMaterialGPU( AssetRegistry& registry,const Material &material,  const LogicalDeviceManager &deviceM, DescriptorManager& descriptor, VkPhysicalDevice physDevice, uint32_t indice);
     void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
 };
 
@@ -46,7 +47,6 @@ struct MeshGPU
 };
 
 /*
-// Notes: Rework the class vision
 
 struct GPUBufferView
 {
@@ -63,7 +63,7 @@ struct AttributeStream // An elements ?
     uint32_t mStride = 0;
     // Todo:
     // Decide how to handle it in regard to the actual buffer
-    // Specifally with the build interleaved and so on
+    // Specifally with the build interleaved and so on.
     // This is only really fine due to how we construct our stuff but it render the whole MeshGPuRessources abstraction useless
     // Since the descriptor handle everything well enough
     // Using Attributes just assume everything is neatly deferred to the descriptor

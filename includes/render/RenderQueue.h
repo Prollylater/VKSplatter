@@ -16,6 +16,6 @@ struct RenderQueue
     void sortByMaterial();
 
     // Single renderqueue build
-    void build(const Scene &scene);
+    void build(const RenderScene &scene);
 
 };

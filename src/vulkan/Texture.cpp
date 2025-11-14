@@ -176,8 +176,15 @@ void Texture::createTextureSampler(VkDevice device, VkPhysicalDevice physDevice)
     mImage.createImageSampler(device, physDevice);
 }
 
-// Look into what is necessary for Texture and not
-// Todo: Texture should have their allocator
+void Texture::createKnowTextureImage(VkPhysicalDevice physDevice,
+                                 const LogicalDeviceManager &deviceM,
+                                 uint32_t queueIndice, VmaAllocator allocator)
+{
+    ImageData<stbi_uc> textureData = LoadImageTemplate<stbi_uc>(tempFP.c_str(), STBI_rgb_alpha);
+    createTextureImage(physDevice, deviceM, textureData, queueIndice, allocator);
+    textureData.freeImage();
+}
+
 void Texture::createTextureImage(VkPhysicalDevice physDevice,
                                  const LogicalDeviceManager &deviceM, const std::string &filepath,
                                  uint32_t queueIndice, VmaAllocator allocator)

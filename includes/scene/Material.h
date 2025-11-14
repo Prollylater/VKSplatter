@@ -3,7 +3,6 @@
 #include "config/PipelineConfigs.h"
 #include "ContextController.h"
 
-class PipelineManager;
 class Texture;
 class RenderTargetInfo;
 
@@ -17,18 +16,23 @@ enum class MaterialType
 struct Material
 {
   MaterialType mType = MaterialType::PBR;
+
+  //Todo:
+  //Those value are potentially problematic,
+  //Must be reset if a pipeline is destroeyd or a matLayout especially since those are GPU ressources
+  //Or someone should know the Material to ring it if needed
   int pipelineEntryIndex = -1;
   int matLayoutIndex = -1;
 
+   // This could serve as a way 
+  PipelineSetLayoutBuilder materialLayoutInfo;
+
 
   // Ressources
-  Texture *albedoMap = nullptr;
-  Texture *normalMap = nullptr;
-  Texture *metallicMap = nullptr;
-  Texture *roughnessMap = nullptr;
-  // Texture *emissiveMap = nullptr;
-  // Texture *aoMap = nullptr;
-  //  Some Buffer for stuff ?
+  AssetID<Texture> albedoMap;
+  AssetID<Texture> normalMap;
+  AssetID<Texture> metallicMap;
+  AssetID<Texture> roughnessMap;
 
   struct MaterialConstants
   {
@@ -42,20 +46,18 @@ struct Material
     float padding[2];
   } mConstants;
 
-  // Todo: Not quite needed
-  PipelineLayoutDescriptor materialLayout;
-
+ 
   struct MaterialLayoutRegistry
   {
-    static const PipelineLayoutDescriptor &Get(MaterialType type)
+    static const PipelineSetLayoutBuilder &Get(MaterialType type)
     {
       switch (type)
       {
       case MaterialType::None:
 
-        static PipelineLayoutDescriptor UnlitLayout = []
+        static PipelineSetLayoutBuilder UnlitLayout = []
         {
-          PipelineLayoutDescriptor layout;
+          PipelineSetLayoutBuilder layout;
           layout.addDescriptor(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
           return layout;
         }();
@@ -63,9 +65,9 @@ struct Material
         return UnlitLayout;
       case MaterialType::PBR:
       default:
-        static PipelineLayoutDescriptor PBRLayout = []
+        static PipelineSetLayoutBuilder PBRLayout = []
         {
-          PipelineLayoutDescriptor layout;
+          PipelineSetLayoutBuilder layout;
           layout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
           layout.addDescriptor(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // albedo
           layout.addDescriptor(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // normal
@@ -80,8 +82,8 @@ struct Material
     }
   };
 
-  void requestPipeline(VulkanContext &ctx, VertexFlags flags);
-  void requestPipeline(VulkanContext &ctx, PipelineLayoutDescriptor materialLayout, std::string vertexShader, std::string fragmentShader, VertexFlags flags);
+  //Todo: Not very useful
+  void requestPipelineCreateInfo();
   void setType(MaterialType type)
   {
     mType = type;

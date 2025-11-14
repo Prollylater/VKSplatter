@@ -40,11 +40,7 @@ struct Mesh
         return true;
     }
 
-    
-    void loadModel(std::string);
-
-    /////////TODO Temporary?
- 
+    std::vector<AssetID<Material>> materialIds;
 };
 
 
@@ -57,7 +53,7 @@ struct Mesh
         uint32_t indexCount;
         uint32_t vertexOffset;
         uint32_t vertexCount;
-        uint32_t materialIndex;
+        AssetID<Material> materialIds;
     };
     std::vector<Submesh> submeshes;
 

@@ -19,18 +19,18 @@ Separate is not implemented in the other part
     vec4: VK_FORMAT_R32G32B32A32_SFLOAT
 */
 
-/////////////////////////////////////////////////::
+//Handle instancing
 enum VertexFlags : uint32_t
 {
     Vertex_None = 0,
     Vertex_Pos = 1 << 0,
     Vertex_Normal = 1 << 1,
     Vertex_UV = 1 << 2,
-    // Unecessary
     Vertex_Color = 1 << 3,
-    Vertex_Indices = 1 << 4,
-
 };
+
+inline constexpr VertexFlags STANDARD_STATIC_FLAG = static_cast<VertexFlags>(Vertex_Pos | Vertex_Normal | Vertex_UV);
+
 
 // Namespace
 // Bindings: spacing between data and whether the data is per-vertex or per-instance (see instancing)
@@ -61,10 +61,12 @@ struct VertexFormat
     VkPipelineVertexInputStateCreateInfo toCreateInfo() const;
 };
 
-// This is bad as well
 class VertexFormatRegistry
 {
 public:
+    VertexFormatRegistry() = default;
+    ~VertexFormatRegistry() = default;
+
     static void registerFormat(const VertexFlags, const VertexFormat &format);
 
     static void addFormat(const VertexFlags flags);
@@ -72,16 +74,12 @@ public:
     static bool isFormatIn(const VertexFlags flag);
 
     static const VertexFormat &getFormat(const VertexFlags);
+    static const VertexFormat &getStandardFormat();
 
     static VertexFormat generateVertexFormat(VertexFlags flags);
-
     static VertexFormat generateInterleavedVertexFormat(VertexFlags flags);
 
 private:
-    // Todo:
-    // Ultimately making it a map of VertexFlag to Vertex Format is safer
-    // This should be take care after reworking the pipeline and render pass parrt
-    // Mesh should also auomatically be able to find their format through their size matching the position
     static std::unordered_map<VertexFlags, VertexFormat> &getFormats();
 };
 
@@ -128,14 +126,14 @@ inline uint32_t calculateVertexStride(VertexFlags flags)
 {
     uint32_t stride = 0;
 
-    if (flags & Vertex_Pos)
-        stride += sizeof(glm::vec3);
-    if (flags & Vertex_Normal)
-        stride += sizeof(glm::vec3);
-    if (flags & Vertex_UV)
-        stride += sizeof(glm::vec2);
-    if (flags & Vertex_Color)
-        stride += sizeof(glm::vec3);
+    if (flags & Vertex_Pos){
+        stride += sizeof(glm::vec3);}
+    if (flags & Vertex_Normal){
+        stride += sizeof(glm::vec3);}
+    if (flags & Vertex_UV){
+        stride += sizeof(glm::vec2);}
+    if (flags & Vertex_Color){
+        stride += sizeof(glm::vec3);}
 
     return stride;
 }
@@ -151,7 +149,7 @@ Vertex Buffers (bound via vkCmdBindVertexBuffers)
        │                   │
        │                   │
        ▼                   ▼
-Attributes (shader inputs)
+Attributes for the shader
 ┌─────────────┐     ┌─────────────┐
 │ location 0  │     │ location 1  │
 │ pos (vec3)  │     │ color (vec4)│

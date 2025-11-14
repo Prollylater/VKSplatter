@@ -1,6 +1,7 @@
 #include "BaseVk.h"
 #include "ContextController.h"
 #include "Renderer.h"
+#include "AssetRegistry.h"
 
 //Our Application only use one physical device and one logical device
 
@@ -37,10 +38,22 @@ private:
 
     VulkanContext context;
     Renderer renderer; 
+    AssetRegistry registry; 
+    Scene logicScene;//Scenegraph/ECS
+
     bool vkInitialized = false;
     bool wdwInitialized = false;
     bool framebufferResized;
+    //Window abstraction for close, cleaner resize, pollingEvents too
     GLFWwindow *window = nullptr;
 };
+/*
+Introduce enough genericity to have something like that ?
+EngineCore
+ ── WindowSystem
+ ── RenderSystem
+ ── ResourceSystem
+ ── SceneSystem
 
-
+ //Check Layers systems
+*/

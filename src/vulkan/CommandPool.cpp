@@ -8,13 +8,14 @@ void CommandPoolManager::createCommandPool(VkDevice device, CommandPoolType type
     VkCommandPoolCreateInfo info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
     info.queueFamilyIndex = familyIndex;
 
+    //https://docs.vulkan.org/refpages/latest/refpages/source/VkCommandPoolCreateFlagBits.html
     if (type == CommandPoolType::Transient)
     {
         info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
     }
     else
     {
-        // Allow individual reset of command buffer created (explictly?? and implicitly)
+        // Allow individual reset of command buffer created (explictly?? and implicitly with begin recording)
         info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     }
 

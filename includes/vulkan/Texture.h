@@ -106,7 +106,13 @@ class Texture
 {
 public:
     Texture() = default;
+    Texture(std::string filePath): tempFP(filePath){};
     ~Texture() = default;
+
+    //Todo: This function only exist for prototyping sake and should be removed
+    void createKnowTextureImage(VkPhysicalDevice physDevice,
+                            const LogicalDeviceManager &deviceM, 
+                            uint32_t queuIndice, VmaAllocator alloc = VK_NULL_HANDLE);
 
     // Introduce parameter to decide mMipLevel and format etc..
     void createTextureImage(VkPhysicalDevice physDevice,
@@ -141,7 +147,11 @@ public:
                                       uint32_t queuIndice,
                                       VmaAllocator allocator);
 
+
+    
 private:
+    //Todo: This variable only exist for prototyping sake and should be removed
+    std::string tempFP;
     Image mImage;
     VkDevice mDevice = VK_NULL_HANDLE;
 };

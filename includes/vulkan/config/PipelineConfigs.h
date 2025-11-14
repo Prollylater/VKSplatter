@@ -147,8 +147,8 @@ struct PipelineConfig
 };
 
 // Descriptor
-// This only describe a single set layout. Poorly named
-struct PipelineLayoutDescriptor
+// This only describe a single set layout. also it is Poorly named
+struct PipelineSetLayoutBuilder
 {
     // Bad name
     std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayouts;
@@ -164,6 +164,7 @@ struct PipelineLayoutDescriptor
     {
         pushConstants.push_back({stageFlag, offset, size});
     }
+    
 };
 
 // Renderpass

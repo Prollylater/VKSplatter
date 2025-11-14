@@ -20,6 +20,7 @@ set(SOURCES
     ${SOURCE_DIR}/main.cpp
     ${SOURCE_DIR}/HelloTriangle.cpp  
 
+    ${SOURCE_DIR}/scene/AssetRegistry.cpp   
     ${SOURCE_DIR}/scene/Camera.cpp   
     ${SOURCE_DIR}/scene/Drawable.cpp   
     ${SOURCE_DIR}/scene/Material.cpp   
@@ -41,7 +42,8 @@ set(SOURCES
     ${SOURCE_DIR}/vulkan/Descriptor.cpp   
     ${SOURCE_DIR}/vulkan/VulkanInstance.cpp
 
-    ${SOURCE_DIR}/render/RenderQueue.cpp   
+    ${SOURCE_DIR}/render/RenderQueue.cpp  
+    ${SOURCE_DIR}/render/FrameHandler.cpp   
     ${SOURCE_DIR}/render/RessourcesGPU.cpp   
     ${SOURCE_DIR}/render/VertexDescriptions.cpp   
     ${SOURCE_DIR}/render/Renderer.cpp   

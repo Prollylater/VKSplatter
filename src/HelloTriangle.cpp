@@ -30,24 +30,16 @@ void HelloTriangleApplication::initVulkan()
     SwapChainConfig swapChain = SwapChainConfig::Default();
     info.getSwapChainConfig() = swapChain;
 
-    renderer.initialize(context);
+    renderer.initialize(context, registry);
 
     // Context set up
     context.initVulkanBase(window, info);
-    context.initMaterialPool();
-    context.initRenderInfrastructure();
-    renderer.initSceneRessources();
-    // TODO:
-    // Render Pass Buildder/ Pipelien Builder might stay in Renderer if pre existing Rnderer are made
-    //  Todo better mangament of this. Like creating here and passing it to context etc...
-    //  Decide if Config shoudl all belong to an unique file
-   // RenderPassConfig renderPassConfig = context.getRenderPassManager().getConfiguration();
-    // In the case of compute shader we should get InputAttachement Descriptor from configuration above.
 
-   // Then i could reflect the InputAttachment from render pass Config after this
-   // Second Problem is the number of RenderPass probably
-   //contefxt.initPipelineAndDescriptors(layout, renderer.flag);
+    renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT);
+    renderer.initRenderInfrastructure();
 
+    //Renderer
+    renderer.initSceneRessources(logicScene);
  
     vkInitialized = true;
 }
@@ -67,7 +59,7 @@ void HelloTriangleApplication::mainLoop()
 
 void HelloTriangleApplication::cleanup()
 {
-    renderer.deinitSceneRessources();
+    renderer.deinitSceneRessources(logicScene);
     context.destroyAll();
     glfwDestroyWindow(window);
     glfwTerminate();

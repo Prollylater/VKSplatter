@@ -27,6 +27,7 @@ struct SwapChainSupportDetails
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+//Might as well stay with frame data + new name
 class SwapChainResources
 {
 public:
@@ -42,6 +43,7 @@ private:
     std::vector<VkFramebuffer> mFramebuffers;
 };
 
+//Todo: Move it into it's own class
 class GBuffers
 {
 public:
@@ -103,6 +105,7 @@ struct DynamicPassInfo
     VkRenderingAttachmentInfo depthAttachment;
 };
 
+//Toodo: This should belong to the render
 struct FrameResources
 {
     CommandPoolManager mCommandPool;
@@ -229,6 +232,7 @@ public:
     SwapChainManager() = default;
     ~SwapChainManager() = default;
 
+    //Todo: MSurface don't need to be held in swapchain
     void createSurface(VkInstance instance, GLFWwindow *window);
     void destroySurface();
     VkSurfaceKHR GetSurface() const;
@@ -275,6 +279,7 @@ public:
         return mConfig;
     }
 
+    /*
     FrameResources &getCurrentFrameData();
     const int getCurrentFrameIndex() const;
     void advanceFrame();
@@ -293,6 +298,7 @@ public:
     void completeFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass);
 
     void destroyFramesData(VkDevice device);
+    */
 
 private:
     // Remove ?
@@ -306,12 +312,12 @@ private:
     VkExtent2D mSwapChainExtent;
     std::vector<VkImage> mSwapChainImages;
     std::vector<VkImageView> mSChainImageViews;
-
+/*
     uint32_t currentFrame = 0;
     std::vector<FrameResources> mFramesData;
 
     void createFrameData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice);
-    void destroyFrameData(VkDevice device);
+    void destroyFrameData(VkDevice device);*/
 
     // Todo: Not sure, additionnal data for swapchain recreation
     SwapChainConfig mConfig;
