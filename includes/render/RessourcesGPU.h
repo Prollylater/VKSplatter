@@ -1,33 +1,34 @@
 #pragma once
 #include "BaseVk.h"
 
-
 struct Mesh;
 struct Material;
 class LogicalDeviceManager;
 class DescriptorManager;
 class AssetRegistry;
 
-//Todo: Can this also be shared ? Depending on howw other color data are handled
-struct MaterialGPU {
-    int pipelineEntryIndex = -1;   
-    int descriptorIndex = -1;    
+// Todo: Can this also be shared ? Depending on howw other color data are handled
+struct MaterialGPU
+{
+    int pipelineEntryIndex = -1;
+    int descriptorIndex = -1;
 
-    //Not allocated
-    VkDescriptorSet materialSet = VK_NULL_HANDLE; //Don't own
-    VkBuffer uniformBuffer = VK_NULL_HANDLE;;              // Material constants
-    VmaAllocation uniformBufferAlloc = VK_NULL_HANDLE;    // Memory handle
+    // Not allocated
+    VkDescriptorSet materialSet = VK_NULL_HANDLE; // Don't own
+    VkBuffer uniformBuffer = VK_NULL_HANDLE;
+    ;                                                  // Material constants
+    VmaAllocation uniformBufferAlloc = VK_NULL_HANDLE; // Memory handle
     VkDeviceMemory uniformBufferMem = VK_NULL_HANDLE;
 
-    static MaterialGPU createMaterialGPU( AssetRegistry& registry,const Material &material,  const LogicalDeviceManager &deviceM, DescriptorManager& descriptor, VkPhysicalDevice physDevice, uint32_t indice);
+    static MaterialGPU createMaterialGPU(const AssetRegistry &registry, const Material &material, const LogicalDeviceManager &deviceM, DescriptorManager &descriptor, VkPhysicalDevice physDevice, uint32_t indice);
+    //void bind()
     void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
 };
 
-
 struct MeshGPU
 {
-    //TOdo: SHould i derectly use my Buffer class ?
-    // Cleanup object in case the mesh buffer is not kept
+    // TOdo: SHould i derectly use my Buffer class ?
+    //  Cleanup object in case the mesh buffer is not kept
     VkBuffer vertexBuffer = VK_NULL_HANDLE;
     VkBuffer indexBuffer = VK_NULL_HANDLE;
     VmaAllocation vertexAlloc = VK_NULL_HANDLE;
@@ -36,14 +37,38 @@ struct MeshGPU
     VkDeviceMemory indexMem = VK_NULL_HANDLE;
 
     VkDeviceAddress vertexAddress = 0;
-    VkDeviceAddress indexAddress = 0;
 
-    uint32_t vertexCount = 0; //????
+    uint32_t vertexCount = 0; // Not too sure if this would be useful
     uint32_t indexCount = 0;
     uint32_t vertexStride = 0;
 
-    static MeshGPU createMeshGPU(const Mesh &mesh,  const LogicalDeviceManager &deviceM, const VkPhysicalDevice &physDevice, uint32_t indice, bool SSBO = false);
+    static MeshGPU createMeshGPU(const Mesh &mesh, const LogicalDeviceManager &deviceM, const VkPhysicalDevice &physDevice, uint32_t indice, bool SSBO = false);
+    //void bind()
     void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
+};
+
+struct InstanceData;
+struct InstanceGPU
+{
+    VkBuffer instanceBuffer = VK_NULL_HANDLE;
+    VmaAllocation instanceAlloc = VK_NULL_HANDLE;
+    VkDeviceMemory instanceMem = VK_NULL_HANDLE;
+    // VkDeviceAddress indexAddress = 0;
+
+    uint32_t instanceCount;
+    uint32_t instanceStride;
+
+    static InstanceGPU createInstanceGPU(const std::vector<InstanceData> &mesh, const LogicalDeviceManager &deviceM, const VkPhysicalDevice &physDevice, uint32_t indice);
+    //void bind()
+    void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
+};
+
+struct GPUBufferView
+{
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VmaAllocation allocation = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkDeviceAddress mVertexBufferAddress = 0;
 };
 
 /*
@@ -96,4 +121,5 @@ public:
 private:
     std::vector<AttributeStream> mStreams;
 };
+
 */

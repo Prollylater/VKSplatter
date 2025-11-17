@@ -269,12 +269,7 @@ A frame in flight refers to a rendering operation that
 // Undecided on the need for templating here for our need
 
 #define INVALID_ASSET_ID 0
-enum class AssetType
-{
-    Mesh,
-    Texture,
-    Material
-};
+
 template <typename T>
 struct AssetID
 {

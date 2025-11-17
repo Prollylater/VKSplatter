@@ -37,8 +37,7 @@ public:
     void allocateDescriptorSets(VkDevice device);
     int allocateDescriptorSet(VkDevice device, int set);
 
-    void updateDescriptorSet(VkDevice device, uint32_t setIndex,
-                             const std::vector<VkWriteDescriptorSet> &writes);
+    void updateDescriptorSet(VkDevice device, const std::vector<VkWriteDescriptorSet> &writes);
     // TODO: To uin32_t .
     int getOrCreateSetLayout(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding> &bindings);
 

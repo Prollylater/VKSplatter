@@ -32,20 +32,18 @@ void PipelineManager::initialize(VkDevice device, const std::string &cacheFile)
     mDevice = device;
 
     std::vector<char> cacheData;
-    if (!cacheFile.empty())
-    {
-        std::ifstream in(cacheFile, std::ios::binary | std::ios::ate);
-        if (in)
-        {
-            size_t size = (size_t)in.tellg();
-            cacheData.resize(size);
-            in.seekg(0);
-            in.read(cacheData.data(), size);
-        }
-    }
-    else
+    if (cacheFile.empty())
     {
         return;
+    };
+    
+    std::ifstream in(cacheFile, std::ios::binary | std::ios::ate);
+    if (in)
+    {
+        size_t size = (size_t)in.tellg();
+        cacheData.resize(size);
+        in.seekg(0);
+        in.read(cacheData.data(), size);
     }
 
     VkPipelineCacheCreateInfo cacheInfo{VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO};
@@ -179,9 +177,7 @@ void PipelineManager::dumpCacheToFile(const std::string &path, VkDevice device)
 
 std::pair<VkPipeline, VkPipelineLayout> PipelineBuilder::build(VkDevice device, VkPipelineCache cache) const
 {
-    bool hasVertex = !mConfig.shaders.vertShaderPath.empty();
-    bool hasFragment = !mConfig.shaders.fragShaderPath.empty();
-    bool hasCompute = !mConfig.shaders.computeShaderPath.empty();
+    const bool hasCompute = !mConfig.shaders.computeShaderPath.empty();
 
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkPipeline pipeline = VK_NULL_HANDLE;
@@ -189,7 +185,6 @@ std::pair<VkPipeline, VkPipelineLayout> PipelineBuilder::build(VkDevice device, 
     // Branch out if a compute Shadder is present
     if (hasCompute)
     {
-        /*
         VkPipeline pipeline;
         VkPipelineLayout pipelineLayout;
 
@@ -197,7 +192,7 @@ std::pair<VkPipeline, VkPipelineLayout> PipelineBuilder::build(VkDevice device, 
         VkShaderModule computeModule = vkUtils::Shaders::createShaderModule(device, vkUtils::Shaders::readShaderFile(mConfig.shaders.computeShaderPath));
 
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-        azazazpipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.pSetLayouts = mConfig.uniform.descriptorSetLayouts.data();
         pipelineLayoutInfo.setLayoutCount = mConfig.uniform.descriptorSetLayouts.size();
         pipelineLayoutInfo.pPushConstantRanges = mConfig.uniform.pushConstants.data();
@@ -207,6 +202,7 @@ std::pair<VkPipeline, VkPipelineLayout> PipelineBuilder::build(VkDevice device, 
         if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
         {
         }
+
         // Build VkComputePipelineCreateInfo with just pipelineLayout and computeModule
         VkComputePipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
@@ -215,9 +211,12 @@ std::pair<VkPipeline, VkPipelineLayout> PipelineBuilder::build(VkDevice device, 
 
         vkCreateComputePipelines(device, cache, 1, &pipelineInfo, nullptr, &pipeline);
 
-        vkDestroyShaderModule(device, computeModule, nullptr);*/
+        vkDestroyShaderModule(device, computeModule, nullptr);
         return {pipeline, pipelineLayout};
     }
+
+    const bool hasVertex = !mConfig.shaders.vertShaderPath.empty();
+    const bool hasFragment = !mConfig.shaders.fragShaderPath.empty();
 
     auto readShaderLambda = [](const std::string &filePath) -> std::vector<char>
     {

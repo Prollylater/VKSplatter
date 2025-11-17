@@ -151,13 +151,13 @@ struct PipelineConfig
 struct PipelineSetLayoutBuilder
 {
     // Bad name
-    std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayouts;
+    std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutsBindings;
     std::vector<VkPushConstantRange> pushConstants;
 
     void addDescriptor(uint32_t location, VkDescriptorType type, VkShaderStageFlags stageFlag, uint32_t count = 1,
                        const VkSampler *sampler = nullptr)
     {
-        descriptorSetLayouts.push_back({location, type, count, stageFlag, sampler});
+        descriptorSetLayoutsBindings.push_back({location, type, count, stageFlag, sampler});
     }
 
     void addPushConstant(VkShaderStageFlags stageFlag, uint32_t offset, uint32_t size)

@@ -25,23 +25,61 @@ void HelloTriangleApplication::initWindow()
 
 void HelloTriangleApplication::initVulkan()
 {
+    //Config
     ContextCreateInfo info = ContextCreateInfo::Default();
-    // Non essential line, just exist
+    info.selectionCriteria.requireGeometryShader = true;
     SwapChainConfig swapChain = SwapChainConfig::Default();
     info.getSwapChainConfig() = swapChain;
+    //RenderStuff Info
 
-    renderer.initialize(context, registry);
+    //Todo: Shouldn't be here but eh
+    VertexFlags sceneflag = STANDARD_STATIC_FLAG;
+    VertexFormatRegistry::addFormat(sceneflag);
 
-    // Context set up
     context.initVulkanBase(window, info);
+    renderer.initialize(context, assetSystem.registry());
 
-    renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT);
+    // RenderTarget Info
+    // RenderTargetInfo renderInfo;
+    renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT,logicScene.sceneLayout.descriptorSetLayoutsBindings);
     renderer.initRenderInfrastructure();
 
-    //Renderer
-    renderer.initSceneRessources(logicScene);
- 
+    // Renderer
+    initScene();
+    renderer.initRenderingRessources(logicScene, assetSystem.registry());
+
     vkInitialized = true;
+}
+
+void HelloTriangleApplication::initScene()
+{
+    auto assetMesh = assetSystem.loadMeshWithMaterials(MODEL_PATH);
+    const auto &materialIds = assetSystem.registry().get(assetMesh)->materialIds;
+    SceneNode node{assetMesh, materialIds[0]};
+    logicScene.addNode(node);
+
+    // Also load Texture
+    // Todo: SHould be able to load everything
+
+    const LogicalDeviceManager &deviceM =context.getLogicalDeviceManager();
+    const VmaAllocator &allocator =context.getLogicalDeviceManager().getVmaAllocator();
+    const VkDevice &device =context.getLogicalDeviceManager().getLogicalDevice();
+    const VkPhysicalDevice &physDevice =context.getPhysicalDeviceManager().getPhysicalDevice();
+    const uint32_t indice =context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
+    
+    for (auto &material : materialIds)
+    {
+        auto mat = assetSystem.registry().get(material);
+        mat->requestPipelineCreateInfo();
+        
+        auto text = assetSystem.registry().get(mat->albedoMap);
+
+        //Load texture assets
+        text->createTextureImage(physDevice, deviceM, TEXTURE_PATH, indice, allocator);
+        text->createTextureImageView(device);
+        text->createTextureSampler(device, physDevice);
+
+    }
 }
 
 void HelloTriangleApplication::mainLoop()

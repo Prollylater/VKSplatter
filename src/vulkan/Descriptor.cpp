@@ -80,7 +80,7 @@ int DescriptorManager::allocateDescriptorSet(VkDevice device, int setLayout)
   return index;
 }
 
-void DescriptorManager::updateDescriptorSet(VkDevice device, uint32_t setIndex,
+void DescriptorManager::updateDescriptorSet(VkDevice device,
                                             const std::vector<VkWriteDescriptorSet> &writes)
 {
   vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);

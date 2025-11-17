@@ -10,18 +10,43 @@ Thing not implementend:
 Cleaning Image/Depth Stencil/Manually clean attachements
 */
 
-void Renderer::createFramesData(uint32_t framesInFlightCount)
+void Renderer::createFramesData(uint32_t framesInFlightCount, const std::vector<VkDescriptorSetLayoutBinding> &bindings)
 {
   auto logicalDevice = mContext->getLogicalDeviceManager().getLogicalDevice();
   auto physicalDevice = mContext->getPhysicalDeviceManager().getPhysicalDevice();
   auto graphicsFamilyIndex = mContext->getPhysicalDeviceManager().getIndices().graphicsFamily.value();
 
   mFrameHandler.createFramesData(logicalDevice, physicalDevice, graphicsFamilyIndex, framesInFlightCount);
+
+  // Init Frame Descriptor set of Scene
+  // scene.sceneLayout.descriptorSetLayouts}; Could send the Camera directly here
+  std::vector<std::vector<VkDescriptorSetLayoutBinding>> layoutBindings = {bindings};
+  mFrameHandler.createFramesDescriptorSet(logicalDevice, layoutBindings);
+
+  // Effective Binding of Desciptor
+  /*
+  for (int i = 0; i < mFrameHandler.getFramesCount(); i++)
+  {
+    auto &frameData = mFrameHandler.getCurrentFrameData();
+    auto descriptorBuffer = frameData.mCameraBuffer.getDescriptor();
+
+    std::cout << "Updating Frame Data Set" << std::endl;
+    //  Update descriptor sets with actual data
+    std::vector<VkWriteDescriptorSet> writes = {
+        vkUtils::Descriptor::makeWriteDescriptor(frameData.mDescriptor.getSet(0), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &descriptorBuffer)};
+    frameData.mDescriptor.updateDescriptorSet(logicalDevice, 0, writes);
+    mFrameHandler.advanceFrame();
+  }*/
+
+  // Update/Store UBO
+  // Todo: Need to introduce a proper camera
+  mFrameHandler.writeFramesDescriptors(logicalDevice, 0);
+  mFrameHandler.updateUniformBuffers(mContext->getSwapChainManager().getSwapChainExtent());
 }
+
 static constexpr bool dynamic = true;
 
 // TODO:
-// Could be overloaded with  RenderTargetConfig that will mean dynamic
 // Render Pass that will mean not dynamic render
 void Renderer::initRenderInfrastructure()
 {
@@ -91,97 +116,37 @@ void Renderer::initRenderInfrastructure()
   }
 };
 
-void Renderer::updateUniformBuffers(VkExtent2D swapChainExtent)
-{
-  static auto startTime = std::chrono::high_resolution_clock::now();
-
-  auto currentTime = std::chrono::high_resolution_clock::now();
-  float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-  UniformBufferObject ubo{};
-  ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-  ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
-
-  ubo.proj[1][1] *= -1;
-
-  // Copy into persistently mapped buffer
-  memcpy(mFrameHandler.getCurrentFrameData().mCameraMapping, &ubo, sizeof(ubo));
-};
-
 // All the rest or fram eressourees
-void Renderer::initSceneRessources(Scene &scene)
+void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &registry)
 {
-  // Todo: Trim down this function
-
-  std::cout << "Init Scene Ressources \n" ;
-  const VkPhysicalDevice &physDevice = mContext->getPhysicalDeviceManager().getPhysicalDevice();
-  const QueueFamilyIndices &indicesFamily = mContext->getPhysicalDeviceManager().getIndices();
-  const LogicalDeviceManager &deviceM = mContext->getLogicalDeviceManager();
-  const VmaAllocator &allocator = mContext->getLogicalDeviceManager().getVmaAllocator();
   const VkDevice &device = mContext->getLogicalDeviceManager().getLogicalDevice();
-  const uint32_t indice = indicesFamily.graphicsFamily.value();
-  auto &swapChainM = mContext->getSwapChainManager();
+  const VkPhysicalDevice &physDevice = mContext->getPhysicalDeviceManager().getPhysicalDevice();
+  const uint32_t indice = mContext->getPhysicalDeviceManager().getIndices().graphicsFamily.value();
 
-  // Setup Pipeline
-  mPipelineM.initialize(device, "");
-
-  // Descriptor from Scene
-  std::cout << "Init Various Descriptor \n" << indice<<std::endl;
-  auto assetMesh = mRegistry->load<Mesh>(MODEL_PATH);
-  const auto &materialIds = mRegistry->get(assetMesh)->materialIds;
-  SceneNode node{assetMesh, materialIds[0]};
-  scene.addNode(node);
-
-  std::cout<<scene.nodes[0].material.id << " &" << scene.nodes[0].mesh.id <<std::endl; 
-  // Init Frame Descriptor set of Scene
-  std::vector<std::vector<VkDescriptorSetLayoutBinding>> layoutBindings = {scene.sceneLayout.descriptorSetLayouts};
-  mFrameHandler.createFramesDescriptorSet(device, layoutBindings);
-  mMaterialManager.createDescriptorPool(deviceM.getLogicalDevice(), 10, {});
-
-  std::cout << "Handling Pipeline and Material \n";
-
-  PipelineLayoutConfig sceneConfig{{mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0)}, scene.sceneLayout.pushConstants};
-  for (auto &material : materialIds)
+  // NOT CONFIDENt
+  //  Descriptor from Scene
+  // Create pipeline
+  for (auto &node : scene.nodes)
   {
-    auto mat = mRegistry->get(material);
-    auto text = mRegistry->get(mat->albedoMap);
-
-    // The texture name is already know because it come from a registry
-    text->createTextureImage(physDevice, deviceM,TEXTURE_PATH, indice, allocator);
-    text->createTextureImageView(device);
-    text->createTextureSampler(device, physDevice);
-
-    // Material
-    mat->requestPipelineCreateInfo();
-
-    mat->matLayoutIndex = mMaterialManager.getOrCreateSetLayout(device,
-                                                                mat->materialLayoutInfo.descriptorSetLayouts);
-    mat->pipelineEntryIndex = requestPipeline(sceneConfig, mMaterialManager.getDescriptorLat(mat->matLayoutIndex), vertPath, fragPath);
+    const auto &materialIds = registry.get(node.mesh)->materialIds;
+    PipelineLayoutConfig sceneConfig{{mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0)}, scene.sceneLayout.pushConstants};
+    for (auto &material : materialIds)
+    {
+      auto mat = mRegistry->get(material);
+      auto text = mRegistry->get(mat->albedoMap);
+      // Material
+      mat->matLayoutIndex = mMaterialDescriptors.getOrCreateSetLayout(device,
+                                                                      mat->materialLayoutInfo.descriptorSetLayoutsBindings);
+      mat->pipelineEntryIndex = requestPipeline(sceneConfig, mMaterialDescriptors.getDescriptorLat(mat->matLayoutIndex), vertPath, fragPath);
+    }
   }
+  // NOT CONFIDENt
 
   // Upload GPU Data
+  GpuResourceUploader uploader(*mContext, registry, mMaterialDescriptors, mPipelineM);
   std::cout << "Upload Mesh & Material" << indice << std::endl;
-  uploadScene(scene);
-  // Effective Binding of Desciptor
-  for (int i = 0; i < swapChainM.GetSwapChainImageViews().size(); i++)
-  {
-    auto &frameData = mFrameHandler.getCurrentFrameData();
-    auto descriptorBuffer = frameData.mCameraBuffer.getDescriptor();
-
-    std::cout << "Updating Frame Data Set" << std::endl;
-    // Todo: Should be elsewhere
-    //  Update descriptor sets with actual data
-    std::vector<VkWriteDescriptorSet> writes = {
-        vkUtils::Descriptor::makeWriteDescriptor(frameData.mDescriptor.getSet(0), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &descriptorBuffer)};
-    frameData.mDescriptor.updateDescriptorSet(device, 0, writes);
-    mFrameHandler.advanceFrame();
-  }
-
-  // Update/Store UBO
-  // Todo: Need to introduce a proper camera
-  updateUniformBuffers(swapChainM.getSwapChainExtent());
-
+  mRScene.syncFromScene(scene, uploader);
+  std::cout << "Ressourcess uploaded" << std::endl;
   std::cout << "Scene Ressources Initialized" << std::endl;
 };
 
@@ -192,7 +157,7 @@ void Renderer::deinitSceneRessources(Scene &scene)
 
   mRScene.destroy(mContext->getLogicalDeviceManager().getLogicalDevice(), allocator);
 
-  //Below is more destroy Renderer than anything else
+  // Below is more destroy Renderer than anything else
   mGBuffers.destroy(device, allocator);
 
   for (int i = 0; i < mContext->mSwapChainM.GetSwapChainImageViews().size(); i++)
@@ -203,37 +168,11 @@ void Renderer::deinitSceneRessources(Scene &scene)
   }
   mFrameHandler.destroyFramesData(device);
 
-  mMaterialManager.destroyDescriptorLayout(device);
-  mMaterialManager.destroyDescriptorPool(device);
+  mMaterialDescriptors.destroyDescriptorLayout(device);
+  mMaterialDescriptors.destroyDescriptorPool(device);
 
   mRenderPassM.destroyRenderPass(device);
   mPipelineM.destroy(device);
-}
-
-void Renderer::uploadScene(const Scene &scene)
-{
-
-  const auto &deviceM = mContext->getLogicalDeviceManager();
-  const auto &physDevice = mContext->getPhysicalDeviceManager().getPhysicalDevice();
-  //Todo const auto& thing
-  const auto indice = mContext->getPhysicalDeviceManager().getIndices().graphicsFamily.value();
-  const auto &allocator = mContext->getLogicalDeviceManager().getVmaAllocator();
-
-  if(mContext->getPhysicalDeviceManager().getIndices().graphicsFamily.has_value()){
-  }
-  int index = 0;
-  for (auto &node : scene.nodes)
-  {
-      std::cout<<node.material.id << " &" << node.mesh.id <<std::endl; 
-
-    // Ideally we would have a count or traverse the nodes
-    mRScene.drawables.resize(scene.nodes.size());
-    auto &gpuNodes = mRScene.drawables[index];
-
-    gpuNodes.createMeshGPU(*mRegistry->get(node.mesh), deviceM, physDevice, indice);
-    gpuNodes.createMaterialGPU(*mRegistry, *mRegistry->get(node.material), deviceM, mMaterialManager, physDevice, indice);
-  }
-  std::cout << "Ressourcess uploaded" << std::endl;
 }
 
 int Renderer::requestPipeline(const PipelineLayoutConfig &config, VkDescriptorSetLayout materialLayout,
@@ -277,8 +216,9 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config, VkDescriptorSe
   return mPipelineM.createPipelineWithBuilder(device, builder);
 };
 
-// Drawing Loop Functions
-
+/////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////// Drawing Loop Functions//////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////
 // Semaphore and command buffer tied to frames
 void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
 {
@@ -309,9 +249,8 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
   frameRess.mSyncObjects.resetFence(device);
 
   // Update Camera
-  updateUniformBuffers(mContext->mSwapChainM.getSwapChainExtent());
+  mFrameHandler.updateUniformBuffers(mContext->mSwapChainM.getSwapChainExtent());
 
-  //
   renderQueue.build(mRScene);
   // recordCommandBuffer(imageIndex);
   recordCommandBufferD(imageIndex);
@@ -407,7 +346,7 @@ for each shader {
   for (const Drawable *draw : renderQueue.getDrawables())
   {
     std::vector<VkDescriptorSet> sets = {frameRess.mDescriptor.getSet(0),
-                                         mMaterialManager.getSet(draw->materialGPU.descriptorIndex)};
+                                         mMaterialDescriptors.getSet(draw->materialGPU.descriptorIndex)};
     // Could also usetwo call
     vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             mPipelineM.getPipelineLayout(), 0, sets.size(),
@@ -420,7 +359,7 @@ for each shader {
                        0, sizeof(UniformBufferObject), frameRess.mCameraMapping);
     vkCmdDrawIndexed(command, draw->meshGPU.indexCount, 1, 0, 0, 0);
   }
-  // Multi Viewport is basically this
+  // Fake multi Viewport is basically this
   /*
   viewport.width = static_cast<float>(frameExtent.width);
   viewport.height = static_cast<float>(frameExtent.height/2);
@@ -479,7 +418,7 @@ void Renderer::recordCommandBufferD(uint32_t imageIndex)
   for (const Drawable *draw : renderQueue.getDrawables())
   {
     std::vector<VkDescriptorSet> sets = {frameRess.mDescriptor.getSet(0),
-                                         mMaterialManager.getSet(draw->materialGPU.descriptorIndex)};
+                                         mMaterialDescriptors.getSet(draw->materialGPU.descriptorIndex)};
 
     vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             mPipelineM.getPipelineLayout(), 0, sets.size(),

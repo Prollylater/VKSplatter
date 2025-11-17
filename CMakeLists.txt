@@ -20,7 +20,10 @@ set(SOURCES
     ${SOURCE_DIR}/main.cpp
     ${SOURCE_DIR}/HelloTriangle.cpp  
 
-    ${SOURCE_DIR}/scene/AssetRegistry.cpp   
+    ${SOURCE_DIR}/assetsystem/AssetIO.cpp   
+    ${SOURCE_DIR}/assetsystem/AssetRegistry.cpp   
+    ${SOURCE_DIR}/assetsystem/ResourceSystem.cpp 
+    
     ${SOURCE_DIR}/scene/Camera.cpp   
     ${SOURCE_DIR}/scene/Drawable.cpp   
     ${SOURCE_DIR}/scene/Material.cpp   
@@ -69,6 +72,7 @@ ${INCLUDE_DIR}
 ${INCLUDE_DIR}/vulkan
 ${INCLUDE_DIR}/render
 ${INCLUDE_DIR}/scene
+${INCLUDE_DIR}/assetsystem
 ${THIRD_PARTY})
 
 # Link libraries

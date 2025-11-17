@@ -75,6 +75,7 @@ void Buffer::createBuffer(VkDevice device,
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocInfo.allocationSize = memRequirements.size;
         // Could be passed as uint32 directly
+        //Todo: That could be looked into as a wayto remove physDevice
         allocInfo.memoryTypeIndex = findMemoryType(physDevice, memRequirements.memoryTypeBits, properties);
 
         if (vkAllocateMemory(device, &allocInfo, nullptr, &mMemory) != VK_SUCCESS)
@@ -168,8 +169,9 @@ VkBufferView Buffer::createBufferView(VkFormat format, VkDeviceSize offset, VkDe
 void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
                                  const LogicalDeviceManager &deviceM, uint32_t indice, VmaAllocator allocator, bool SSBO)
 {
-    const VertexFormat &format = mesh.getFormat();
-
+    //const VertexFormat &format = mesh.getFormat();
+    const VertexFormat &format = VertexFormatRegistry::getStandardFormat();
+    
     VertexBufferData vbd = buildInterleavedVertexBuffer(mesh, format);
 
     const auto &data = vbd.mBuffers[0];
@@ -185,6 +187,7 @@ void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice 
         createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
     }
+
     uploadBuffer(data.data(), data.size(), 0, physDevice, deviceM, indice, allocator);
 }
 
@@ -192,7 +195,8 @@ void Buffer::createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &
                                 const LogicalDeviceManager &deviceM, uint32_t indice, VmaAllocator allocator)
 
 {
-    const VertexFormat &format = mesh.getFormat();
+    //const VertexFormat &format = mesh.getFormat();
+    const VertexFormat &format = VertexFormatRegistry::getStandardFormat();
     const auto &indices = mesh.indices;
 
     VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();

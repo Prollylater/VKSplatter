@@ -21,6 +21,7 @@ struct Material
   //Those value are potentially problematic,
   //Must be reset if a pipeline is destroeyd or a matLayout especially since those are GPU ressources
   //Or someone should know the Material to ring it if needed
+  //They are also yet another reason we use asset registry as non cosnt
   int pipelineEntryIndex = -1;
   int matLayoutIndex = -1;
 

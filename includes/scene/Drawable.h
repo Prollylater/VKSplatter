@@ -3,48 +3,36 @@
 #include <glm/glm.hpp>
 #include "AssetRegistry.h"
 
-
 struct SceneNode
 {
     AssetID<Mesh> mesh;
     AssetID<Material> material;
 };
+// https://giordi91.github.io/post/resourcesystem/
 
+//Todo: Buffer registry structure + Handles ? Handles are good
 struct Drawable
 {
     MeshGPU meshGPU;
     MaterialGPU materialGPU;
-
-    // Not sure about more complex data
-    struct InstanceData
-    {
-        glm::mat4 transform = glm::mat4(1.0f);
-        // Could own proper transfrom hierarchy
-        glm::vec4 color;
-        // Additional data ?
-    };
-    std::vector<InstanceData> instances;
-
+    InstanceGPU instanceGPU;
     bool visible = true;
-    // BOunds i guess
-    // Then subnodes
+    // Add bounds i guess
 
-    // Todo: Create Drawables from a Mesh should be a fucntion in itself
-    void createMeshGPU(const Mesh &mesh, const LogicalDeviceManager &deviceM, VkPhysicalDevice physDevice, const uint32_t indice, bool SSBO = false)
-    {
-        meshGPU = MeshGPU::createMeshGPU(mesh, deviceM, physDevice, indice, SSBO);
-    };
+  
+    //Binding 
 
-    // Todo: If registry is passed might as well just pass an handle
-    void createMaterialGPU(AssetRegistry &registry, const Material &material, const LogicalDeviceManager &deviceM, DescriptorManager &descriptor, VkPhysicalDevice physDevice, const uint32_t indice)
-    {
-        materialGPU = MaterialGPU::createMaterialGPU(registry, material, deviceM, descriptor, physDevice, indice);
-    };
-    // DeleteFLAG
+    bool bindInstanceBuffer(VkCommandBuffer cmd, const Drawable &drawable, uint32_t bindingIndex);
 
     // Todo: Handle delete
     Drawable() = default;
     ~Drawable() = default;
+
+    /*void createMeshGPU(const Mesh &mesh, const LogicalDeviceManager &deviceM, VkPhysicalDevice physDevice, const uint32_t indice, bool SSBO = false);
+    void createMaterialGPU(AssetRegistry &registry, const Material &material, const LogicalDeviceManager &deviceM, DescriptorManager &descriptor, VkPhysicalDevice physDevice, const uint32_t indice);
+    void createInstanceGPU(const std::vector<InstanceData>& instances, const LogicalDeviceManager &deviceM, VkPhysicalDevice physDevice, const uint32_t indice);
+    */
 };
+
 
 // Todo: Handling a submesh ? Since it would also affect visibility

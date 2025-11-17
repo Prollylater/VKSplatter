@@ -8,8 +8,7 @@ VkPipelineShaderStageCreateInfo vkUtils::Shaders::createShaderStage(VkShaderStag
     VkPipelineShaderStageCreateInfo stageInfo{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
     stageInfo.stage = stage;
     stageInfo.module = module;
-    // Shader main function
-    // Todo: But their may be some interesting doable in this
+    // Notes: 
     // Unique shader with main function as difference for specific treatment ?
     stageInfo.pName = "main";
     stageInfo.pSpecializationInfo = nullptr;

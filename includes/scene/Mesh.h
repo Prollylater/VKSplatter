@@ -43,8 +43,6 @@ struct Mesh
     std::vector<AssetID<Material>> materialIds;
 };
 
-
-
 /*
 
     struct Submesh
@@ -59,3 +57,10 @@ struct Mesh
 
 
 */
+
+// Not sure about more complex data nor where  to put them
+struct InstanceData
+{
+    glm::mat4 transform = glm::mat4(1.0f);
+    glm::vec4 color;
+};

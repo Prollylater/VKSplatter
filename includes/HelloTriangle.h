@@ -1,7 +1,7 @@
 #include "BaseVk.h"
 #include "ContextController.h"
 #include "Renderer.h"
-#include "AssetRegistry.h"
+#include "ResourceSystem.h"
 
 //Our Application only use one physical device and one logical device
 
@@ -13,6 +13,7 @@ Pointer to struct with creation info
 Pointer to custom allocator callbacks, always nullptr in this tutorial
 Pointer to the variable that stores the handle to the new object
 */
+
 class HelloTriangleApplication
 {
 public:
@@ -33,12 +34,13 @@ static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 private:
     void initWindow();
     void initVulkan();
+    void initScene();
     void mainLoop();
     void cleanup();
 
     VulkanContext context;
     Renderer renderer; 
-    AssetRegistry registry; 
+    AssetSystem assetSystem; 
     Scene logicScene;//Scenegraph/ECS
 
     bool vkInitialized = false;
@@ -47,13 +49,15 @@ private:
     //Window abstraction for close, cleaner resize, pollingEvents too
     GLFWwindow *window = nullptr;
 };
+
 /*
 Introduce enough genericity to have something like that ?
 EngineCore
  ── WindowSystem
  ── RenderSystem
- ── ResourceSystem
  ── SceneSystem
+ ── AssetSystem
+ ── InstanceSystem
 
  //Check Layers systems
 */

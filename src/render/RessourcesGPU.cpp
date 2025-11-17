@@ -10,7 +10,7 @@
 
 MaterialGPU MaterialGPU::createMaterialGPU(
     // Todo: const
-    AssetRegistry &registry,
+    const AssetRegistry &registry,
     const Material &material,
     const LogicalDeviceManager &deviceM,
     DescriptorManager &descriptor,
@@ -54,7 +54,7 @@ MaterialGPU MaterialGPU::createMaterialGPU(
         vkUtils::Descriptor::makeWriteDescriptor(materialSet, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &roughnessDescInfo),
     };
 
-    descriptor.updateDescriptorSet(deviceM.getLogicalDevice(), 0, writes);
+    descriptor.updateDescriptorSet(deviceM.getLogicalDevice(),  writes);
 
     return gpuMat;
 }
@@ -88,6 +88,7 @@ MeshGPU MeshGPU::createMeshGPU(const Mesh &mesh, const LogicalDeviceManager &dev
     // Create buffers via Buffer helper
     Buffer vertexBuffer;
     // TODO: TEst SSBO Shade
+
     vertexBuffer.createVertexBuffers(device, physDevice,
                                      mesh, deviceM, indice, allocator, SSBO);
 
@@ -131,4 +132,43 @@ void MeshGPU::destroy(VkDevice device, VmaAllocator allocator)
     indexMem = VK_NULL_HANDLE;
     vertexAlloc = VK_NULL_HANDLE;
     indexAlloc = VK_NULL_HANDLE;
+}
+
+InstanceGPU InstanceGPU::createInstanceGPU(const std::vector<InstanceData>& data, const LogicalDeviceManager &deviceM, const VkPhysicalDevice &physDevice, const uint32_t indice)
+{
+    InstanceGPU gpu;
+    const auto &device = deviceM.getLogicalDevice();
+    const auto &allocator = deviceM.getVmaAllocator();
+    gpu.instanceCount = static_cast<uint32_t>(data.size());
+    gpu.instanceStride = sizeof(InstanceData);
+
+    // Create buffers via Buffer helper
+    Buffer buffer;
+    buffer.createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
+
+    gpu.instanceBuffer = buffer.getBuffer();
+    gpu.instanceAlloc = buffer.getVMAMemory();
+    gpu.instanceMem = buffer.getMemory();
+    //gpu.instanceAddr = buffer.getDeviceAdress(devicebuffer
+
+    return gpu;
+}
+
+// The who is allowed to destroy Mesh GPU Ressources is still a pending question
+// Deletion QUEUE neeeded ?
+void InstanceGPU::destroy(VkDevice device, VmaAllocator allocator)
+{
+    if (allocator)
+    {
+        vmaDestroyBuffer(allocator, instanceBuffer, instanceAlloc);
+    }
+    else
+    {
+        vkFreeMemory(device, instanceMem, nullptr);
+        vkDestroyBuffer(device, instanceBuffer, nullptr);
+    }
+    instanceBuffer = VK_NULL_HANDLE;
+    instanceAlloc = VK_NULL_HANDLE;
+    instanceMem = VK_NULL_HANDLE;
 }
