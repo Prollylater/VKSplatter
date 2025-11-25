@@ -27,5 +27,8 @@
             bufferInfo.buffer = drawable.instanceGPU.instanceBuffer;
             bufferInfo.offset = 0;
             bufferInfo.range = drawable.instanceGPU.instanceCount * drawable.instanceGPU.instanceStride;        
+            return true;
         }
+        return false;
+
     }

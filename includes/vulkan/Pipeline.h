@@ -9,8 +9,6 @@ class PipelineBuilder;
 class PipelineManager
 {
 public:
-    PipelineManager() = default;
-    ~PipelineManager() = default;
     void initialize(VkDevice device, const std::string &cacheFile = "");
     void destroy(VkDevice device);
     void destroyPipeline(VkDevice device, uint32_t index);
@@ -34,6 +32,7 @@ private:
         VkPipeline pipeline = VK_NULL_HANDLE;
         VkPipelineLayout layout = VK_NULL_HANDLE;
     };
+    
     std::unordered_map<size_t, int> mIndexByKey;
     std::vector<PipelineEntry> mPipelines;
 

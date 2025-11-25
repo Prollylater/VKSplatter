@@ -138,7 +138,7 @@ struct PipelineConfig
     PipelineBlendConfig blend;
     PipelineDepthConfig depth;
     PipelineVertexInputConfig input;
-    PipelineLayoutConfig uniform; // Uniform is not an appropraite name
+    PipelineLayoutConfig uniform; //Todo: Uniform is not an appropraite name
     PipelineRenderPassConfig pass;
 
     std::vector<VkDynamicState> dynamicStates = {
@@ -166,6 +166,43 @@ struct PipelineSetLayoutBuilder
     }
     
 };
+
+// PipelineSetLayoutBuilder materialLayoutInfo;
+  // Introduce information too much tied to the Pipeline here
+  struct MaterialLayoutRegistry
+  {
+    static const PipelineSetLayoutBuilder &Get(MaterialType type)
+    {
+      switch (type)
+      {
+      case MaterialType::None:
+
+        static PipelineSetLayoutBuilder UnlitLayout = []
+        {
+          PipelineSetLayoutBuilder layout;
+          layout.addDescriptor(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+          return layout;
+        }();
+
+        return UnlitLayout;
+      case MaterialType::PBR:
+      default:
+        static PipelineSetLayoutBuilder PBRLayout = []
+        {
+          PipelineSetLayoutBuilder layout;
+          layout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+          layout.addDescriptor(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // albedo
+          layout.addDescriptor(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // normal
+          layout.addDescriptor(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // metal/rough
+          layout.addDescriptor(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // ao
+          // layout.addDescriptor(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // emissive
+          return layout;
+        }();
+
+        return PBRLayout;
+      }
+    }
+  };
 
 // Renderpass
 enum class RenderPassType

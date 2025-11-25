@@ -10,9 +10,6 @@ Create/render pass definitions through a config files
 class RenderPassManager
 {
 public:
-    RenderPassManager() = default;
-    ~RenderPassManager() = default;
-
     VkRenderPass getRenderPass() const { return mRenderPass; };
     void createRenderPass(VkDevice device, const RenderPassConfig &);
 

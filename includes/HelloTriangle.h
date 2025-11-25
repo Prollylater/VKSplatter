@@ -2,9 +2,7 @@
 #include "ContextController.h"
 #include "Renderer.h"
 #include "ResourceSystem.h"
-
-//Our Application only use one physical device and one logical device
-
+#include "WindowVk.h"
 
 /*
 As you'll see, the general pattern that object creation function parameters in Vulkan follow is:
@@ -37,6 +35,7 @@ private:
     void initScene();
     void mainLoop();
     void cleanup();
+    void onEvent(Event& event);
 
     VulkanContext context;
     Renderer renderer; 
@@ -47,17 +46,22 @@ private:
     bool wdwInitialized = false;
     bool framebufferResized;
     //Window abstraction for close, cleaner resize, pollingEvents too
-    GLFWwindow *window = nullptr;
+    VulkanWindow window;
+    //Window* window;
+    //GLFWwindow *window = nullptr;
 };
 
 /*
 Introduce enough genericity to have something like that ?
 EngineCore
  ── WindowSystem
- ── RenderSystem
+ ── RendererSystem
  ── SceneSystem
- ── AssetSystem
- ── InstanceSystem
+ ── ResourceSystem
+ ── InputSystem
+
+ Notes: Though this count as a way later addition, you should read about custom allocator and better resource system
+ //Same as implementing a Hash_map simpler than unordered_map
 
  //Check Layers systems
 */

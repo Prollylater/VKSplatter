@@ -18,7 +18,6 @@
 
 class AssetIO {
 public:
-    AssetIO() = default;
 
     std::unique_ptr<Mesh>  loadMeshFromFile(const std::string &path);
     std::unique_ptr<Texture> loadTextureFromFile(const std::string &path);

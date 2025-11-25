@@ -58,6 +58,7 @@ void Renderer::initRenderInfrastructure()
 
   const VkDevice &device = mLogDeviceM.getLogicalDevice();
   const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
+
   mGBuffers.init(mSwapChainM.getSwapChainExtent());
 
   const VkFormat depthFormat = mPhysDeviceM.findDepthFormat();
@@ -124,8 +125,10 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   const uint32_t indice = mContext->getPhysicalDeviceManager().getIndices().graphicsFamily.value();
 
   // NOT CONFIDENt
-  //  Descriptor from Scene
+  // Descriptor from Scene
   // Create pipeline
+  std::vector<MaterialGPU::MaterialGPUCreateInfo> materialGpuCache;
+
   for (auto &node : scene.nodes)
   {
     const auto &materialIds = registry.get(node.mesh)->materialIds;
@@ -133,11 +136,13 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
     for (auto &material : materialIds)
     {
       auto mat = mRegistry->get(material);
-      auto text = mRegistry->get(mat->albedoMap);
-      // Material
-      mat->matLayoutIndex = mMaterialDescriptors.getOrCreateSetLayout(device,
-                                                                      mat->materialLayoutInfo.descriptorSetLayoutsBindings);
-      mat->pipelineEntryIndex = requestPipeline(sceneConfig, mMaterialDescriptors.getDescriptorLat(mat->matLayoutIndex), vertPath, fragPath);
+      PipelineSetLayoutBuilder materialSetLayout = MaterialLayoutRegistry::Get(mat->mType);
+      int matLayoutIndex = mMaterialDescriptors.getOrCreateSetLayout(device, materialSetLayout.descriptorSetLayoutsBindings);
+
+      sceneConfig.descriptorSetLayouts.push_back(mMaterialDescriptors.getDescriptorLat(matLayoutIndex));
+      int pipelineEntryIndex = requestPipeline(sceneConfig, vertPath, fragPath);
+
+      materialGpuCache.emplace_back(MaterialGPU::MaterialGPUCreateInfo{material, matLayoutIndex, pipelineEntryIndex});
     }
   }
   // NOT CONFIDENt
@@ -145,7 +150,10 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   // Upload GPU Data
   GpuResourceUploader uploader(*mContext, registry, mMaterialDescriptors, mPipelineM);
   std::cout << "Upload Mesh & Material" << indice << std::endl;
-  mRScene.syncFromScene(scene, uploader);
+  //TODO:
+  //Important:
+  //This can't stay longterm
+  mRScene.syncFromScene(scene, uploader, materialGpuCache);
   std::cout << "Ressourcess uploaded" << std::endl;
   std::cout << "Scene Ressources Initialized" << std::endl;
 };
@@ -175,7 +183,7 @@ void Renderer::deinitSceneRessources(Scene &scene)
   mPipelineM.destroy(device);
 }
 
-int Renderer::requestPipeline(const PipelineLayoutConfig &config, VkDescriptorSetLayout materialLayout,
+int Renderer::requestPipeline(const PipelineLayoutConfig &config,
                               const std::string &vertexPath,
                               const std::string &fragmentPath)
 {
@@ -205,13 +213,7 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config, VkDescriptorSe
     builder.setRenderPass(mRenderPassM.getRenderPass());
   }
 
-  // Todo: This is unecessary on the long term
-  PipelineLayoutConfig layoutConfig = config;
-  layoutConfig.descriptorSetLayouts.push_back(materialLayout);
-  layoutConfig.pushConstants = config.pushConstants;
-
-  builder.setUniform(layoutConfig);
-  std::cout << "CreatePipeline \n";
+  builder.setUniform(config);
 
   return mPipelineM.createPipelineWithBuilder(device, builder);
 };

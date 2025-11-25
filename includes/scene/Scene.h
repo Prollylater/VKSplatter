@@ -58,8 +58,7 @@ public:
                         PipelineManager &pipelines);
 
     MeshGPU buildMeshGPU(const AssetID<Mesh>, bool useSSBO = false) const;
-
-    MaterialGPU buildMaterialGPU(const AssetID<Material>) const;
+    MaterialGPU buildMaterialGPU(const AssetID<Material> matID, uint32_t descriptorIdx, uint32_t pipelineIndex) const;
     InstanceGPU buildInstanceGPU(const std::vector<InstanceData> &) const;
 
 private:
@@ -74,9 +73,11 @@ class RenderScene
 public:
     RenderScene() = default;
     ~RenderScene() = default;
-    void destroy(VkDevice device, VmaAllocator alloc) ;
+    void destroy(VkDevice device, VmaAllocator alloc);
 
     std::vector<Drawable> drawables;
+
     void syncFromScene(const Scene &cpuScene,
-                       const GpuResourceUploader &builder);
+                       const GpuResourceUploader &builder,
+                       const std::vector<MaterialGPU::MaterialGPUCreateInfo> &matCaches);
 };

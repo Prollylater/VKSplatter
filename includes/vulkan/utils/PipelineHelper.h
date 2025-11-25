@@ -43,7 +43,7 @@ public:
     PipelineBuilder &setInputConfig(const PipelineVertexInputConfig &);
     size_t computehash() const {
         //BOol and dynamic/renderpass
-        return  mConfig.input.computeHash() ^ mConfig.raster.computeHash() ^ mConfig.raster.computeHash() ^  mConfig.shaders.computeHash();
+        return  mConfig.input.computeHash() ^ mConfig.uniform.computeHash() ^ mConfig.raster.computeHash() ^  mConfig.shaders.computeHash();
     }
     // Returns pipeline + layout
     std::pair<VkPipeline, VkPipelineLayout> build(VkDevice device, VkPipelineCache cache = VK_NULL_HANDLE) const;

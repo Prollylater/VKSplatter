@@ -284,3 +284,9 @@ struct AssetID
     bool operator==(const AssetID &other) const { return id == other.id; }
     bool operator!=(const AssetID &other) const { return id != other.id; }
 };
+
+enum class MaterialType
+{
+  PBR,
+  None
+};

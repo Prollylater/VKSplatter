@@ -56,6 +56,8 @@ void PipelineManager::initialize(VkDevice device, const std::string &cacheFile)
         throw std::runtime_error("Failed to create pipeline cache!");
     }
 }
+
+//Get or create
 int PipelineManager::createPipelineWithBuilder(VkDevice device, const PipelineBuilder &builder)
 {
     size_t hash = builder.computehash();

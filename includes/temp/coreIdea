@@ -1,0 +1,15 @@
+Core / Platform (Currently blended with GRaphics API)
+	Instance, physical device manager, debug layers, window system integration (GLFW/SDL, etc.).
+
+Graphics API Abstraction (vulkan) 
+	Wraps Vulkan objects (command buffer, pipeline, framebuffer, descriptor set, etc.).
+	Provides utilities for resource management.
+
+Renderer (render)
+
+	High-level orchestration: draw loop, UBO updates, scene management.
+	Defines the API context and stuff
+
+Application Layer (Currently the renderer)
+  Uses the renderer(s ?) directly 
+  Owns game logic, scene loading, UI, etc.

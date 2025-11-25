@@ -10,7 +10,7 @@ struct Mesh
     std::vector<glm::vec2> uvs;
     std::vector<glm::vec3> colors;
     std::vector<uint32_t> indices;
-
+    //Todo: Alignment is slightly off but not bothering right now
     VertexFlags inputFlag;
 
     size_t vertexCount() const
@@ -58,6 +58,7 @@ struct Mesh
 
 */
 
+//Frame dependant too
 // Not sure about more complex data nor where  to put them
 struct InstanceData
 {

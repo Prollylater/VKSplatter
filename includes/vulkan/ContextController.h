@@ -19,9 +19,6 @@
 class VulkanContext
 {
 public:
-    VulkanContext() = default;
-    ~VulkanContext() = default;
-
     // Core Vulkan handles, direct access
     VulkanInstanceManager mInstanceM;
     PhysicalDeviceManager mPhysDeviceM;

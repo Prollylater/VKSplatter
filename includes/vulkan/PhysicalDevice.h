@@ -10,9 +10,6 @@ class SwapChainManager;
 class PhysicalDeviceManager
 {
 public:
-  PhysicalDeviceManager() = default;
-  ~PhysicalDeviceManager() = default;
-
   void pickPhysicalDevice(VkInstance instance, const SwapChainManager &, const DeviceSelectionCriteria&);
 
   // Should be static and deal with much more than Device handled

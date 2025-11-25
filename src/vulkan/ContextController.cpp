@@ -57,9 +57,11 @@ void VulkanContext::destroyAll()
     mInstanceM.destroyInstance();
 };
 
+//This might be tied to an event
 void VulkanContext::recreateSwapchain(GLFWwindow *window)
 {
     // Pause while Minimized
+    //Todo remove
     int width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
     while (width == 0 || height == 0)

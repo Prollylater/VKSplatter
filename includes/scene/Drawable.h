@@ -25,8 +25,6 @@ struct Drawable
     bool bindInstanceBuffer(VkCommandBuffer cmd, const Drawable &drawable, uint32_t bindingIndex);
 
     // Todo: Handle delete
-    Drawable() = default;
-    ~Drawable() = default;
 
     /*void createMeshGPU(const Mesh &mesh, const LogicalDeviceManager &deviceM, VkPhysicalDevice physDevice, const uint32_t indice, bool SSBO = false);
     void createMaterialGPU(AssetRegistry &registry, const Material &material, const LogicalDeviceManager &deviceM, DescriptorManager &descriptor, VkPhysicalDevice physDevice, const uint32_t indice);

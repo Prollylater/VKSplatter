@@ -14,6 +14,7 @@ class VulkanContext;
 class Renderer
 {
 public:
+//Todo remove those 
     Renderer() = default;
     ~Renderer() = default;
 
@@ -46,7 +47,7 @@ public:
     GBuffers &getDepthResources() { return mGBuffers; }
 
     //GraphicPipeline
-    int requestPipeline(const PipelineLayoutConfig& config, VkDescriptorSetLayout materialLayout,
+    int requestPipeline(const PipelineLayoutConfig& config,
                               const std::string &vertexPath,
                               const std::string &fragmentPath);
 

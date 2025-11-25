@@ -10,23 +10,27 @@ void RenderScene::destroy(VkDevice device, VmaAllocator alloc)
 };
 
 void RenderScene::syncFromScene(const Scene &cpuScene,
-                                const GpuResourceUploader &builder)
+                                const GpuResourceUploader &builder,
+                                const std::vector<MaterialGPU::MaterialGPUCreateInfo>& matCaches)
 {
     drawables.clear();
     drawables.reserve(cpuScene.nodes.size());
-
+    int index = 0;
     for (auto &node : cpuScene.nodes)
     {
         Drawable d;
-        std::cout<<"Mesh \n";
+        std::cout << "Mesh \n";
         d.meshGPU = builder.buildMeshGPU(node.mesh);
-        std::cout<<"Material \n" << std::endl;
+        std::cout << "Material \n"
+                  << std::endl;
 
-        d.materialGPU = builder.buildMaterialGPU(node.material);
-        //d.instanceGPU = builder.buildInstanceGPU(d.inst);
+        const auto & cache = matCaches[index];
+        d.materialGPU = builder.buildMaterialGPU(cache.cpuMaterial, cache.descriptorLayoutIdx, cache.pipelineIndex);
+        // d.instanceGPU = builder.buildInstanceGPU(d.inst);
 
         drawables.push_back(std::move(d));
     }
+
 }
 
 GpuResourceUploader::GpuResourceUploader(const VulkanContext &ctx,
@@ -43,9 +47,9 @@ MeshGPU GpuResourceUploader::buildMeshGPU(const AssetID<Mesh> meshId, bool useSS
     return MeshGPU::createMeshGPU(*assetRegistry.get(meshId), context.getLogicalDeviceManager(), context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value(), useSSBO);
 };
 
-MaterialGPU GpuResourceUploader::buildMaterialGPU(const AssetID<Material> matID) const
+MaterialGPU GpuResourceUploader::buildMaterialGPU(const AssetID<Material> matID, uint32_t descriptorIdx, uint32_t pipelineIndex) const
 {
-    return MaterialGPU::createMaterialGPU(assetRegistry, *assetRegistry.get(matID), context.getLogicalDeviceManager(), materialDescriptors, context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value());
+    return MaterialGPU::createMaterialGPU(assetRegistry, {matID, descriptorIdx, pipelineIndex}, context.getLogicalDeviceManager(), materialDescriptors, context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value());
 };
 InstanceGPU GpuResourceUploader::buildInstanceGPU(const std::vector<InstanceData> &instance) const
 {

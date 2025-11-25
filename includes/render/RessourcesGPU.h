@@ -16,13 +16,22 @@ struct MaterialGPU
     // Not allocated
     VkDescriptorSet materialSet = VK_NULL_HANDLE; // Don't own
     VkBuffer uniformBuffer = VK_NULL_HANDLE;
-    ;                                                  // Material constants
     VmaAllocation uniformBufferAlloc = VK_NULL_HANDLE; // Memory handle
     VkDeviceMemory uniformBufferMem = VK_NULL_HANDLE;
 
-    static MaterialGPU createMaterialGPU(const AssetRegistry &registry, const Material &material, const LogicalDeviceManager &deviceM, DescriptorManager &descriptor, VkPhysicalDevice physDevice, uint32_t indice);
-    //void bind()
+
     void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
+
+    struct MaterialGPUCreateInfo
+    {
+        AssetID<Material> cpuMaterial; 
+        //Todo: uint32_t
+        int descriptorLayoutIdx;
+        int pipelineIndex;
+    };
+    
+    static MaterialGPU createMaterialGPU(const AssetRegistry &registry, MaterialGPUCreateInfo info, const LogicalDeviceManager &deviceM, DescriptorManager &descriptor,  VkPhysicalDevice physDevice, uint32_t indice);
+
 };
 
 struct MeshGPU
@@ -43,7 +52,7 @@ struct MeshGPU
     uint32_t vertexStride = 0;
 
     static MeshGPU createMeshGPU(const Mesh &mesh, const LogicalDeviceManager &deviceM, const VkPhysicalDevice &physDevice, uint32_t indice, bool SSBO = false);
-    //void bind()
+    // void bind()
     void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
 };
 
@@ -59,7 +68,7 @@ struct InstanceGPU
     uint32_t instanceStride;
 
     static InstanceGPU createInstanceGPU(const std::vector<InstanceData> &mesh, const LogicalDeviceManager &deviceM, const VkPhysicalDevice &physDevice, uint32_t indice);
-    //void bind()
+    // void bind()
     void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
 };
 

@@ -8,19 +8,25 @@
 #include "Descriptor.h"
 #include "AssetRegistry.h"
 
+
+    static MaterialGPU createMaterialGPU(const AssetRegistry &registry,  const LogicalDeviceManager &deviceM, DescriptorManager &descriptor,  VkPhysicalDevice physDevice, uint32_t indice);
+
 MaterialGPU MaterialGPU::createMaterialGPU(
     // Todo: const
     const AssetRegistry &registry,
-    const Material &material,
+    MaterialGPUCreateInfo info,
     const LogicalDeviceManager &deviceM,
     DescriptorManager &descriptor,
     VkPhysicalDevice physDevice,
     uint32_t queueindices)
 {
+    // Create or not a Pipeline
+    const Material& material = *(registry.get(info.cpuMaterial));
+
     const auto &allocator = deviceM.getVmaAllocator();
     MaterialGPU gpuMat;
 
-    gpuMat.pipelineEntryIndex = material.pipelineEntryIndex;
+    gpuMat.pipelineEntryIndex =info.pipelineIndex;
     // Create buffers via Buffer helper
     Buffer materialUniformBuffer;
     materialUniformBuffer.createBuffer(deviceM.getLogicalDevice(), physDevice, sizeof(Material::MaterialConstants), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
@@ -43,7 +49,7 @@ MaterialGPU MaterialGPU::createMaterialGPU(
     VkDescriptorImageInfo metallicDescInfo = metallic->getImage().getDescriptor();
     VkDescriptorImageInfo roughnessDescInfo = roughness->getImage().getDescriptor();
 
-    gpuMat.descriptorIndex = descriptor.allocateDescriptorSet(deviceM.getLogicalDevice(), material.matLayoutIndex);
+    gpuMat.descriptorIndex = descriptor.allocateDescriptorSet(deviceM.getLogicalDevice(), info.descriptorLayoutIdx);
 
     auto &materialSet = descriptor.getSet(gpuMat.descriptorIndex);
     std::vector<VkWriteDescriptorSet> writes = {
@@ -54,7 +60,7 @@ MaterialGPU MaterialGPU::createMaterialGPU(
         vkUtils::Descriptor::makeWriteDescriptor(materialSet, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &roughnessDescInfo),
     };
 
-    descriptor.updateDescriptorSet(deviceM.getLogicalDevice(),  writes);
+    descriptor.updateDescriptorSet(deviceM.getLogicalDevice(), writes);
 
     return gpuMat;
 }
@@ -134,7 +140,7 @@ void MeshGPU::destroy(VkDevice device, VmaAllocator allocator)
     indexAlloc = VK_NULL_HANDLE;
 }
 
-InstanceGPU InstanceGPU::createInstanceGPU(const std::vector<InstanceData>& data, const LogicalDeviceManager &deviceM, const VkPhysicalDevice &physDevice, const uint32_t indice)
+InstanceGPU InstanceGPU::createInstanceGPU(const std::vector<InstanceData> &data, const LogicalDeviceManager &deviceM, const VkPhysicalDevice &physDevice, const uint32_t indice)
 {
     InstanceGPU gpu;
     const auto &device = deviceM.getLogicalDevice();
@@ -145,12 +151,12 @@ InstanceGPU InstanceGPU::createInstanceGPU(const std::vector<InstanceData>& data
     // Create buffers via Buffer helper
     Buffer buffer;
     buffer.createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
+                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
 
     gpu.instanceBuffer = buffer.getBuffer();
     gpu.instanceAlloc = buffer.getVMAMemory();
     gpu.instanceMem = buffer.getMemory();
-    //gpu.instanceAddr = buffer.getDeviceAdress(devicebuffer
+    // gpu.instanceAddr = buffer.getDeviceAdress(devicebuffer
 
     return gpu;
 }

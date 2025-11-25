@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(VulkanGLFWExample)
-
+#Todo: Better handling of the CMake ?
 # Set the C++ standard
 set(CMAKE_CXX_STANDARD 17)
 
@@ -54,6 +54,8 @@ set(SOURCES
     ${SOURCE_DIR}/vulkan/utils/RessourceHelper.cpp   
     ${SOURCE_DIR}/vulkan/utils/PipelineHelper.cpp   
 
+    ${SOURCE_DIR}/core/WindowVk.cpp
+    
     ${THIRD_PARTY}/stb_image_loader.cpp
     ${THIRD_PARTY}/vkmaUsage.cpp
 )
@@ -73,6 +75,7 @@ ${INCLUDE_DIR}/vulkan
 ${INCLUDE_DIR}/render
 ${INCLUDE_DIR}/scene
 ${INCLUDE_DIR}/assetsystem
+${INCLUDE_DIR}/core
 ${THIRD_PARTY})
 
 # Link libraries

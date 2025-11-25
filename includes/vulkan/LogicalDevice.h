@@ -18,10 +18,6 @@ Submit any transfer commands like vkCmdCopyBuffer (which we'll be using in this 
 class LogicalDeviceManager
 {
 public:
-    LogicalDeviceManager() = default;
-
-    ~LogicalDeviceManager() = default;
-
     void createLogicalDevice(VkPhysicalDevice physicalDevice, QueueFamilyIndices indices, const std::vector<const char *> &validationLayers, const DeviceSelectionCriteria &criteria);
     VkDevice getLogicalDevice() const;
     void createVmaAllocator(VkPhysicalDevice physicalDevice, VkInstance instance);
