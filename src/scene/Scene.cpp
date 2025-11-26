@@ -47,7 +47,7 @@ MeshGPU GpuResourceUploader::buildMeshGPU(const AssetID<Mesh> meshId, bool useSS
     return MeshGPU::createMeshGPU(*assetRegistry.get(meshId), context.getLogicalDeviceManager(), context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value(), useSSBO);
 };
 
-MaterialGPU GpuResourceUploader::buildMaterialGPU(const AssetID<Material> matID, uint32_t descriptorIdx, uint32_t pipelineIndex) const
+MaterialGPU GpuResourceUploader::buildMaterialGPU(const AssetID<Material> matID, int descriptorIdx, int pipelineIndex) const
 {
     return MaterialGPU::createMaterialGPU(assetRegistry, {matID, descriptorIdx, pipelineIndex}, context.getLogicalDeviceManager(), materialDescriptors, context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value());
 };

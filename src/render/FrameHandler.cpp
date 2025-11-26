@@ -3,6 +3,9 @@
 
 /*const*/ FrameResources &FrameHandler::getCurrentFrameData() // const
 {
+    //Todo: This condition shouldn't usually happen 
+    //assert(mFramesData.size() < currentFrame );
+
     return mFramesData[currentFrame];
 }
 

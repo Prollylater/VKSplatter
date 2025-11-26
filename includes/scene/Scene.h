@@ -58,7 +58,8 @@ public:
                         PipelineManager &pipelines);
 
     MeshGPU buildMeshGPU(const AssetID<Mesh>, bool useSSBO = false) const;
-    MaterialGPU buildMaterialGPU(const AssetID<Material> matID, uint32_t descriptorIdx, uint32_t pipelineIndex) const;
+    //Todo:Uint
+    MaterialGPU buildMaterialGPU(const AssetID<Material> matID, int descriptorIdx, int pipelineIndex) const;
     InstanceGPU buildInstanceGPU(const std::vector<InstanceData> &) const;
 
 private:

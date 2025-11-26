@@ -3,7 +3,7 @@
 #include "Renderer.h"
 #include "ResourceSystem.h"
 #include "WindowVk.h"
-
+#include "Clock.h"
 /*
 As you'll see, the general pattern that object creation function parameters in Vulkan follow is:
 
@@ -19,6 +19,7 @@ public:
     {
         initWindow();
         initVulkan();
+        clock.reset();
         mainLoop();
         cleanup();
     }
@@ -42,13 +43,18 @@ private:
     AssetSystem assetSystem; 
     Scene logicScene;//Scenegraph/ECS
 
-    bool vkInitialized = false;
-    bool wdwInitialized = false;
-    bool framebufferResized;
+    
     //Window abstraction for close, cleaner resize, pollingEvents too
     VulkanWindow window;
     //Window* window;
-    //GLFWwindow *window = nullptr;
+
+    //Application State
+    cico::Clock clock;
+    float appLastTime;
+    bool vkInitialized = false;
+    bool wdwInitialized = false;
+    bool framebufferResized = false;
+
 };
 
 /*

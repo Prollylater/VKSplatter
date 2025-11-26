@@ -34,16 +34,18 @@ void HelloTriangleApplication::initVulkan()
     VertexFormatRegistry::addFormat(sceneflag);
 
     context.initVulkanBase(window.getGLFWWindow(), info);
-
     // Renderer
     renderer.initialize(context, assetSystem.registry());
 
     // RenderTarget Info
     // RenderTargetInfo renderInfo;
+    
     renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT, logicScene.sceneLayout.descriptorSetLayoutsBindings);
+    
     renderer.initRenderInfrastructure();
 
     initScene();
+
     renderer.initRenderingRessources(logicScene, assetSystem.registry());
 
     vkInitialized = true;
@@ -79,11 +81,27 @@ void HelloTriangleApplication::initScene()
 
 void HelloTriangleApplication::mainLoop()
 {
-    while (window.isOpen())
+    float appLastTime = clock.elapsedMs();
+    float targetFps = 0; 
+
+    while (window.isOpen()) //Stand in for app is running for now
     {
+        //Bit barbaric profiling 
+        const float currentTime = clock.elapsedMs();
+        float delta = currentTime - appLastTime;
+        appLastTime = currentTime;
+
         // Input and stuff
         glfwPollEvents();
         renderer.drawFrame(framebufferResized, window.getGLFWWindow());
+        
+        //Todo:
+        //Point of this in #13 was to use a Frame Target and not hog ressources once it is reached
+        //WIth the current stuff, it really just
+        //float frameTime = clock.elapsedMs() - appLastTime;
+        //Calcilate the remainnig millisceond to reach targetFPS (float)
+        //We idle
+        
     }
 
     // Make sure the program exit properly once windows is closed
@@ -125,6 +143,10 @@ void HelloTriangleApplication::onEvent(Event &event)
 
 void HelloTriangleApplication::cleanup()
 {
+    //Todo:
+    //Due to asset Registry still holding texture GPU data Textures fail to be freed, 
+    //Best way to solve this is to properly separate Textures GPU and 
+    //Perhas removing the whole Texture class has it is more or less an helper at this point
     renderer.deinitSceneRessources(logicScene);
     context.destroyAll();
     window.close();

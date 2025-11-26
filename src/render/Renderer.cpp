@@ -164,18 +164,18 @@ void Renderer::deinitSceneRessources(Scene &scene)
   const auto device = mContext->getLogicalDeviceManager().getLogicalDevice();
 
   mRScene.destroy(mContext->getLogicalDeviceManager().getLogicalDevice(), allocator);
-
+  
   // Below is more destroy Renderer than anything else
   mGBuffers.destroy(device, allocator);
-
+  
   for (int i = 0; i < mContext->mSwapChainM.GetSwapChainImageViews().size(); i++)
   {
     auto &frameData = mFrameHandler.getCurrentFrameData();
     frameData.mFramebuffer.destroyFramebuffers(device);
     mFrameHandler.advanceFrame();
   }
-  mFrameHandler.destroyFramesData(device);
 
+  mFrameHandler.destroyFramesData(device);
   mMaterialDescriptors.destroyDescriptorLayout(device);
   mMaterialDescriptors.destroyDescriptorPool(device);
 
