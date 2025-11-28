@@ -229,16 +229,6 @@ private:
     };
 };
 
-#include <glm/glm.hpp>
-
-// Todo: Move it somewhere else close to Vertex maybe in a common Tpes
-struct UniformBufferObject
-{
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
-};
-
 // Todo; Also Spir V reflect seem to the best way to go about this
 // Todo; Not sure about the position
 

@@ -1,6 +1,6 @@
 #include "FrameHandler.h"
 #include "utils/PipelineHelper.h"
-
+#include "Scene.h"
 /*const*/ FrameResources &FrameHandler::getCurrentFrameData() // const
 {
     //Todo: This condition shouldn't usually happen 
@@ -32,7 +32,7 @@ void FrameHandler::createFrameData(VkDevice device, VkPhysicalDevice physDevice,
     frameData.mCommandPool.createCommandBuffers(1);
     frameData.mDescriptor.createDescriptorPool(device, 4, {});
 
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+    VkDeviceSize bufferSize = sizeof(SceneData);
 
     // UBO
     frameData.mCameraBuffer.createBuffer(device, physDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -91,9 +91,7 @@ void FrameHandler::createFramesDynamicRenderingInfo(const RenderTargetConfig &cf
                                                     const std::vector<VkImageView> &gbufferViews,
                                                     VkImageView depthView, const std::vector<VkImageView> swapChainViews, const VkExtent2D swapChainExtent)
 {
-
-    // This act as a complete since
-    for (int i = 0; i < mFramesData.size(); i++)
+     for (int i = 0; i < mFramesData.size(); i++)
     {
         auto &frameData = getCurrentFrameData();
         auto &renderColorInfos = frameData.mDynamicPassInfo.colorAttachments;
@@ -188,13 +186,23 @@ void FrameHandler::destroyFramesData(VkDevice device)
     currentFrame = 0;
 };
 
+
+void FrameHandler::updateUniformBuffers(glm::mat4 data)
+{
+    //Notes: This currently fill the uniformSceneData with garbage
+    //It only work for the push constants
+    //Not that anyone care
+    // Copy into persistently mapped buffer
+    memcpy(getCurrentFrameData().mCameraMapping, &data, sizeof(glm::mat4));
+};
+
 void FrameHandler::updateUniformBuffers(VkExtent2D swapChainExtent)
 {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
+/*
     UniformBufferObject ubo{};
     ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -203,7 +211,7 @@ void FrameHandler::updateUniformBuffers(VkExtent2D swapChainExtent)
     ubo.proj[1][1] *= -1;
 
     // Copy into persistently mapped buffer
-    memcpy(getCurrentFrameData().mCameraMapping, &ubo, sizeof(ubo));
+    memcpy(getCurrentFrameData().mCameraMapping, &ubo, sizeof(ubo));*/
 };
 
 void FrameHandler::writeFramesDescriptors(VkDevice device, int setIndex)

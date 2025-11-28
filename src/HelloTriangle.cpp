@@ -39,9 +39,8 @@ void HelloTriangleApplication::initVulkan()
 
     // RenderTarget Info
     // RenderTargetInfo renderInfo;
-    
     renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT, logicScene.sceneLayout.descriptorSetLayoutsBindings);
-    
+
     renderer.initRenderInfrastructure();
 
     initScene();
@@ -81,27 +80,36 @@ void HelloTriangleApplication::initScene()
 
 void HelloTriangleApplication::mainLoop()
 {
-    float appLastTime = clock.elapsedMs();
-    float targetFps = 0; 
+    float appLastTime = clock.elapsed();
+    float targetFps = 0;
 
-    while (window.isOpen()) //Stand in for app is running for now
+    while (window.isOpen()) // Stand in for app is running for now
     {
-        //Bit barbaric profiling 
-        const float currentTime = clock.elapsedMs();
+        // Bit barbaric profiling
+        const float currentTime = clock.elapsed();
         float delta = currentTime - appLastTime;
         appLastTime = currentTime;
 
-        // Input and stuff
         glfwPollEvents();
-        renderer.drawFrame(framebufferResized, window.getGLFWWindow());
-        
-        //Todo:
-        //Point of this in #13 was to use a Frame Target and not hog ressources once it is reached
-        //WIth the current stuff, it really just
-        //float frameTime = clock.elapsedMs() - appLastTime;
-        //Calcilate the remainnig millisceond to reach targetFPS (float)
-        //We idle
-        
+        // Temp
+        Camera &cam = logicScene.getCamera();
+        cam.processKeyboardMovement(delta,
+            cico::InputCode::IsKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::W),
+            cico::InputCode::IsKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::S),
+            cico::InputCode::IsKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::A),
+            cico::InputCode::IsKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::D),
+            cico::InputCode::IsKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::R),
+            cico::InputCode::IsKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::F));
+
+        // Input and stuff
+        renderer.drawFrame(logicScene.getSceneData(), framebufferResized, window.getGLFWWindow());
+
+        // Todo:
+        // Point of this in #13 was to use a Frame Target and not hog ressources once it is reached
+        // WIth the current stuff, it really just
+        // float frameTime = clock.elapsedMs() - appLastTime;
+        // Calcilate the remainnig millisceond to reach targetFPS (float)
+        // We idle
     }
 
     // Make sure the program exit properly once windows is closed
@@ -110,6 +118,7 @@ void HelloTriangleApplication::mainLoop()
 
 void HelloTriangleApplication::onEvent(Event &event)
 {
+
     if (event.type() == KeyPressedEvent::getStaticType())
     {
         KeyPressedEvent eventK = static_cast<KeyPressedEvent &>(event);
@@ -138,15 +147,14 @@ void HelloTriangleApplication::onEvent(Event &event)
                                           {
         KeyReleasedEvent& keyEvent = static_cast<KeyReleasedEvent&>(e);
         std::cout << "Event  Key Released: " << static_cast<char>(keyEvent.key) << std::endl; });
-
 };
 
 void HelloTriangleApplication::cleanup()
 {
-    //Todo:
-    //Due to asset Registry still holding texture GPU data Textures fail to be freed, 
-    //Best way to solve this is to properly separate Textures GPU and 
-    //Perhas removing the whole Texture class has it is more or less an helper at this point
+    // Todo:
+    // Due to asset Registry still holding texture GPU data Textures fail to be freed,
+    // Best way to solve this is to properly separate Textures GPU and
+    // Perhas removing the whole Texture class has it is more or less an helper at this point
     renderer.deinitSceneRessources(logicScene);
     context.destroyAll();
     window.close();

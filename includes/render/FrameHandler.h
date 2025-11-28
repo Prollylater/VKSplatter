@@ -29,6 +29,7 @@ public:
     // This add before the framebuffer attachments images views of the swapchain then create framebuffers
     void completeFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, const std::vector<VkImageView> swapChainViews, const VkExtent2D swapChainExtent);
 
+    void updateUniformBuffers(glm::mat4 data);
     void updateUniformBuffers(VkExtent2D swapChainExtent);
     void writeFramesDescriptors(VkDevice device, int setIndex);
 

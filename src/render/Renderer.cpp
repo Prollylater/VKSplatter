@@ -150,9 +150,9 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   // Upload GPU Data
   GpuResourceUploader uploader(*mContext, registry, mMaterialDescriptors, mPipelineM);
   std::cout << "Upload Mesh & Material" << indice << std::endl;
-  //TODO:
-  //Important:
-  //This can't stay longterm
+  // TODO:
+  // Important:
+  // This can't stay longterm
   mRScene.syncFromScene(scene, uploader, materialGpuCache);
   std::cout << "Ressourcess uploaded" << std::endl;
   std::cout << "Scene Ressources Initialized" << std::endl;
@@ -164,10 +164,10 @@ void Renderer::deinitSceneRessources(Scene &scene)
   const auto device = mContext->getLogicalDeviceManager().getLogicalDevice();
 
   mRScene.destroy(mContext->getLogicalDeviceManager().getLogicalDevice(), allocator);
-  
+
   // Below is more destroy Renderer than anything else
   mGBuffers.destroy(device, allocator);
-  
+
   for (int i = 0; i < mContext->mSwapChainM.GetSwapChainImageViews().size(); i++)
   {
     auto &frameData = mFrameHandler.getCurrentFrameData();
@@ -222,7 +222,7 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config,
 //////////////////////////////////////// Drawing Loop Functions//////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 // Semaphore and command buffer tied to frames
-void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
+void Renderer::drawFrame(const SceneData& sceneData, bool framebufferResized, GLFWwindow *window)
 {
   // Handle fetching
   VkDevice device = mContext->mLogDeviceM.getLogicalDevice();
@@ -233,6 +233,7 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
 
   // In a real app we could do other stuff while waiting on Fence
   // Or maybe multiple submitted task with each their own fence they get so that they can move unto a specific task
+  // I suppose it woud be on another thread
   frameRess.mSyncObjects.waitFenceSignal(device);
 
   uint32_t imageIndex;
@@ -251,11 +252,11 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
   frameRess.mSyncObjects.resetFence(device);
 
   // Update Camera
-  mFrameHandler.updateUniformBuffers(mContext->mSwapChainM.getSwapChainExtent());
+  mFrameHandler.updateUniformBuffers(sceneData.viewproj);
 
   renderQueue.build(mRScene);
   // recordCommandBuffer(imageIndex);
-  recordCommandBufferD(imageIndex);
+  recordCommandBufferD(sceneData.viewproj, imageIndex);
 
   // Submit Info set up
   mContext->mLogDeviceM.submitFrameToGQueue(
@@ -283,7 +284,7 @@ void Renderer::drawFrame(bool framebufferResized, GLFWwindow *window)
   mFrameHandler.advanceFrame();
 }
 
-void Renderer::recordCommandBuffer(uint32_t imageIndex)
+void Renderer::recordCommandBuffer(glm::mat4 viewproj, uint32_t imageIndex)
 {
   // Handle fetching
   // Todo: Not sure about exposing this
@@ -358,7 +359,8 @@ for each shader {
     vkCmdBindIndexBuffer(command, draw->meshGPU.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdPushConstants(command, mPipelineM.getPipelineLayout(),
                        VK_SHADER_STAGE_VERTEX_BIT,
-                       0, sizeof(UniformBufferObject), frameRess.mCameraMapping);
+                       0, sizeof(glm::mat4), &viewproj);
+
     vkCmdDrawIndexed(command, draw->meshGPU.indexCount, 1, 0, 0, 0);
   }
   // Fake multi Viewport is basically this
@@ -374,7 +376,7 @@ for each shader {
 }
 
 // Create Transition based on renderpassinfo when possible
-void Renderer::recordCommandBufferD(uint32_t imageIndex)
+void Renderer::recordCommandBufferD(glm::mat4 viewproj, uint32_t imageIndex)
 {
   FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
   auto &commandPoolM = frameRess.mCommandPool;
@@ -430,7 +432,7 @@ void Renderer::recordCommandBufferD(uint32_t imageIndex)
     vkCmdBindIndexBuffer(command, draw->meshGPU.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdPushConstants(command, mPipelineM.getPipelineLayout(),
                        VK_SHADER_STAGE_VERTEX_BIT,
-                       0, sizeof(UniformBufferObject), frameRess.mCameraMapping);
+                       0, sizeof(glm::mat4), &viewproj);
     vkCmdDrawIndexed(command, draw->meshGPU.indexCount, 1, 0, 0, 0);
   }
   vkCmdEndRendering(command);

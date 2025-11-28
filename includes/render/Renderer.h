@@ -32,10 +32,10 @@ public:
         mMaterialDescriptors.createDescriptorPool(device, 10, {});
     }
 
-    void recordCommandBuffer(uint32_t imageIndex);
-    void recordCommandBufferD(uint32_t imageIndex);
+    void recordCommandBuffer(glm::mat4 viewproj, uint32_t imageIndex);
+    void recordCommandBufferD(glm::mat4 viewproj, uint32_t imageIndex);
 
-    void drawFrame(bool framebufferResized, GLFWwindow *window);
+    void drawFrame(const SceneData& sceneData, bool framebufferResized, GLFWwindow *window);
 
     
     void initRenderInfrastructure();

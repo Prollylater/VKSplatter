@@ -39,6 +39,7 @@ bool VulkanWindow::init(const std::string &title, uint32_t width, uint32_t heigh
         return false;
     }
 
+    //More opengl stuff  GLFW_NO_API_ should render it useless
     glfwMakeContextCurrent(mWindow);
     // Set up resize callback
     glfwSetWindowUserPointer(mWindow, this);

@@ -15,6 +15,7 @@ set(SOURCE_DIR src)
 set(INCLUDE_DIR includes)
 set(THIRD_PARTY thirdparty)
 
+#Starting from Clock.cpp move all cpp together with their .h
 # Source files
 set(SOURCES
     ${SOURCE_DIR}/main.cpp
@@ -55,6 +56,7 @@ set(SOURCES
     ${SOURCE_DIR}/vulkan/utils/PipelineHelper.cpp   
 
     ${SOURCE_DIR}/core/WindowVk.cpp
+    ${SOURCE_DIR}/core/Clock.cpp
     
     ${THIRD_PARTY}/stb_image_loader.cpp
     ${THIRD_PARTY}/vkmaUsage.cpp
