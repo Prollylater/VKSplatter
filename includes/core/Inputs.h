@@ -12,6 +12,9 @@ namespace cico::InputCode
         int16_t x;
         int16_t y;
         std::array<bool, MouseButton::COUNT> keys;
+        //bool dragging;
+        //Change at mouse released, put at mouse press
+        //
     };
 
     //Mainly thought as insurance, GLFW Should work for now
@@ -32,18 +35,18 @@ namespace cico::InputCode
     //Then we check in the table directly for is Key this or that
     //We check in two table for held and released
 
-    bool IsKeyPressed(GLFWwindow *window, const KeyCode key)
+    bool isKeyPressed(GLFWwindow *window, const KeyCode key)
     {
         auto state = glfwGetKey(window, static_cast<int32_t>(key));
         return state == GLFW_PRESS;
     };
-    bool IsKeyReleased(GLFWwindow *window, const KeyCode key)
+    bool isKeyReleased(GLFWwindow *window, const KeyCode key)
     {
         auto state = glfwGetKey(window, static_cast<int32_t>(key));
         return state == GLFW_RELEASE;
     }
 
-    bool IsKeyHeld(GLFWwindow *window, const KeyCode key)
+    bool isKeyHeld(GLFWwindow *window, const KeyCode key)
     {
         auto state = glfwGetKey(window, static_cast<int32_t>(key));
         return state == GLFW_REPEAT;
@@ -61,11 +64,12 @@ namespace cico::InputCode
         return state == GLFW_PRESS;
     }
 
+    /*
     bool IsMouseButtonHeld(GLFWwindow *window, const MouseButton button)
     {
         auto state = glfwGetMouseButton(window, static_cast<int32_t>(button));
-        return state == GLFW_REPEAT;
-    }
+        return state == GLFW_REPEAT; //This doesn't actually exist
+    }*/
 
     bool IsMouseButtonReleased(GLFWwindow *window, const MouseButton button)
     {
@@ -73,21 +77,21 @@ namespace cico::InputCode
         return state == GLFW_RELEASE;
     }
 
-    std::array<float, 2> GetMousePosition(GLFWwindow *window)
+    std::array<float, 2> getMousePosition(GLFWwindow *window)
     {
         double xpos, ypos;
         glfwGetCursorPos(window, &xpos, &ypos);
         return {static_cast<float>(xpos), static_cast<float>(ypos)};
     }
 
-    float GetMouseX(GLFWwindow *window)
+    float getMouseX(GLFWwindow *window)
     {
-        return GetMousePosition(window)[0];
+        return getMousePosition(window)[0];
     }
 
-    float GetMouseY(GLFWwindow *window)
+    float getMouseY(GLFWwindow *window)
     {
-        return GetMousePosition(window)[1];
+        return getMousePosition(window)[1];
     }
 
     // Todo: For Joystick   https://www.glfw.org/docs/3.3/input_guide.html

@@ -78,10 +78,21 @@ void HelloTriangleApplication::initScene()
     }
 }
 
+// Revise the separation between event dispatching and inputing
+// Dragging at the very least should be event tied
+struct MouseStateTemp
+{
+    std::array<float, 2> prevXY;
+    std::array<float, 2> XY;
+
+    bool dragging = false;
+};
+
 void HelloTriangleApplication::mainLoop()
 {
     float appLastTime = clock.elapsed();
     float targetFps = 0;
+    MouseStateTemp mainLoopMouseState;
 
     while (window.isOpen()) // Stand in for app is running for now
     {
@@ -94,12 +105,38 @@ void HelloTriangleApplication::mainLoop()
         // Temp
         Camera &cam = logicScene.getCamera();
         cam.processKeyboardMovement(delta,
-            cico::InputCode::IsKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::W),
-            cico::InputCode::IsKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::S),
-            cico::InputCode::IsKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::A),
-            cico::InputCode::IsKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::D),
-            cico::InputCode::IsKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::R),
-            cico::InputCode::IsKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::F));
+                                    cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::W),
+                                    cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::S),
+                                    cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::A),
+                                    cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::D),
+                                    cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::R),
+                                    cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::F));
+
+        if (cico::InputCode::IsMouseButtonPressed(window.getGLFWWindow(), cico::InputCode::MouseButton::BUTTON_LEFT))
+        {
+            //std::cout<<"Pressed"<< std::endl;
+            if(!mainLoopMouseState.dragging){
+                mainLoopMouseState.prevXY = cico::InputCode::getMousePosition(window.getGLFWWindow());
+            }
+            mainLoopMouseState.dragging = true;
+            mainLoopMouseState.XY = cico::InputCode::getMousePosition(window.getGLFWWindow());
+        }
+        else if (cico::InputCode::IsMouseButtonReleased(window.getGLFWWindow(), cico::InputCode::MouseButton::BUTTON_LEFT))
+        {
+            mainLoopMouseState.dragging = false;
+        }
+
+        if (mainLoopMouseState.dragging)
+        {
+            const auto & currentXY =  mainLoopMouseState.XY;
+            const auto & prevXY =  mainLoopMouseState.prevXY;
+
+            cam.processMouseMovement(currentXY[0]-prevXY[0], currentXY[1]-prevXY[1]);
+        }
+
+        //Todo: Camera Mouse Movement definitly feel off
+            std::cout<<"Curr" <<   mainLoopMouseState.XY[0] << " " <<  mainLoopMouseState.XY[1]   << " Prev "
+            <<   mainLoopMouseState.prevXY[0] << " " <<  mainLoopMouseState.prevXY[1]  << "Bool " << mainLoopMouseState.dragging <<  std::endl;
 
         // Input and stuff
         renderer.drawFrame(logicScene.getSceneData(), framebufferResized, window.getGLFWWindow());
@@ -122,7 +159,7 @@ void HelloTriangleApplication::onEvent(Event &event)
     if (event.type() == KeyPressedEvent::getStaticType())
     {
         KeyPressedEvent eventK = static_cast<KeyPressedEvent &>(event);
-        if (cico::InputCode::IsKeyPressed(window.getGLFWWindow(), static_cast<cico::InputCode::KeyCode>(eventK.key)))
+        if (cico::InputCode::isKeyPressed(window.getGLFWWindow(), static_cast<cico::InputCode::KeyCode>(eventK.key)))
         {
             std::cout << "Input Key pressed " << cico::Input::keyToString(static_cast<cico::InputCode::KeyCode>(eventK.key)) << std::endl;
         }
@@ -130,7 +167,7 @@ void HelloTriangleApplication::onEvent(Event &event)
     if (event.type() == KeyReleasedEvent::getStaticType())
     {
         KeyReleasedEvent eventK = static_cast<KeyReleasedEvent &>(event);
-        if (cico::InputCode::IsKeyReleased(window.getGLFWWindow(), static_cast<cico::InputCode::KeyCode>(eventK.key)))
+        if (cico::InputCode::isKeyReleased(window.getGLFWWindow(), static_cast<cico::InputCode::KeyCode>(eventK.key)))
         {
             std::cout << "Input Key released " << cico::Input::keyToString(static_cast<cico::InputCode::KeyCode>(eventK.key)) << std::endl;
         }

@@ -39,7 +39,7 @@ bool VulkanWindow::init(const std::string &title, uint32_t width, uint32_t heigh
         return false;
     }
 
-    //More opengl stuff  GLFW_NO_API_ should render it useless
+    // More opengl stuff  GLFW_NO_API_ should render it useless
     glfwMakeContextCurrent(mWindow);
     // Set up resize callback
     glfwSetWindowUserPointer(mWindow, this);
@@ -95,8 +95,8 @@ bool VulkanWindow::init(const std::string &title, uint32_t width, uint32_t heigh
             }
         } });
 
-    glfwSetCharCallback(mWindow, [](GLFWwindow *window, unsigned int keycode)
-                        { auto &windwClass = *(reinterpret_cast<VulkanWindow *>(glfwGetWindowUserPointer(window))); });
+    //  glfwSetCharCallback(mWindow, [](GLFWwindow *window, unsigned int keycode)
+    //                    { auto &windwClass = *(reinterpret_cast<VulkanWindow *>(glfwGetWindowUserPointer(window))); });
 
     glfwSetMouseButtonCallback(mWindow, [](GLFWwindow *window, int button, int action, int mods)
                                {
@@ -116,15 +116,18 @@ bool VulkanWindow::init(const std::string &title, uint32_t width, uint32_t heigh
                 windwClass.eventCallback(event);
                 break;
             }
-             case GLFW_REPEAT:
+            case GLFW_REPEAT: //Should work as is Dragging if MouseButtonLeft
             {
+            
             }
         } });
-    /*
-        glfwSetCursorPosCallback(mWindow, [](GLFWwindow *window, double xPos, double yPos)
-                                 {
-            auto& windwClass = *(reinterpret_cast<VulkanWindow *>(glfwGetWindowUserPointer(window)));
-     });*/
+
+        /*
+    glfwSetCursorPosCallback(mWindow, [](GLFWwindow *window, double xPos, double yPos)
+                             { auto &windwClass = *(reinterpret_cast<VulkanWindow *>(glfwGetWindowUserPointer(window))); });
+
+    glfwSetScrollCallback(mWindow, [](GLFWwindow *window, double xPos, double yPos)
+                          { auto &windwClass = *(reinterpret_cast<VulkanWindow *>(glfwGetWindowUserPointer(window))); });*/
 
     return true;
 }
