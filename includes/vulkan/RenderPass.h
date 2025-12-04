@@ -19,7 +19,7 @@ public:
 
     void destroyRenderPass(VkDevice device);
 
-    void initConfiguration(RenderPassConfig &config)
+    void initConfiguration(RenderPassConfig config)
     {
         mConfiguration = config;
     }

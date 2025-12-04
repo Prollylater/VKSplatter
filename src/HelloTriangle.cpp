@@ -41,7 +41,22 @@ void HelloTriangleApplication::initVulkan()
     // RenderTargetInfo renderInfo;
     renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT, logicScene.sceneLayout.descriptorSetLayoutsBindings);
 
-    renderer.initRenderInfrastructure();
+    constexpr bool dynamic = true;
+
+    // Defining the Render Pass Config as the config can have use in Pipeline Description
+    if (dynamic)
+    {
+        RenderTargetConfig defRenderPass;
+        defRenderPass.addAttachment(context.mSwapChainM.getSwapChainImageFormat().format, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, AttachmentConfig::Role::Present)
+            .addAttachment(context.mPhysDeviceM.findDepthFormat(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, AttachmentConfig::Role::Depth);
+        renderer.initRenderInfrastructure(defRenderPass);
+    
+    }
+    else
+    {
+        RenderPassConfig defConfigRenderPass = RenderPassConfig::defaultForward(context.mSwapChainM.getSwapChainImageFormat().format, context.mPhysDeviceM.findDepthFormat());
+        renderer.initRenderInfrastructure(defConfigRenderPass);
+    }
 
     initScene();
 
@@ -114,8 +129,9 @@ void HelloTriangleApplication::mainLoop()
 
         if (cico::InputCode::IsMouseButtonPressed(window.getGLFWWindow(), cico::InputCode::MouseButton::BUTTON_LEFT))
         {
-            //std::cout<<"Pressed"<< std::endl;
-            if(!mainLoopMouseState.dragging){
+            // std::cout<<"Pressed"<< std::endl;
+            if (!mainLoopMouseState.dragging)
+            {
                 mainLoopMouseState.prevXY = cico::InputCode::getMousePosition(window.getGLFWWindow());
             }
             mainLoopMouseState.dragging = true;
@@ -128,15 +144,15 @@ void HelloTriangleApplication::mainLoop()
 
         if (mainLoopMouseState.dragging)
         {
-            const auto & currentXY =  mainLoopMouseState.XY;
-            const auto & prevXY =  mainLoopMouseState.prevXY;
+            const auto &currentXY = mainLoopMouseState.XY;
+            const auto &prevXY = mainLoopMouseState.prevXY;
 
-            cam.processMouseMovement(currentXY[0]-prevXY[0], currentXY[1]-prevXY[1]);
+            cam.processMouseMovement(currentXY[0] - prevXY[0], currentXY[1] - prevXY[1]);
         }
 
-        //Todo: Camera Mouse Movement definitly feel off
-            std::cout<<"Curr" <<   mainLoopMouseState.XY[0] << " " <<  mainLoopMouseState.XY[1]   << " Prev "
-            <<   mainLoopMouseState.prevXY[0] << " " <<  mainLoopMouseState.prevXY[1]  << "Bool " << mainLoopMouseState.dragging <<  std::endl;
+        // Todo: Camera Mouse Movement definitly feel off
+        std::cout << "Curr" << mainLoopMouseState.XY[0] << " " << mainLoopMouseState.XY[1] << " Prev "
+                  << mainLoopMouseState.prevXY[0] << " " << mainLoopMouseState.prevXY[1] << "Bool " << mainLoopMouseState.dragging << std::endl;
 
         // Input and stuff
         renderer.drawFrame(logicScene.getSceneData(), framebufferResized, window.getGLFWWindow());

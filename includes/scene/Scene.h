@@ -98,4 +98,11 @@ public:
     void syncFromScene(const Scene &cpuScene,
                        const GpuResourceUploader &builder,
                        const std::vector<MaterialGPU::MaterialGPUCreateInfo> &matCaches);
+
+    struct PassRequirements {
+    bool needsMaterial = false;
+    bool needsMesh = true;
+    bool needsTransform = true;
+};
+    
 };

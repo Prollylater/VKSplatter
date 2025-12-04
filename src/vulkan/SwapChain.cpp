@@ -251,7 +251,6 @@ void SwapChainManager::DestroyImageViews(VkDevice device)
   mSChainImageViews.clear();
 }
 
-
 // Passes Ressources
 // Todo::
 void SwapChainResources::createFramebuffers(VkDevice device, VkExtent2D extent, const std::vector<VkImageView> &attachments, VkRenderPass renderPass)
@@ -368,6 +367,18 @@ VkImage GBuffers::getDepthImage() const
 {
   return gBufferDepth.getImage();
 };
+
+std::vector<VkImageView> GBuffers::collectColorViews() const
+{
+  std::vector<VkImageView> colorViews;
+  colorViews.reserve(colorBufferNb());
+  for (size_t index = 0; index < colorBufferNb(); index++)
+  {
+    colorViews.push_back(getColorImageView(index));
+  }
+  return colorViews;
+};
+
 VkImageView GBuffers::getColorImageView(uint32_t index) const
 {
   return gBuffers[index].getView();

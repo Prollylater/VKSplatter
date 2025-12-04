@@ -42,7 +42,7 @@ struct PipelineLayoutConfig
 
     size_t computeHash() const
     {
-       auto hashCombine = [](size_t currhash, size_t value)
+        auto hashCombine = [](size_t currhash, size_t value)
         {
             return currhash ^ (value + (currhash << 6));
         };
@@ -138,7 +138,7 @@ struct PipelineConfig
     PipelineBlendConfig blend;
     PipelineDepthConfig depth;
     PipelineVertexInputConfig input;
-    PipelineLayoutConfig uniform; //Todo: Uniform is not an appropraite name
+    PipelineLayoutConfig uniform; // Todo: Uniform is not an appropraite name
     PipelineRenderPassConfig pass;
 
     std::vector<VkDynamicState> dynamicStates = {
@@ -164,45 +164,44 @@ struct PipelineSetLayoutBuilder
     {
         pushConstants.push_back({stageFlag, offset, size});
     }
-    
 };
 
 // PipelineSetLayoutBuilder materialLayoutInfo;
-  // Introduce information too much tied to the Pipeline here
-  struct MaterialLayoutRegistry
-  {
+// Introduce information too much tied to the Pipeline here
+struct MaterialLayoutRegistry
+{
     static const PipelineSetLayoutBuilder &Get(MaterialType type)
     {
-      switch (type)
-      {
-      case MaterialType::None:
-
-        static PipelineSetLayoutBuilder UnlitLayout = []
+        switch (type)
         {
-          PipelineSetLayoutBuilder layout;
-          layout.addDescriptor(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-          return layout;
-        }();
+        case MaterialType::None:
 
-        return UnlitLayout;
-      case MaterialType::PBR:
-      default:
-        static PipelineSetLayoutBuilder PBRLayout = []
-        {
-          PipelineSetLayoutBuilder layout;
-          layout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-          layout.addDescriptor(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // albedo
-          layout.addDescriptor(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // normal
-          layout.addDescriptor(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // metal/rough
-          layout.addDescriptor(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // ao
-          // layout.addDescriptor(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // emissive
-          return layout;
-        }();
+            static PipelineSetLayoutBuilder UnlitLayout = []
+            {
+                PipelineSetLayoutBuilder layout;
+                layout.addDescriptor(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+                return layout;
+            }();
 
-        return PBRLayout;
-      }
+            return UnlitLayout;
+        case MaterialType::PBR:
+        default:
+            static PipelineSetLayoutBuilder PBRLayout = []
+            {
+                PipelineSetLayoutBuilder layout;
+                layout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+                layout.addDescriptor(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // albedo
+                layout.addDescriptor(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // normal
+                layout.addDescriptor(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // metal/rough
+                layout.addDescriptor(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // ao
+                // layout.addDescriptor(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // emissive
+                return layout;
+            }();
+
+            return PBRLayout;
+        }
     }
-  };
+};
 
 // Renderpass
 enum class RenderPassType
@@ -218,6 +217,9 @@ enum class RenderPassType
 // TOdo: Do i froget the {.membervariable}
 struct AttachmentConfig
 {
+    // Todo: See where this could be used
+    // Name ?
+   
     VkAttachmentDescriptionFlags flags = 0;
     // Created from FrameRessources element/swapChainFromat ?
     VkFormat format = VK_FORMAT_UNDEFINED;
@@ -229,16 +231,36 @@ struct AttachmentConfig
     VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkImageLayout finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // or SHADER_READ, etc.
 
+     enum class Role : uint8_t
+    {
+        Other,
+        Depth,
+        Present
+    } role;
+
     // VkAttachmentLoadOp stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     // VkAttachmentStoreOp stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-
-    ////
 };
+
+enum class RenderConfigType
+{
+    Dynamic,
+    LegacyRenderPass
+};
+// Todo: Crtp might not really fir us
+// Look for example where it is actually useful
+// Static polymorphism is probably not needed
+// NEtter in SIMD? Job scehduling ? ECS? Anything
 
 template <typename Derived>
 struct RenderTargetConfigCRTP
 {
+    // The entire Attachement COnfig i
+    // Not fully useful for dynamic rendering
+    // Should we change this ?
     std::vector<AttachmentConfig> attachments;
+
+    RenderConfigType type = RenderConfigType::Dynamic;
 
     bool enableDepth = true;
     bool enableMSAA = false;
@@ -254,24 +276,53 @@ struct RenderTargetConfigCRTP
         return attachmentFormat;
     }
 
+    // Format of the actual offscreen G-buffers (excluding swapchain & depth)
+    std::vector<VkFormat> extractGBufferFormats() const
+    {
+        std::vector<VkFormat> fmts;
+
+        // Todo:
+        for (const auto &att : attachments)
+        {
+            if (att.role == AttachmentConfig::Role::Other)
+            {
+                // Bad fail safe until i deal with this
+                if (att.finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR || att.finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+                {
+                    continue;
+                    ;
+                }
+                fmts.push_back(att.format);
+            }
+        }
+        return fmts;
+    }
+
     Derived &addAttachment(
         VkFormat format,
         VkImageLayout finalLayout,
         VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_STORE)
+        VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        AttachmentConfig::Role role = AttachmentConfig::Role::Other)
     {
         attachments.push_back({.format = format,
                                .samples = VK_SAMPLE_COUNT_1_BIT,
                                .loadOp = loadOp,
                                .storeOp = storeOp,
                                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                               .finalLayout = finalLayout});
+                               .finalLayout = finalLayout,
+                               .role = role});
         return static_cast<Derived &>(*this);
     }
+
+    Derived &derived() { return static_cast<Derived &>(*this); }
+    const Derived &derived() const { return static_cast<const Derived &>(*this); }
 };
 
 struct RenderTargetConfig : RenderTargetConfigCRTP<RenderTargetConfig>
 {
+    RenderTargetConfig() { type = RenderConfigType::Dynamic; }
+    // Storethe Harrier?
 };
 
 struct SubpassConfig
@@ -292,6 +343,8 @@ struct RenderPassConfig : RenderTargetConfigCRTP<RenderPassConfig>
 {
     std::vector<SubpassConfig> subpasses;
     std::vector<VkSubpassDependency> dependencies;
+
+    RenderPassConfig() { type = RenderConfigType::LegacyRenderPass; }
 
     RenderPassConfig &addSubpass()
     {
@@ -329,8 +382,8 @@ struct RenderPassConfig : RenderTargetConfigCRTP<RenderPassConfig>
     static RenderPassConfig defaultForward(VkFormat colorFormat, VkFormat depthFormat)
     {
         RenderPassConfig defConfigRenderPass;
-        defConfigRenderPass.addAttachment(colorFormat, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
-            .addAttachment(depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE)
+        defConfigRenderPass.addAttachment(colorFormat, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, AttachmentConfig::Role::Present)
+            .addAttachment(depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, AttachmentConfig::Role::Depth)
             .addSubpass()
             .useColorAttachment(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
             .useDepthAttachment(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)

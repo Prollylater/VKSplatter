@@ -23,32 +23,42 @@ void Renderer::createFramesData(uint32_t framesInFlightCount, const std::vector<
   std::vector<std::vector<VkDescriptorSetLayoutBinding>> layoutBindings = {bindings};
   mFrameHandler.createFramesDescriptorSet(logicalDevice, layoutBindings);
 
-  // Effective Binding of Desciptor
-  /*
-  for (int i = 0; i < mFrameHandler.getFramesCount(); i++)
-  {
-    auto &frameData = mFrameHandler.getCurrentFrameData();
-    auto descriptorBuffer = frameData.mCameraBuffer.getDescriptor();
-
-    std::cout << "Updating Frame Data Set" << std::endl;
-    //  Update descriptor sets with actual data
-    std::vector<VkWriteDescriptorSet> writes = {
-        vkUtils::Descriptor::makeWriteDescriptor(frameData.mDescriptor.getSet(0), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &descriptorBuffer)};
-    frameData.mDescriptor.updateDescriptorSet(logicalDevice, 0, writes);
-    mFrameHandler.advanceFrame();
-  }*/
-
   // Update/Store UBO
   // Todo: Need to introduce a proper camera
   mFrameHandler.writeFramesDescriptors(logicalDevice, 0);
   mFrameHandler.updateUniformBuffers(mContext->getSwapChainManager().getSwapChainExtent());
 }
 
-static constexpr bool dynamic = true;
+void Renderer::initRenderInfrastructure(const RenderTargetConfig &cfg)
+{
+  std::cout << "Init Render Infrastructure" << std::endl;
 
-// TODO:
-// Render Pass that will mean not dynamic render
-void Renderer::initRenderInfrastructure()
+  const auto &mLogDeviceM = mContext->getLogicalDeviceManager();
+  const auto &mPhysDeviceM = mContext->getPhysicalDeviceManager();
+  const auto &mSwapChainM = mContext->getSwapChainManager();
+
+  const VkFormat depthFormat = mPhysDeviceM.findDepthFormat();
+  // Onward is just hardcoded stuff not meant to be dynamic yet
+  const VmaAllocator &allocator = mLogDeviceM.getVmaAllocator();
+
+  if (cfg.type == RenderConfigType::Dynamic)
+  {
+    std::vector<VkFormat> gbufferFormats = cfg.extractGBufferFormats();
+
+    mGBuffers.init(mSwapChainM.getSwapChainExtent());
+    mGBuffers.createGBuffers(mLogDeviceM, mPhysDeviceM, gbufferFormats, allocator);
+    mGBuffers.createDepthBuffer(mLogDeviceM, mPhysDeviceM, depthFormat, allocator);
+
+    // Collect image views for dynamic rendering
+    std::vector<VkImageView> colorViews = mGBuffers.collectColorViews();
+
+    // Configure per-frame rendering info
+    mFrameHandler.createFramesDynamicRenderingInfo(cfg, colorViews, mGBuffers.getDepthImageView(), mSwapChainM.GetSwapChainImageViews(),
+                                                   mSwapChainM.getSwapChainExtent());
+  }
+};
+
+void Renderer::initRenderInfrastructure(const RenderPassConfig &cfg)
 {
   std::cout << "Init Render Infrastructure" << std::endl;
 
@@ -57,59 +67,22 @@ void Renderer::initRenderInfrastructure()
   const auto &mSwapChainM = mContext->getSwapChainManager();
 
   const VkDevice &device = mLogDeviceM.getLogicalDevice();
-  const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
-
-  mGBuffers.init(mSwapChainM.getSwapChainExtent());
 
   const VkFormat depthFormat = mPhysDeviceM.findDepthFormat();
 
   // Onward is just hardcoded stuff not meant to be dynamic yet
   const VmaAllocator &allocator = mLogDeviceM.getVmaAllocator();
 
-  if (dynamic)
+  if (cfg.type == RenderConfigType::LegacyRenderPass)
   {
-    RenderTargetConfig defRenderPass;
-    defRenderPass.addAttachment(mSwapChainM.getSwapChainImageFormat().format, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
-        .addAttachment(depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE);
+    mRenderPassM.initConfiguration(cfg);
+    // Get the proper format which could be done before Re
 
-    // Create the actual offscreen G-buffers (excluding swapchain & depth)
-    std::vector<VkFormat> gbufferFormats = defRenderPass.getAttachementsFormat();
-
-    // Remove first (swapchain) and last (depth)
-    if (gbufferFormats.size() > 2)
-    {
-      gbufferFormats = {gbufferFormats.begin() + 1, gbufferFormats.end() - 1};
-    }
-    else
-    {
-      gbufferFormats.clear();
-    }
-
+    mGBuffers.init(mSwapChainM.getSwapChainExtent());
+    std::vector<VkFormat> gbufferFormats = cfg.extractGBufferFormats();
     mGBuffers.createGBuffers(mLogDeviceM, mPhysDeviceM, gbufferFormats, allocator);
     mGBuffers.createDepthBuffer(mLogDeviceM, mPhysDeviceM, depthFormat, allocator);
-
-    // 3Collect image views for dynamic rendering
-    std::vector<VkImageView> colorViews;
-    colorViews.reserve(mGBuffers.colorBufferNb());
-    for (size_t index = 0; index < mGBuffers.colorBufferNb(); index++)
-    {
-      colorViews.push_back(mGBuffers.getColorImageView(index));
-    }
-
-    // Configure per-frame rendering info
-    mFrameHandler.createFramesDynamicRenderingInfo(defRenderPass, colorViews, mGBuffers.getDepthImageView(), mSwapChainM.GetSwapChainImageViews(),
-                                                   mSwapChainM.getSwapChainExtent());
-  }
-  else
-  {
-    // Defining the Render Pass Config as the config can have use in Pipeline Description
-    RenderPassConfig defConfigRenderPass = RenderPassConfig::defaultForward(mSwapChainM.getSwapChainImageFormat().format, depthFormat);
-    mRenderPassM.initConfiguration(defConfigRenderPass);
-
-    // Get the proper format which could be done before Re
-    // Todo: std::span usage could make sense here and there
-    mGBuffers.createDepthBuffer(mLogDeviceM, mPhysDeviceM, depthFormat, allocator);
-    mRenderPassM.createRenderPass(device, defConfigRenderPass);
+    mRenderPassM.createRenderPass(device, cfg);
 
     mFrameHandler.completeFrameBuffers(device, {mGBuffers.getDepthImageView()}, mRenderPassM.getRenderPass(),
                                        mSwapChainM.GetSwapChainImageViews(),
@@ -182,6 +155,7 @@ void Renderer::deinitSceneRessources(Scene &scene)
   mRenderPassM.destroyRenderPass(device);
   mPipelineM.destroy(device);
 }
+constexpr bool dynamic = true;
 
 int Renderer::requestPipeline(const PipelineLayoutConfig &config,
                               const std::string &vertexPath,
@@ -222,7 +196,7 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config,
 //////////////////////////////////////// Drawing Loop Functions//////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 // Semaphore and command buffer tied to frames
-void Renderer::drawFrame(const SceneData& sceneData, bool framebufferResized, GLFWwindow *window)
+void Renderer::drawFrame(const SceneData &sceneData, bool framebufferResized, GLFWwindow *window)
 {
   // Handle fetching
   VkDevice device = mContext->mLogDeviceM.getLogicalDevice();

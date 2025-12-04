@@ -60,11 +60,11 @@ private:
 /*
 Introduce enough genericity to have something like that ?
 EngineCore
- ── WindowSystem
+ ── WindowSystem x
  ── RendererSystem
- ── SceneSystem
- ── ResourceSystem
- ── InputSystem
+ ── SceneSystem x
+ ── ResourceSystem x
+ ── InputSystem sort of
 
  Notes: Though this count as a way later addition, you should read about custom allocator and better resource system
  //Same as implementing a Hash_map simpler than unordered_map

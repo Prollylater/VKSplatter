@@ -38,7 +38,9 @@ public:
     void drawFrame(const SceneData& sceneData, bool framebufferResized, GLFWwindow *window);
 
     
-    void initRenderInfrastructure();
+    void initRenderInfrastructure(const RenderTargetConfig& cfg);       
+    void initRenderInfrastructure(const RenderPassConfig& cfg);       
+
     void initRenderingRessources(Scene &scene,const AssetRegistry& registry);
     void deinitSceneRessources( Scene &scene);
     VertexFlags flag;
@@ -55,6 +57,9 @@ public:
 private:
 //Todo: Typically all  that here is really specific too Vulkan
 //OpenGL wouldn't need it
+void initRenderPass(const RenderTargetConfig& cfg);
+void initRenderPass(const RenderPassConfig& cfg);
+
     VulkanContext *mContext;
     AssetRegistry *mRegistry;
 

@@ -31,12 +31,18 @@ private:
     {
         VkPipeline pipeline = VK_NULL_HANDLE;
         VkPipelineLayout layout = VK_NULL_HANDLE;
+        /*
+        enum class PipelineType {
+        GraphicsMaterial,  
+        GraphicsNoMaterial, 
+        Compute,
+        RayTracing
+    } type;
+        */
     };
-    
+
     std::unordered_map<size_t, int> mIndexByKey;
     std::vector<PipelineEntry> mPipelines;
 
     VkPipelineCache mPipelineCache = VK_NULL_HANDLE;
 };
-
-

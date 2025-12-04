@@ -61,6 +61,7 @@ public:
     void destroy(VkDevice device, VmaAllocator allocator = VK_NULL_HANDLE);
 
     VkExtent2D getSize() const;
+    std::vector<VkImageView> collectColorViews() const;
     VkImage getColorImage(uint32_t) const;
     VkImage getDepthImage() const;
     VkImageView getColorImageView(uint32_t) const;
@@ -68,7 +69,7 @@ public:
     VkFormat getColorFormat(uint32_t) const;
     VkFormat getDepthFormat() const;
     VkDescriptorImageInfo getGBufferDescriptor(uint32_t) const;
-    size_t colorBufferNb()
+    size_t colorBufferNb() const
     {
         return gBuffers.size();
     }
@@ -91,9 +92,6 @@ private:
     std::vector<Image> gBuffers{};
     Image gBufferDepth{};
     VkExtent2D mSize;
-
-    void destroyGBuffers(VkDevice);
-    void destroyDepthBuffer(VkDevice);
 };
 
 

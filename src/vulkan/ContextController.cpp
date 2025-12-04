@@ -35,9 +35,6 @@ void VulkanContext::initVulkanBase(GLFWwindow *window, ContextCreateInfo &create
     mSwapChainM.createImageViews(device);
 }
 
-static constexpr bool dynamic = true;
-
-
 void VulkanContext::destroyAll()
 {
     // Have destructor call those function

@@ -42,7 +42,9 @@ MaterialGPU MaterialGPU::createMaterialGPU(
     Texture *normal = getOrDummy(registry.get(material.normalMap), Texture::getDummyNormal);
     Texture *metallic = getOrDummy(registry.get(material.metallicMap), Texture::getDummyMetallic);
     Texture *roughness = getOrDummy(registry.get(material.roughnessMap), Texture::getDummyRoughness);
-
+    //Todo
+    //MetalRoughAO Check if can just do that
+    //Also perhaps use this as a way to decide if a vecor would be easier to deal with (definitly)
     VkDescriptorBufferInfo uboDescInfo = materialUniformBuffer.getDescriptor();
     VkDescriptorImageInfo albedoDescInfo = albedo->getImage().getDescriptor();
     VkDescriptorImageInfo normalDescInfo = normal->getImage().getDescriptor();
