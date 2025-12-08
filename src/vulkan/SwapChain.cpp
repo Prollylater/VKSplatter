@@ -215,6 +215,7 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice physDevice, VkDevice log
 
 void SwapChainManager::destroySwapChain(VkDevice device)
 {
+  destroyImageViews(device);
   vkDestroySwapchainKHR(device, mSwapChain, nullptr);
   // Actual content is handled alongside instructions above
   mSwapChainImages.clear();
@@ -226,8 +227,6 @@ VkSwapchainKHR SwapChainManager::GetChain() const
 }
 
 // ImageViews
-
-// Just for transition image currently
 
 void SwapChainManager::createImageViews(VkDevice device)
 {
@@ -241,7 +240,7 @@ void SwapChainManager::createImageViews(VkDevice device)
   }
 }
 
-void SwapChainManager::DestroyImageViews(VkDevice device)
+void SwapChainManager::destroyImageViews(VkDevice device)
 {
 
   for (auto imageView : mSChainImageViews)

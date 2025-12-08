@@ -303,6 +303,8 @@ VkResult LogicalDeviceManager::submit2ToQueue(
     return result;
 }
 
+//Todo: Who should actually present it ?
+//Swapchain or Device
 VkResult LogicalDeviceManager::presentImage(
     VkSwapchainKHR swapchain,
     VkSemaphore waitSemaphore,

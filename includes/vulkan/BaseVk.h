@@ -122,15 +122,14 @@ struct SwapChainConfig
     }
 };
 
-class VulkanContext;
 
 struct ContextCreateInfo
 {
 public:
-    // Non const ?
+    // Non const ? 
+    // Also put it in Swapchain directly ?
     static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
 
-    // friend VulkanContext;
     uint32_t versionMajor = 1;
     uint32_t versionMinor = 2;
 

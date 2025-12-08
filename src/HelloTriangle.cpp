@@ -35,28 +35,26 @@ void HelloTriangleApplication::initVulkan()
 
     context.initVulkanBase(window.getGLFWWindow(), info);
     // Renderer
-    renderer.initialize(context, assetSystem.registry());
-
-    // RenderTarget Info
-    // RenderTargetInfo renderInfo;
-    renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT, logicScene.sceneLayout.descriptorSetLayoutsBindings);
 
     constexpr bool dynamic = true;
 
+    //Todo:
     // Defining the Render Pass Config as the config can have use in Pipeline Description
     if (dynamic)
     {
         RenderTargetConfig defRenderPass;
         defRenderPass.addAttachment(context.mSwapChainM.getSwapChainImageFormat().format, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, AttachmentConfig::Role::Present)
             .addAttachment(context.mPhysDeviceM.findDepthFormat(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, AttachmentConfig::Role::Depth);
-        renderer.initRenderInfrastructure(defRenderPass);
-    
+        renderer.initialize(context, assetSystem.registry(), defRenderPass);
     }
     else
     {
         RenderPassConfig defConfigRenderPass = RenderPassConfig::defaultForward(context.mSwapChainM.getSwapChainImageFormat().format, context.mPhysDeviceM.findDepthFormat());
-        renderer.initRenderInfrastructure(defConfigRenderPass);
+        renderer.initialize(context, assetSystem.registry(), defConfigRenderPass);
     }
+
+    renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT, logicScene.sceneLayout.descriptorSetLayoutsBindings);
+    renderer.initRenderInfrastructure();
 
     initScene();
 
@@ -148,6 +146,7 @@ void HelloTriangleApplication::mainLoop()
             const auto &prevXY = mainLoopMouseState.prevXY;
 
             cam.processMouseMovement(currentXY[0] - prevXY[0], currentXY[1] - prevXY[1]);
+            mainLoopMouseState.prevXY = mainLoopMouseState.XY;
         }
 
         // Todo: Camera Mouse Movement definitly feel off

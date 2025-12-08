@@ -7,8 +7,6 @@ public:
     FrameSyncObjects() = default;
     ~FrameSyncObjects() = default;
 
-    // Todo: Important
-    // MaxFrames iN Flight should disappear
     void createSyncObjects(VkDevice device);
     void destroy(VkDevice);
     // Called every frame to get the current sync primitives

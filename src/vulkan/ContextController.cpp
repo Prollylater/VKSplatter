@@ -46,7 +46,6 @@ void VulkanContext::destroyAll()
     // Todo: Better deletion of frames data
  
 
-    mSwapChainM.DestroyImageViews(device);
     mSwapChainM.destroySwapChain(device);
     mLogDeviceM.destroyVmaAllocator();
     mLogDeviceM.DestroyDevice();
@@ -55,8 +54,11 @@ void VulkanContext::destroyAll()
 };
 
 //This might be tied to an event
+//This can more or less be activated already
 void VulkanContext::recreateSwapchain(GLFWwindow *window)
 {
+    //Todo:
+    //Indtroduce a way to upsacel actual gbuffers to swapcahin resolution
     // Pause while Minimized
     //Todo remove
     int width = 0, height = 0;
@@ -72,7 +74,6 @@ void VulkanContext::recreateSwapchain(GLFWwindow *window)
     const auto &device = mLogDeviceM.getLogicalDevice();
     const auto &allocator = mLogDeviceM.getVmaAllocator();
 
-    mSwapChainM.DestroyImageViews(device);
     mSwapChainM.destroySwapChain(device);
     /*
     // Destroy FrameBuffers/GBuffers/Modify render pass Info

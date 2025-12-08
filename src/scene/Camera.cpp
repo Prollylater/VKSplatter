@@ -77,6 +77,7 @@ void Camera::processMouseMovement(float xoffset, float yoffset)
         pitch = 89.0f;
     if (pitch < -89.0f)
         pitch = -89.0f;
+        
     updateCameraVectors();
 }
 

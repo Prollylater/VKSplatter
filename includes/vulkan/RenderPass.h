@@ -7,6 +7,13 @@
 /*
 Create/render pass definitions through a config files
 */
+
+/*
+Todo:
+Render pass state ?
+Same for Render PAss
+#Vid 18
+*/
 class RenderPassManager
 {
 public:

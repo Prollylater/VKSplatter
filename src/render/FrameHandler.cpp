@@ -189,10 +189,10 @@ void FrameHandler::destroyFramesData(VkDevice device)
 
 void FrameHandler::updateUniformBuffers(glm::mat4 data)
 {
-    //Notes: This currently fill the uniformSceneData with garbage
+    //Notes: This currently fill the uniformSceneData with garbage since the Descriptor are differently shaped
     //It only work for the push constants
     //Not that anyone care
-    // Copy into persistently mapped buffer
+    //Copy into persistently mapped buffer
     memcpy(getCurrentFrameData().mCameraMapping, &data, sizeof(glm::mat4));
 };
 

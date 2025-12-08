@@ -29,6 +29,19 @@ void Renderer::createFramesData(uint32_t framesInFlightCount, const std::vector<
   mFrameHandler.updateUniformBuffers(mContext->getSwapChainManager().getSwapChainExtent());
 }
 
+void Renderer::initRenderInfrastructure()
+{
+
+  if (mUseDynamic)
+  {
+    initRenderInfrastructure(mDynConfig);
+  }
+  else
+  {
+    initRenderInfrastructure(mLegacyConfig);
+  }
+}
+
 void Renderer::initRenderInfrastructure(const RenderTargetConfig &cfg)
 {
   std::cout << "Init Render Infrastructure" << std::endl;
@@ -155,7 +168,6 @@ void Renderer::deinitSceneRessources(Scene &scene)
   mRenderPassM.destroyRenderPass(device);
   mPipelineM.destroy(device);
 }
-constexpr bool dynamic = true;
 
 int Renderer::requestPipeline(const PipelineLayoutConfig &config,
                               const std::string &vertexPath,
@@ -174,7 +186,7 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config,
   builder.setShaders({vertexPath, fragmentPath})
       .setInputConfig({.vertexFormat = VertexFormatRegistry::getStandardFormat()});
 
-  if (dynamic)
+  if (mUseDynamic)
   {
     auto attachments = mGBuffers.getAllFormats();
     attachments.insert(attachments.begin(), mContext->getSwapChainManager().getSwapChainImageFormat().format);
@@ -229,9 +241,14 @@ void Renderer::drawFrame(const SceneData &sceneData, bool framebufferResized, GL
   mFrameHandler.updateUniformBuffers(sceneData.viewproj);
 
   renderQueue.build(mRScene);
-  // recordCommandBuffer(imageIndex);
-  recordCommandBufferD(sceneData.viewproj, imageIndex);
-
+  if (mUseDynamic)
+  {
+    recordCommandBufferD(sceneData.viewproj, imageIndex);
+  }
+  else
+  {
+    recordCommandBuffer(sceneData.viewproj, imageIndex);
+  }
   // Submit Info set up
   mContext->mLogDeviceM.submitFrameToGQueue(
       frameRess.mCommandPool.get(),
@@ -243,7 +260,7 @@ void Renderer::drawFrame(const SceneData &sceneData, bool framebufferResized, GL
                                                        imageIndex);
 
   // Recreate the Swap Chain if suboptimal
-
+  //Todo: This checck could be directly hadnled in present Image if presentImage was in SwapcHain
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
   {
     framebufferResized = false;
