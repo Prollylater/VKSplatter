@@ -29,20 +29,7 @@ void Renderer::createFramesData(uint32_t framesInFlightCount, const std::vector<
   mFrameHandler.updateUniformBuffers(mContext->getSwapChainManager().getSwapChainExtent());
 }
 
-void Renderer::initRenderInfrastructure()
-{
-
-  if (mUseDynamic)
-  {
-    initRenderInfrastructure(mDynConfig);
-  }
-  else
-  {
-    initRenderInfrastructure(mLegacyConfig);
-  }
-}
-
-void Renderer::initRenderInfrastructure(const RenderTargetConfig &cfg)
+void Renderer::initRenderInfrastructure(RenderPassType type, const RenderTargetConfig &cfg)
 {
   std::cout << "Init Render Infrastructure" << std::endl;
 
@@ -66,12 +53,12 @@ void Renderer::initRenderInfrastructure(const RenderTargetConfig &cfg)
     std::vector<VkImageView> colorViews = mGBuffers.collectColorViews();
 
     // Configure per-frame rendering info
-    mFrameHandler.createFramesDynamicRenderingInfo(cfg, colorViews, mGBuffers.getDepthImageView(), mSwapChainM.GetSwapChainImageViews(),
-                                                   mSwapChainM.getSwapChainExtent());
+    createFramesDynamicRenderingInfo(type, cfg, colorViews, mGBuffers.getDepthImageView(),
+                                     mSwapChainM.getSwapChainExtent());
   }
 };
 
-void Renderer::initRenderInfrastructure(const RenderPassConfig &cfg)
+void Renderer::initRenderInfrastructure(RenderPassType type, const RenderPassConfig &cfg)
 {
   std::cout << "Init Render Infrastructure" << std::endl;
 
@@ -88,16 +75,15 @@ void Renderer::initRenderInfrastructure(const RenderPassConfig &cfg)
 
   if (cfg.type == RenderConfigType::LegacyRenderPass)
   {
-    mRenderPassM.initConfiguration(cfg);
     // Get the proper format which could be done before Re
 
     mGBuffers.init(mSwapChainM.getSwapChainExtent());
     std::vector<VkFormat> gbufferFormats = cfg.extractGBufferFormats();
     mGBuffers.createGBuffers(mLogDeviceM, mPhysDeviceM, gbufferFormats, allocator);
     mGBuffers.createDepthBuffer(mLogDeviceM, mPhysDeviceM, depthFormat, allocator);
-    mRenderPassM.createRenderPass(device, cfg);
+    mRenderPassM.createRenderPass(device, type, cfg);
 
-    mFrameHandler.completeFrameBuffers(device, {mGBuffers.getDepthImageView()}, mRenderPassM.getRenderPass(),
+    mFrameHandler.completeFrameBuffers(device, {mGBuffers.getDepthImageView()}, mRenderPassM.getRenderPass(type),
                                        mSwapChainM.GetSwapChainImageViews(),
                                        mSwapChainM.getSwapChainExtent());
   }
@@ -165,7 +151,7 @@ void Renderer::deinitSceneRessources(Scene &scene)
   mMaterialDescriptors.destroyDescriptorLayout(device);
   mMaterialDescriptors.destroyDescriptorPool(device);
 
-  mRenderPassM.destroyRenderPass(device);
+  mRenderPassM.destroyAll(device);
   mPipelineM.destroy(device);
 }
 
@@ -196,7 +182,8 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config,
   }
   else
   {
-    builder.setRenderPass(mRenderPassM.getRenderPass());
+    // Todo::
+    builder.setRenderPass(mRenderPassM.getRenderPass(RenderPassType::Forward));
   }
 
   builder.setUniform(config);
@@ -204,10 +191,282 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config,
   return mPipelineM.createPipelineWithBuilder(device, builder);
 };
 
+void Renderer::createFramesDynamicRenderingInfo(RenderPassType type, const RenderTargetConfig &cfg,
+                                                const std::vector<VkImageView> &gbufferViews,
+                                                VkImageView depthView, const VkExtent2D swapChainExtent)
+{
+  const uint16_t index = static_cast<uint16_t>(type);
+  auto &renderColorInfos = mDynamicPassesInfo[index].colorAttachments;
+  auto &renderDepthInfo = mDynamicPassesInfo[index].depthAttachment;
+  auto &renderInfo = mDynamicPassesInfo[index].info;
+  mDynamicPassesConfig[index] = cfg;
+
+  renderColorInfos.clear();
+
+  // const VkImageView imageView = swapChainViews[getCurrentFrameIndex()];
+
+  // SwapChain image
+  VkRenderingAttachmentInfo swapchainColor;
+  swapchainColor = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+  // swapchainColor.imageView = swapChainView; //Todo: Change this dynamically
+
+  swapchainColor.imageLayout = cfg.attachments[0].finalLayout; // target layout for rendering
+  swapchainColor.loadOp = cfg.attachments[0].loadOp;
+  swapchainColor.storeOp = cfg.attachments[0].storeOp;
+  swapchainColor.clearValue = {{0.2f, 0.2f, 0.2f, 1.0f}};
+  renderColorInfos.push_back(swapchainColor);
+
+  for (size_t i = 0; i < gbufferViews.size(); ++i)
+  {
+    VkRenderingAttachmentInfo colorInfo{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+    colorInfo.imageView = gbufferViews[i];
+    colorInfo.imageLayout = cfg.attachments[i + 1].finalLayout; // target layout for rendering
+    colorInfo.loadOp = cfg.attachments[i + 1].loadOp;
+    colorInfo.storeOp = cfg.attachments[i + 1].storeOp;
+    // colorInfo.clearValue =  set per-pass per-frame
+    renderColorInfos.push_back(colorInfo);
+  }
+
+  if (cfg.enableDepth && depthView != VK_NULL_HANDLE)
+  {
+    renderDepthInfo = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+    renderDepthInfo.imageView = depthView;
+    renderDepthInfo.imageLayout = cfg.attachments.back().finalLayout;
+    renderDepthInfo.loadOp = cfg.attachments.back().loadOp;
+    renderDepthInfo.storeOp = cfg.attachments.back().storeOp;
+    renderDepthInfo.clearValue = {1.0f, 0}; // Important...
+  }
+  // fill depth load/store...
+  renderInfo = {.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .renderArea = {.offset = {0, 0}, .extent = swapChainExtent},
+                .layerCount = 1,
+                .colorAttachmentCount = static_cast<uint32_t>(renderColorInfos.size()),
+                .pColorAttachments = renderColorInfos.data(),
+                .pDepthAttachment = cfg.enableDepth ? &renderDepthInfo : nullptr};
+  // Todo: set renderArea / layerCount / viewMask as needed
+};
+
 /////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////// Drawing Loop Functions//////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 // Semaphore and command buffer tied to frames
+
+void Renderer::beginFrame(const SceneData &sceneData,  GLFWwindow *window)
+{
+
+  // Handle fetching
+  VkDevice device = mContext->mLogDeviceM.getLogicalDevice();
+  SwapChainManager &chain = mContext->getSwapChainManager();
+
+  // Todo: Not sure about exposing this as non const
+  FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
+
+  // In a real app we could do other stuff while waiting on Fence
+  // Or maybe multiple submitted task with each their own fence they get so that they can move unto a specific task
+  // I suppose it woud be on another thread
+  frameRess.mSyncObjects.waitFenceSignal(device);
+
+
+  bool resultAcq = chain.aquireNextImage(device,
+                                         frameRess.mSyncObjects.getImageAvailableSemaphore(),
+                                         mIndexImage);
+
+  std::cout << mIndexImage << " && " << mFrameHandler.getCurrentFrameIndex();
+  if (!resultAcq)
+  {
+    // Todo: Should be in swapchain?
+    // recreateSwapChain(device, window);
+    // return;
+  }
+
+  frameRess.mSyncObjects.resetFence(device);
+
+  // Update Camera and global UBO
+  mFrameHandler.updateUniformBuffers(sceneData.viewproj);
+
+  renderQueue.build(mRScene);
+
+  // Handle fetching
+  // Todo: Not sure about exposing this
+  // Create shorthand from frame to record
+  mFrameHandler.getCurrentFrameData().mCommandPool.beginRecord();
+}
+
+void Renderer::endFrame(bool framebufferResized)
+{
+  SwapChainManager &chain = mContext->getSwapChainManager();
+  FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
+  frameRess.mCommandPool.endRecord();
+
+  // Submit Info set up
+  mContext->mLogDeviceM.submitFrameToGQueue(
+      frameRess.mCommandPool.get(),
+      frameRess.mSyncObjects.getImageAvailableSemaphore(),
+      frameRess.mSyncObjects.getRenderFinishedSemaphore(),
+      frameRess.mSyncObjects.getInFlightFence());
+  VkResult result = mContext->mLogDeviceM.presentImage(chain.GetChain(),
+                                                       frameRess.mSyncObjects.getRenderFinishedSemaphore(),
+                                                       mIndexImage);
+
+  // Recreate the Swap Chain if suboptimal
+  // Todo: This checck could be directly hadnled in present Image if presentImage was in SwapcHain
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
+  {
+    framebufferResized = false;
+    // recreateSwapChain(device, window);
+  }
+  else if (result != VK_SUCCESS)
+  {
+    throw std::runtime_error("failed to present swap chain image!");
+  }
+
+  // Go to the next index
+  mFrameHandler.advanceFrame();
+};
+
+void Renderer::beginPass(RenderPassType type)
+{
+  VkExtent2D extent = mContext->mSwapChainM.getSwapChainExtent();
+  FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
+  VkCommandBuffer command = frameRess.mCommandPool.get();
+  uint32_t renderPassIndex = static_cast<uint32_t>(type);
+
+  if (mUseDynamic)
+  {
+    // Transition swapchain image to COLOR_ATTACHMENT_OPTIMAL for rendering
+
+    const auto &images = mContext->mSwapChainM.GetSwapChainImages();
+    auto transObj = vkUtils::Texture::makeTransition(images[mIndexImage], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    transObj.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    transObj.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    transObj.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    vkUtils::Texture::recordImageMemoryBarrier(command, transObj);
+
+    // Todo: Pretty hard to do and reaad +  swapchain need to always be first
+    mDynamicPassesInfo[renderPassIndex].colorAttachments[0].imageView = mContext->getSwapChainManager().GetSwapChainImageViews()[mFrameHandler.getCurrentFrameIndex()];
+    VkRenderingInfo renderInfo = mDynamicPassesInfo[renderPassIndex].info;
+    vkCmdBeginRendering(command, &renderInfo);
+  }
+  else
+  {
+    mRenderPassM.startPass(renderPassIndex, command,
+                           frameRess.mFramebuffer.GetFramebuffers().at(0), extent);
+  }
+
+  // Setup viewport / scissor
+  VkViewport viewport{};
+  viewport.x = 0.0f;
+  viewport.y = 0.0f;
+  viewport.width = static_cast<float>(extent.width);
+  viewport.height = static_cast<float>(extent.height);
+  viewport.minDepth = 0.0f;
+  viewport.maxDepth = 1.0f;
+  vkCmdSetViewport(command, 0, 1, &viewport);
+
+  VkRect2D scissor{};
+  scissor.extent = extent;
+  vkCmdSetScissor(command, 0, 1, &scissor);
+};
+ 
+void Renderer::endPass(RenderPassType type)
+{
+
+  FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
+
+  if (mUseDynamic)
+  {
+    FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
+    auto &commandPoolM = frameRess.mCommandPool;
+    const VkCommandBuffer command = commandPoolM.get();
+
+    const auto &images = mContext->mSwapChainM.GetSwapChainImages();
+
+    vkCmdEndRendering(frameRess.mCommandPool.get());
+
+    auto transObjb = vkUtils::Texture::makeTransition(images[mIndexImage],
+                                                      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
+    transObjb.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    transObjb.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    transObjb.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    transObjb.dstAccessMask = 0;
+
+    vkUtils::Texture::recordImageMemoryBarrier(command, transObjb);
+  }
+  else
+  {
+    mRenderPassM.endPass(frameRess.mCommandPool.get());
+  }
+};
+
+void Renderer::drawFrame(const SceneData &sceneData)
+{
+  /*
+  vertexCount: Even though we don't have a vertex buffer, we technically still have 3 vertices to draw.
+  instanceCount: Used for instanced rendering, use 1 if you're not doing that.
+  firstVertex: Used as an offset into the vertex buffer, defines the lowest value of gl_VertexIndex.
+  firstInstance: Used as an offset for instanced rendering, defines the lowest value of gl_InstanceIndex.
+
+  for each view {
+bind global resourcees          // set 0
+
+for each shader {
+  bind shader pipeline
+  for each material {
+    bind material resources  // sets 2,3
+  }
+}
+}
+  */
+
+  // 0 is not quite right
+  // I m also not quite sure how location is determined, just through the attributes description
+  // 1 interleaved buffer here
+
+  // MESH DRAWING
+
+  FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
+  VkCommandBuffer cmd = frameRess.mCommandPool.get();
+
+  for (const Drawable *draw : renderQueue.getDrawables())
+  {
+    // Todo: Sorting drawables to minimize binding
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineM.getPipeline());
+
+    // Bind descriptors
+    std::vector<VkDescriptorSet> sets = {
+        frameRess.mDescriptor.getSet(0),
+        mMaterialDescriptors.getSet(draw->materialGPU.descriptorIndex)};
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            mPipelineM.getPipelineLayout(), 0,
+                            sets.size(), sets.data(),
+                            0, nullptr);
+
+    // Bind vertex
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(cmd, 0, 1, &draw->meshGPU.vertexBuffer, offsets);
+    vkCmdBindIndexBuffer(cmd, draw->meshGPU.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+    // Push constants
+    vkCmdPushConstants(cmd, mPipelineM.getPipelineLayout(),
+                       VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &sceneData.viewproj);
+
+    // Draw
+    vkCmdDrawIndexed(cmd, draw->meshGPU.indexCount, 1, 0, 0, 0);
+
+
+  // Fake multi Viewport is basically this
+  /*
+  viewport.width = static_cast<float>(frameExtent.width);
+  viewport.height = static_cast<float>(frameExtent.height/2);
+  vkCmdSetViewport(command, 0, 1, &viewport);
+  vkCmdDrawIndexed(command, static_cast<uint32_t>(bufferSize), 1, 0, 0, 0);
+  */
+  }
+
+};
+
+/*
 void Renderer::drawFrame(const SceneData &sceneData, bool framebufferResized, GLFWwindow *window)
 {
   // Handle fetching
@@ -260,7 +519,7 @@ void Renderer::drawFrame(const SceneData &sceneData, bool framebufferResized, GL
                                                        imageIndex);
 
   // Recreate the Swap Chain if suboptimal
-  //Todo: This checck could be directly hadnled in present Image if presentImage was in SwapcHain
+  // Todo: This checck could be directly hadnled in present Image if presentImage was in SwapcHain
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
   {
     framebufferResized = false;
@@ -286,13 +545,7 @@ void Renderer::recordCommandBuffer(glm::mat4 viewproj, uint32_t imageIndex)
   const VkCommandBuffer command = commandPoolM.get();
 
   commandPoolM.beginRecord();
-  mRenderPassM.startPass(command, frameRess.mFramebuffer.GetFramebuffers().at(0), frameExtent);
-
-  vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineM.getPipeline());
-
-  // Command
-  // Function in pipeline that check the size ?
-  // Todo: THink about where to put this
+  mRenderPassM.startPass(static_cast<uint32_t>(RenderPassType::Forward), command, frameRess.mFramebuffer.GetFramebuffers().at(0), frameExtent);
 
   // Add this for dynamic Pipelin
   VkViewport viewport{};
@@ -325,7 +578,7 @@ for each shader {
   }
 }
 }
-  */
+  * /
 
   // 0 is not quite right
   // I m also not quite sure how location is determined, just through the attributes description
@@ -360,7 +613,7 @@ for each shader {
   viewport.height = static_cast<float>(frameExtent.height/2);
   vkCmdSetViewport(command, 0, 1, &viewport);
   vkCmdDrawIndexed(command, static_cast<uint32_t>(bufferSize), 1, 0, 0, 0);
-  */
+  * /
 
   mRenderPassM.endPass(command);
   commandPoolM.endRecord();
@@ -388,7 +641,9 @@ void Renderer::recordCommandBufferD(glm::mat4 viewproj, uint32_t imageIndex)
   vkUtils::Texture::recordImageMemoryBarrier(command, transObj);
   //  Transition
 
-  vkCmdBeginRendering(command, &frameRess.mDynamicPassInfo.info);
+  uint32_t renderPassIndex = static_cast<uint32_t>(RenderPassType::Forward);
+  mDynamicPassesInfo[renderPassIndex].colorAttachments[0].imageView = mContext->getSwapChainManager().GetSwapChainImageViews()[mFrameHandler.getCurrentFrameIndex()],
+  vkCmdBeginRendering(command, &mDynamicPassesInfo[renderPassIndex].info);
 
   VkViewport viewport{};
   viewport.x = 0.0f;
@@ -440,3 +695,4 @@ void Renderer::recordCommandBufferD(glm::mat4 viewproj, uint32_t imageIndex)
 
   commandPoolM.endRecord();
 }
+*/

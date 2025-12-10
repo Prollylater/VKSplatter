@@ -5,7 +5,14 @@
 // This is the basic RenderPass not dealing with Other Attachement type
 // With method to create each i guess ?
 
-void RenderPassManager::createRenderPass(VkDevice device, const RenderPassConfig &configStruct)
+VkRenderPass RenderPassManager::getRenderPass(uint32_t id) const { return mRenderPasses[id].pass; };
+VkRenderPass RenderPassManager::getRenderPass(RenderPassType id) const { return mRenderPasses[static_cast<uint32_t>(id)].pass; };
+const RenderPassConfig &RenderPassManager::getConfiguration(uint32_t id) const
+{
+    return mRenderPasses[id].config;
+}
+
+void RenderPassManager::createRenderPass(VkDevice device, RenderPassType type, const RenderPassConfig &configStruct)
 {
     std::vector<VkAttachmentDescription> attachments;
     attachments.reserve(configStruct.attachments.size());
@@ -17,8 +24,8 @@ void RenderPassManager::createRenderPass(VkDevice device, const RenderPassConfig
         description.samples = att.samples;
         description.loadOp = att.loadOp;
         description.storeOp = att.storeOp;
-        //description.stencilLoadOp = att.stencilLoadOp;
-        //description.stencilStoreOp = att.stencilStoreOp;
+        // description.stencilLoadOp = att.stencilLoadOp;
+        // description.stencilStoreOp = att.stencilStoreOp;
         description.initialLayout = att.initialLayout;
         description.finalLayout = att.finalLayout;
         attachments.push_back(description);
@@ -77,29 +84,34 @@ void RenderPassManager::createRenderPass(VkDevice device, const RenderPassConfig
     renderPassInfo.dependencyCount = configStruct.dependencies.size();
     renderPassInfo.pDependencies = configStruct.dependencies.data();
 
-    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &mRenderPass) != VK_SUCCESS)
+    mRenderPasses[static_cast<uint32_t>(type)].config = configStruct;
+    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &mRenderPasses[static_cast<uint32_t>(type)].pass) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create render pass!");
     }
 }
 
-void RenderPassManager::destroyRenderPass(VkDevice device)
+void RenderPassManager::destroyRenderPass(uint32_t id, VkDevice device)
 {
-    if (mRenderPass != VK_NULL_HANDLE)
+    vkDestroyRenderPass(device, mRenderPasses[id].pass, nullptr);
+    mRenderPasses[id].pass = VK_NULL_HANDLE;
+}
+
+void RenderPassManager::destroyAll(VkDevice device)
+{
+    for (int id = 0; id < (size_t)RenderPassType::Count; id++)
     {
-        vkDestroyRenderPass(device, mRenderPass, nullptr);
-        mRenderPass = VK_NULL_HANDLE;
+        destroyRenderPass(id, device);
     }
 }
 
-
-//DIfferent parameter
-//MAybe keep the config or essentiall element around
-void RenderPassManager::startPass(const VkCommandBuffer &command, const VkFramebuffer &frameBuffer, const VkExtent2D &extent)
+// DIfferent parameter
+// MAybe keep the config or essentiall element around
+void RenderPassManager::startPass(uint32_t id, const VkCommandBuffer &command, const VkFramebuffer &frameBuffer, const VkExtent2D &extent)
 {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = mRenderPass;
+    renderPassInfo.renderPass = mRenderPasses[id].pass;
     renderPassInfo.framebuffer = frameBuffer;
 
     renderPassInfo.renderArea.offset = {0, 0};

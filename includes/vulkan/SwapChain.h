@@ -95,14 +95,6 @@ private:
 };
 
 
-
-struct DynamicPassInfo
-{
-    VkRenderingInfo info;
-    std::vector<VkRenderingAttachmentInfo> colorAttachments;
-    VkRenderingAttachmentInfo depthAttachment;
-};
-
 //Toodo: This should belong to the render
 struct FrameResources
 {
@@ -114,8 +106,6 @@ struct FrameResources
     Buffer mCameraBuffer;
     void *mCameraMapping;
 
-    // Dynamic Rendering Path
-    DynamicPassInfo mDynamicPassInfo;
     // Legacy
     SwapChainResources mFramebuffer;
 };

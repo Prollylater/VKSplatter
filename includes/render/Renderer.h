@@ -12,6 +12,15 @@ class VulkanContext;
 // Todo: Renderer might be too "FrontEndy + BackEndy"
 // Either the whole Class might just become RendererVulkan e
 
+// Toodo: This should be moved around
+
+struct DynamicPassInfo
+{
+    VkRenderingInfo info;
+    std::vector<VkRenderingAttachmentInfo> colorAttachments;
+    VkRenderingAttachmentInfo depthAttachment;
+};
+
 class Renderer
 {
 public:
@@ -19,7 +28,7 @@ public:
     ~Renderer() = default;
 
     // It could also do more work ?
-    void initialize(VulkanContext &context, AssetRegistry &registry, RenderPassConfig passConfig)
+    void initialize(VulkanContext &context, AssetRegistry &registry)
     {
         mContext = &context;
         mRegistry = &registry;
@@ -29,35 +38,34 @@ public:
         // Setup Pipeline Cache and Pool
         mPipelineM.initialize(device, "");
         mMaterialDescriptors.createDescriptorPool(device, 10, {});
-       
+    }
+
+    void addPass(RenderPassType type, RenderPassConfig legacyConfig)
+    {
+        auto device = mContext->getLogicalDeviceManager().getLogicalDevice();
         mUseDynamic = false;
-        mLegacyConfig = passConfig;
+        initRenderInfrastructure(type, legacyConfig);
     }
 
-    void initialize(VulkanContext &context, AssetRegistry &registry, RenderTargetConfig dynConfig)
+    void addPass(RenderPassType type, RenderTargetConfig dynConfig)
     {
-        mContext = &context;
-        mRegistry = &registry;
-
-        auto device = context.getLogicalDeviceManager().getLogicalDevice();
-
-        // Setup Pipeline Cache and Pool
-        mPipelineM.initialize(device, "");
-        mMaterialDescriptors.createDescriptorPool(device, 10, {});
-       
+        auto device = mContext->getLogicalDeviceManager().getLogicalDevice();
         mUseDynamic = true;
-        mDynConfig = dynConfig;
+        initRenderInfrastructure(type, dynConfig);
     }
 
-    void recordCommandBuffer(glm::mat4 viewproj, uint32_t imageIndex);
-    void recordCommandBufferD(glm::mat4 viewproj, uint32_t imageIndex);
+    //void recordCommandBuffer(glm::mat4 viewproj, uint32_t imageIndex);
+    //void recordCommandBufferD(glm::mat4 viewproj, uint32_t imageIndex);
 
-    void drawFrame(const SceneData &sceneData, bool framebufferResized, GLFWwindow *window);
+    void beginFrame(const SceneData &sceneData, GLFWwindow *window);
+    void beginPass(RenderPassType type);
+    void drawFrame(const SceneData &sceneData);
+    void endPass(RenderPassType type);
+    void endFrame(bool framebufferResized);
 
-
+    //SetUp Function
     void initRenderingRessources(Scene &scene, const AssetRegistry &registry);
     void deinitSceneRessources(Scene &scene);
-    VertexFlags flag;
     void createFramesData(uint32_t framesInFlightCount, const std::vector<VkDescriptorSetLayoutBinding> &bindings);
 
     const GBuffers &getDepthResources() const { return mGBuffers; }
@@ -67,11 +75,14 @@ public:
     int requestPipeline(const PipelineLayoutConfig &config,
                         const std::string &vertexPath,
                         const std::string &fragmentPath);
-    void initRenderInfrastructure();
 
+    void createFramesDynamicRenderingInfo(RenderPassType type, const RenderTargetConfig &cfg,
+                                          const std::vector<VkImageView> &gbufferViews,
+                                          VkImageView depthView, const VkExtent2D swapChainExtent);
 
+                                          
 private:
-    // Todo: Typically all  that here is really specific too Vulkan
+    // Todo: Typically all  that here is really specific too Vulkan which make this Renderer not really Api Agnostic
     // OpenGL wouldn't need it
     VulkanContext *mContext;
     AssetRegistry *mRegistry;
@@ -84,14 +95,22 @@ private:
     // Recent addition
     DescriptorManager mMaterialDescriptors;
     RenderPassManager mRenderPassM;
+
+    // Todo: Dynamic pass manager
+    //  Dynamic Rendering Path
+    std::array<DynamicPassInfo, (size_t)RenderPassType::Count> mDynamicPassesInfo{};
+    std::array<RenderTargetConfig, (size_t)RenderPassType::Count> mDynamicPassesConfig{};
     PipelineManager mPipelineM;
 
-    // Todo:
     bool mUseDynamic = false;
-    RenderTargetConfig mDynConfig;
-    RenderPassConfig mLegacyConfig;
+    void initRenderInfrastructure(RenderPassType type, const RenderTargetConfig &cfg);
+    void initRenderInfrastructure(RenderPassType type, const RenderPassConfig &cfg);
 
-    void initRenderInfrastructure(const RenderTargetConfig &cfg);
-    void initRenderInfrastructure(const RenderPassConfig &cfg);
-
+    //Todo: Remove
+    uint32_t mIndexImage{};
 };
+
+/*
+RenderGraph.rebuildForSwapchain();
+Renderer.recreateSwapchain(RenderGraph);
+*/

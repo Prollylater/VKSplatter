@@ -14,7 +14,6 @@ struct MaterialGPU
     int descriptorIndex = -1;
 
     // Not allocated
-    VkDescriptorSet materialSet = VK_NULL_HANDLE; // Don't own
     VkBuffer uniformBuffer = VK_NULL_HANDLE;
     VmaAllocation uniformBufferAlloc = VK_NULL_HANDLE; // Memory handle
     VkDeviceMemory uniformBufferMem = VK_NULL_HANDLE;

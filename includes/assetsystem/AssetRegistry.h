@@ -97,6 +97,7 @@ private:
     {
         std::unique_ptr<T> asset;
         uint32_t refCount = 0;
+        bool autoRelease = false;
         // RefCount is not really thorough either
         //  Todo, introduce it
         //  System made to remove data

@@ -204,13 +204,15 @@ struct MaterialLayoutRegistry
 };
 
 // Renderpass
-enum class RenderPassType
-{ // Default config ?
+enum class RenderPassType : uint16_t
+{ 
     Forward,
     GBuffer,
     Lighting,
-    ShadowMap,
+    Shadow,
     PostProcess,
+    UI,
+    Count
 };
 
 // Expand it for Subpasses and multiple attachements

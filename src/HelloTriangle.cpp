@@ -15,7 +15,7 @@ Pointer to the variable that stores the handle to the new object
 // GLFW Functions
 void HelloTriangleApplication::initWindow()
 {
-    window.init("Vulkan Cico", WIDTH, HEIGHT);
+    window.init("Vk Cico", WIDTH, HEIGHT);
     window.setEventCallback([&](Event &e)
                             { onEvent(e); });
 }
@@ -34,27 +34,30 @@ void HelloTriangleApplication::initVulkan()
     VertexFormatRegistry::addFormat(sceneflag);
 
     context.initVulkanBase(window.getGLFWWindow(), info);
-    // Renderer
 
+    // Renderer
     constexpr bool dynamic = true;
 
-    //Todo:
-    // Defining the Render Pass Config as the config can have use in Pipeline Description
+    // Todo:
+    //  Defining the Render Pass Config as the config can have use in Pipeline Description
     if (dynamic)
     {
         RenderTargetConfig defRenderPass;
         defRenderPass.addAttachment(context.mSwapChainM.getSwapChainImageFormat().format, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, AttachmentConfig::Role::Present)
             .addAttachment(context.mPhysDeviceM.findDepthFormat(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, AttachmentConfig::Role::Depth);
-        renderer.initialize(context, assetSystem.registry(), defRenderPass);
+        renderer.initialize(context, assetSystem.registry());
+        renderer.addPass(RenderPassType::Forward,defRenderPass);
     }
     else
     {
         RenderPassConfig defConfigRenderPass = RenderPassConfig::defaultForward(context.mSwapChainM.getSwapChainImageFormat().format, context.mPhysDeviceM.findDepthFormat());
-        renderer.initialize(context, assetSystem.registry(), defConfigRenderPass);
+        renderer.initialize(context, assetSystem.registry());
+        renderer.addPass(RenderPassType::Forward,defConfigRenderPass);
     }
 
+    //Todo Add pass should not init infrastru
+    //This position might create some problem
     renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT, logicScene.sceneLayout.descriptorSetLayoutsBindings);
-    renderer.initRenderInfrastructure();
 
     initScene();
 
@@ -154,7 +157,14 @@ void HelloTriangleApplication::mainLoop()
                   << mainLoopMouseState.prevXY[0] << " " << mainLoopMouseState.prevXY[1] << "Bool " << mainLoopMouseState.dragging << std::endl;
 
         // Input and stuff
-        renderer.drawFrame(logicScene.getSceneData(), framebufferResized, window.getGLFWWindow());
+        // I want this pattern
+        auto sceneData = logicScene.getSceneData();
+        
+        renderer.beginFrame(sceneData, window.getGLFWWindow());
+        renderer.beginPass(RenderPassType::Forward);
+        renderer.drawFrame(sceneData);
+        renderer.endPass(RenderPassType::Forward);
+        renderer.endFrame(framebufferResized);
 
         // Todo:
         // Point of this in #13 was to use a Frame Target and not hog ressources once it is reached

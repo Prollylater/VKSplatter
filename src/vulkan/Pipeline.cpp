@@ -407,13 +407,12 @@ namespace
 
     VkPipelineDepthStencilStateCreateInfo createDefaultDepthStencilState(const PipelineDepthConfig &info)
     {
-        VkPipelineDepthStencilStateCreateInfo depthStencil{};
-        depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        depthStencil.depthTestEnable = info.enableDetphTest ? VK_TRUE : VK_FALSE;
-        depthStencil.depthWriteEnable = info.enableDetphTest ? VK_TRUE : VK_FALSE;
-        depthStencil.depthCompareOp = info.enableDetphTest ? VK_COMPARE_OP_LESS : VK_COMPARE_OP_ALWAYS;
-        if (info.enableDetphTest)
+        VkPipelineDepthStencilStateCreateInfo depthStencil{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+         if (info.enableDetphTest)
         {
+            depthStencil.depthTestEnable = VK_TRUE;
+            depthStencil.depthWriteEnable = VK_TRUE ;
+            depthStencil.depthCompareOp = info.enableDetphTest ? VK_COMPARE_OP_LESS : VK_COMPARE_OP_ALWAYS;
             depthStencil.minDepthBounds = 0.0f;
             depthStencil.maxDepthBounds = 1.0f;
         }

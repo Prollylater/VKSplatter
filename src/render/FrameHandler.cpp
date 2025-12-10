@@ -9,6 +9,12 @@
     return mFramesData[currentFrame];
 }
 
+  uint32_t FrameHandler::getFramesCount() const
+    {
+        return mFramesData.size();
+    }
+
+
 uint32_t FrameHandler::getCurrentFrameIndex() const
 {
     return currentFrame;
@@ -38,6 +44,7 @@ void FrameHandler::createFrameData(VkDevice device, VkPhysicalDevice physDevice,
     frameData.mCameraBuffer.createBuffer(device, physDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     // Persistent Mapping
+    //Todo:
     vkMapMemory(device, frameData.mCameraBuffer.getMemory(), 0, bufferSize, 0, &frameData.mCameraMapping);
 };
 
@@ -83,65 +90,6 @@ void FrameHandler::createFramesDescriptorSet(VkDevice device, const std::vector<
         }
         // Frame ressoources bait
         descriptor.allocateDescriptorSets(device);
-        advanceFrame();
-    }
-};
-
-void FrameHandler::createFramesDynamicRenderingInfo(const RenderTargetConfig &cfg,
-                                                    const std::vector<VkImageView> &gbufferViews,
-                                                    VkImageView depthView, const std::vector<VkImageView> swapChainViews, const VkExtent2D swapChainExtent)
-{
-     for (int i = 0; i < mFramesData.size(); i++)
-    {
-        auto &frameData = getCurrentFrameData();
-        auto &renderColorInfos = frameData.mDynamicPassInfo.colorAttachments;
-        auto &renderDepthInfo = frameData.mDynamicPassInfo.depthAttachment;
-        auto &renderInfo = frameData.mDynamicPassInfo.info;
-
-        // Todo: Really confusing method
-        // Here we specifically handle the relevant swapChainView first
-        renderColorInfos.clear();
-        const VkImageView imageView = swapChainViews[getCurrentFrameIndex()];
-
-        // SwapChain image
-        VkRenderingAttachmentInfo swapchainColor;
-        swapchainColor = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-        swapchainColor.imageView = imageView;
-
-        swapchainColor.imageLayout = cfg.attachments[0].finalLayout; // target layout for rendering
-        swapchainColor.loadOp = cfg.attachments[0].loadOp;
-        swapchainColor.storeOp = cfg.attachments[0].storeOp;
-        swapchainColor.clearValue = {{0.2f, 0.2f, 0.2f, 1.0f}};
-        renderColorInfos.push_back(swapchainColor);
-
-        for (size_t i = 0; i < gbufferViews.size(); ++i)
-        {
-            VkRenderingAttachmentInfo colorInfo{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-            colorInfo.imageView = gbufferViews[i];
-            colorInfo.imageLayout = cfg.attachments[i + 1].finalLayout; // target layout for rendering
-            colorInfo.loadOp = cfg.attachments[i + 1].loadOp;
-            colorInfo.storeOp = cfg.attachments[i + 1].storeOp;
-            // colorInfo.clearValue = ... set per-pass per-frame
-            renderColorInfos.push_back(colorInfo);
-        }
-
-        if (cfg.enableDepth && depthView != VK_NULL_HANDLE)
-        {
-            renderDepthInfo = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-            renderDepthInfo.imageView = depthView;
-            renderDepthInfo.imageLayout = cfg.attachments.back().finalLayout;
-            renderDepthInfo.loadOp = cfg.attachments.back().loadOp;
-            renderDepthInfo.storeOp = cfg.attachments.back().storeOp;
-            renderDepthInfo.clearValue = {1.0f, 0}; // Important...
-        }
-        // fill depth load/store...
-        renderInfo = {.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                      .renderArea = {.offset = {0, 0}, .extent = swapChainExtent},
-                      .layerCount = 1,
-                      .colorAttachmentCount = static_cast<uint32_t>(renderColorInfos.size()),
-                      .pColorAttachments = renderColorInfos.data(),
-                      .pDepthAttachment = cfg.enableDepth ? &renderDepthInfo : nullptr};
-        // Todo: set renderArea / layerCount / viewMask as needed
         advanceFrame();
     }
 };
