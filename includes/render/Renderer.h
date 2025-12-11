@@ -54,9 +54,6 @@ public:
         initRenderInfrastructure(type, dynConfig);
     }
 
-    //void recordCommandBuffer(glm::mat4 viewproj, uint32_t imageIndex);
-    //void recordCommandBufferD(glm::mat4 viewproj, uint32_t imageIndex);
-
     void beginFrame(const SceneData &sceneData, GLFWwindow *window);
     void beginPass(RenderPassType type);
     void drawFrame(const SceneData &sceneData);
@@ -64,6 +61,7 @@ public:
     void endFrame(bool framebufferResized);
 
     //SetUp Function
+    void initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth);
     void initRenderingRessources(Scene &scene, const AssetRegistry &registry);
     void deinitSceneRessources(Scene &scene);
     void createFramesData(uint32_t framesInFlightCount, const std::vector<VkDescriptorSetLayoutBinding> &bindings);
@@ -109,8 +107,3 @@ private:
     //Todo: Remove
     uint32_t mIndexImage{};
 };
-
-/*
-RenderGraph.rebuildForSwapchain();
-Renderer.recreateSwapchain(RenderGraph);
-*/

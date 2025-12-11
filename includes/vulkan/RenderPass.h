@@ -39,9 +39,4 @@ private:
     };
 
     std::array<RenderPassEntry, (size_t)RenderPassType::Count> mRenderPasses{};
-   
-    //std::array<VkRenderPass, (size_t)RenderPassType::Count> mRenderPasses;
-
-    // std::array<size_t, (size_t)RenderPassType::Count> lookUp;
-    //  RenderPassConfig mConfiguration;
 };

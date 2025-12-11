@@ -17,11 +17,11 @@ public:
     void createFramesDescriptorSet(VkDevice device, const std::vector<std::vector<VkDescriptorSetLayoutBinding>> &layouts);
 
     // Pass the attachments and used them to create framebuffers
-    void createFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, const VkExtent2D swapChainExtent);
+    void createFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, RenderPassType type, const VkExtent2D swapChainExtent);
 
     // Misleading
     // This add before the framebuffer attachments images views of the swapchain then create framebuffers
-    void completeFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, const std::vector<VkImageView> swapChainViews, const VkExtent2D swapChainExtent);
+    void completeFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, RenderPassType type, const std::vector<VkImageView> swapChainViews, const VkExtent2D swapChainExtent);
 
     void updateUniformBuffers(glm::mat4 data);
     void updateUniformBuffers(VkExtent2D swapChainExtent);

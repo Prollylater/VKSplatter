@@ -12,6 +12,18 @@ enum class FragmentShaderType
     PBR
 };
 
+// Renderpass
+enum class RenderPassType : uint16_t
+{
+    Forward,
+    GBuffer,
+    Lighting,
+    Shadow,
+    PostProcess,
+    UI,
+    Count
+};
+
 struct PipelineShaderConfig
 {
     std::string vertShaderPath;
@@ -203,17 +215,7 @@ struct MaterialLayoutRegistry
     }
 };
 
-// Renderpass
-enum class RenderPassType : uint16_t
-{ 
-    Forward,
-    GBuffer,
-    Lighting,
-    Shadow,
-    PostProcess,
-    UI,
-    Count
-};
+
 
 // Expand it for Subpasses and multiple attachements
 // TOdo: Do i froget the {.membervariable}
@@ -221,7 +223,6 @@ struct AttachmentConfig
 {
     // Todo: See where this could be used
     // Name ?
-   
     VkAttachmentDescriptionFlags flags = 0;
     // Created from FrameRessources element/swapChainFromat ?
     VkFormat format = VK_FORMAT_UNDEFINED;
@@ -233,12 +234,20 @@ struct AttachmentConfig
     VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkImageLayout finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // or SHADER_READ, etc.
 
-     enum class Role : uint8_t
+    enum class Role : uint8_t
     {
         Other,
         Depth,
         Present
     } role;
+
+    // Index of the attachment in The Gbuffer
+    // Todo: Might interesting to find another way as for example Depth will need an ID but it won't really be used due to Depth Buffer be separated
+    // An automatic way to assign using correct fromat ?
+    // This also create a disconnect since we also jave VkFormat which is an information that should come from the attachment
+    // The better choice would be to pass the Gbuffer directly in
+    // Currently 255 is a stand in for invalid
+    uint8_t realAttachmentID = 255;
 
     // VkAttachmentLoadOp stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     // VkAttachmentStoreOp stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -249,7 +258,7 @@ enum class RenderConfigType
     Dynamic,
     LegacyRenderPass
 };
-// Todo: Crtp might not really fir us
+// Todo: Crtp might not really useful here
 // Look for example where it is actually useful
 // Static polymorphism is probably not needed
 // NEtter in SIMD? Job scehduling ? ECS? Anything
@@ -300,6 +309,8 @@ struct RenderTargetConfigCRTP
         return fmts;
     }
 
+    // Todo:
+    // This add Attachment without modifying the invalidID (Mostly present/depth right now)
     Derived &addAttachment(
         VkFormat format,
         VkImageLayout finalLayout,
@@ -315,6 +326,40 @@ struct RenderTargetConfigCRTP
                                .finalLayout = finalLayout,
                                .role = role});
         return static_cast<Derived &>(*this);
+    }
+
+    Derived &addAttachment(
+        uint8_t attachmentId,
+        VkFormat format,
+        VkImageLayout finalLayout,
+        VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        AttachmentConfig::Role role = AttachmentConfig::Role::Other)
+    {
+        attachments.push_back({.format = format,
+                               .samples = VK_SAMPLE_COUNT_1_BIT,
+                               .loadOp = loadOp,
+                               .storeOp = storeOp,
+                               .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                               .finalLayout = finalLayout,
+                               .role = role,
+                               .realAttachmentID = attachmentId});
+        return static_cast<Derived &>(*this);
+    }
+
+    const std::vector<uint8_t> getClrAttachmentsID() const
+    {
+        //Todo: Still on the subject of trying more of C++20 tools, this kind of situation ? filter, transform
+        std::vector<uint8_t> attachementsUsed;
+        attachementsUsed.reserve(attachments.size());
+        for (const auto &attachment : attachments)
+        {
+            if (attachment.realAttachmentID != 255)
+            {
+                attachementsUsed.push_back(attachment.realAttachmentID);
+            }
+        }
+        return attachementsUsed;
     }
 
     Derived &derived() { return static_cast<Derived &>(*this); }
@@ -383,6 +428,7 @@ struct RenderPassConfig : RenderTargetConfigCRTP<RenderPassConfig>
 
     static RenderPassConfig defaultForward(VkFormat colorFormat, VkFormat depthFormat)
     {
+        // Todo: Could
         RenderPassConfig defConfigRenderPass;
         defConfigRenderPass.addAttachment(colorFormat, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, AttachmentConfig::Role::Present)
             .addAttachment(depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, AttachmentConfig::Role::Depth)

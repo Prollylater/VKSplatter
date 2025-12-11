@@ -31,16 +31,14 @@ struct SwapChainSupportDetails
 class SwapChainResources
 {
 public:
-    void createFramebuffers(VkDevice device, VkExtent2D extent, const std::vector<VkImageView> &attachments, VkRenderPass renderPass);
+//Todo RenderPassType instead of uint32_t
+    void createFramebuffer(uint32_t index, VkDevice device, VkExtent2D extent, const std::vector<VkImageView> &attachments, VkRenderPass renderPass);
     void destroyFramebuffers(VkDevice device);
 
-    const std::vector<VkFramebuffer> &GetFramebuffers() const
-    {
-        return mFramebuffers;
-    }
-
+     const VkFramebuffer &getFramebuffers(uint32_t index) const;
 private:
-    std::vector<VkFramebuffer> mFramebuffers;
+//static_cast<size_t>(RenderPassType::Count)
+    std::array<VkFramebuffer, 6> mPassFramebuffers;
 };
 
 //Todo: Move it into it's own class and remove PhysicalDeviceManger forward definition
@@ -62,6 +60,7 @@ public:
 
     VkExtent2D getSize() const;
     std::vector<VkImageView> collectColorViews() const;
+    std::vector<VkImageView> collectColorViews(const std::vector<uint8_t>& indices) const ;
     VkImage getColorImage(uint32_t) const;
     VkImage getDepthImage() const;
     VkImageView getColorImageView(uint32_t) const;
@@ -87,6 +86,7 @@ public:
         formats.push_back(gBufferDepth.getFormat());
         return formats;
     }
+
 
 private:
     std::vector<Image> gBuffers{};

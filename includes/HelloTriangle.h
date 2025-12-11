@@ -39,7 +39,7 @@ private:
     void onEvent(Event& event);
 
     VulkanContext context;
-    Renderer renderer; 
+    Renderer renderer;  // This class has too many responsibility, however msot make senses so far ~
     AssetSystem assetSystem; 
     Scene logicScene;//Scenegraph/ECS
 

@@ -38,27 +38,27 @@ void HelloTriangleApplication::initVulkan()
     // Renderer
     constexpr bool dynamic = true;
 
-    // Todo:
-    //  Defining the Render Pass Config as the config can have use in Pipeline Description
+    renderer.initialize(context, assetSystem.registry());
+
+    //Todo: Generalist
+    //Logging and "check", throw, error handling
+    renderer.initAllGbuffers({}, true);
+
+    renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT, logicScene.sceneLayout.descriptorSetLayoutsBindings);
+
     if (dynamic)
     {
         RenderTargetConfig defRenderPass;
         defRenderPass.addAttachment(context.mSwapChainM.getSwapChainImageFormat().format, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, AttachmentConfig::Role::Present)
             .addAttachment(context.mPhysDeviceM.findDepthFormat(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, AttachmentConfig::Role::Depth);
-        renderer.initialize(context, assetSystem.registry());
         renderer.addPass(RenderPassType::Forward,defRenderPass);
     }
     else
     {
-        RenderPassConfig defConfigRenderPass = RenderPassConfig::defaultForward(context.mSwapChainM.getSwapChainImageFormat().format, context.mPhysDeviceM.findDepthFormat());
-        renderer.initialize(context, assetSystem.registry());
+        RenderPassConfig defConfigRenderPass = RenderPassConfig::defaultForward(context.mSwapChainM.getSwapChainImageFormat().format, context.mPhysDeviceM.findDepthFormat());        
         renderer.addPass(RenderPassType::Forward,defConfigRenderPass);
     }
-
-    //Todo Add pass should not init infrastru
-    //This position might create some problem
-    renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT, logicScene.sceneLayout.descriptorSetLayoutsBindings);
-
+   
     initScene();
 
     renderer.initRenderingRessources(logicScene, assetSystem.registry());

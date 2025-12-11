@@ -7,7 +7,6 @@
 #include "PhysicalDevice.h"
 #include "CommandPool.h"
 #include "utils/RessourceHelper.h"
-
 // Todo: Important consider manual transition of arrachement images when not Present and what it would mean
 // Todo: Reconsider how are used all std::runtimeError
 
@@ -251,12 +250,9 @@ void SwapChainManager::destroyImageViews(VkDevice device)
 }
 
 // Passes Ressources
-// Todo::
-void SwapChainResources::createFramebuffers(VkDevice device, VkExtent2D extent, const std::vector<VkImageView> &attachments, VkRenderPass renderPass)
+// Todo:: logging also move it ?
+void SwapChainResources::createFramebuffer(uint32_t index, VkDevice device, VkExtent2D extent, const std::vector<VkImageView> &attachments, VkRenderPass renderPass)
 {
-
-  // Not sure of why sam depth Ressources, seem like a bad idea
-  mFramebuffers.resize(1);
   VkFramebufferCreateInfo framebufferInfo{};
   framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
   framebufferInfo.renderPass = renderPass;
@@ -264,24 +260,29 @@ void SwapChainResources::createFramebuffers(VkDevice device, VkExtent2D extent, 
   framebufferInfo.pAttachments = attachments.data();
   framebufferInfo.width = extent.width;
   framebufferInfo.height = extent.height;
-  framebufferInfo.layers = 1; // Array
+  framebufferInfo.layers = 1; // sort of array
 
-  if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, mFramebuffers.data()) != VK_SUCCESS)
+  if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &mPassFramebuffers[static_cast<size_t>(index)]) != VK_SUCCESS)
   {
     throw std::runtime_error("failed to create framebuffer!");
   }
 }
+const VkFramebuffer & SwapChainResources::getFramebuffers(uint32_t index) const
+{
+  return mPassFramebuffers[static_cast<size_t>(index)];
+}
 
 void SwapChainResources::destroyFramebuffers(VkDevice device)
 {
-  for (auto framebuffer : mFramebuffers)
+  for (auto framebuffer : mPassFramebuffers)
   {
-    if (framebuffer != VK_NULL_HANDLE)
-    {
-      vkDestroyFramebuffer(device, framebuffer, nullptr);
-    }
+      if (framebuffer != VK_NULL_HANDLE)
+      {
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
+      }
   }
-  mFramebuffers.clear();
+    mPassFramebuffers.fill(VK_NULL_HANDLE);
+
 }
 
 void GBuffers::createGBuffers(
@@ -377,6 +378,22 @@ std::vector<VkImageView> GBuffers::collectColorViews() const
   }
   return colorViews;
 };
+
+std::vector<VkImageView> GBuffers::collectColorViews(const std::vector<uint8_t> &indices) const
+{
+  std::vector<VkImageView> colorViewsSubset;
+  colorViewsSubset.reserve(indices.size()); // Reserve enough space
+
+  for (size_t index : indices)
+  {
+    if (index < colorBufferNb())
+    { // Check for valid index
+      colorViewsSubset.push_back(getColorImageView(index));
+    }
+  }
+
+  return colorViewsSubset;
+}
 
 VkImageView GBuffers::getColorImageView(uint32_t index) const
 {

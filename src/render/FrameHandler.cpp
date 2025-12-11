@@ -94,18 +94,20 @@ void FrameHandler::createFramesDescriptorSet(VkDevice device, const std::vector<
     }
 };
 
-void FrameHandler::createFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, const VkExtent2D swapChainExtent)
+//Todo: Inconsistent  order of argupments
+void FrameHandler::createFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, RenderPassType type, const VkExtent2D swapChainExtent)
 {
 
     for (int i = 0; i < mFramesData.size(); i++)
     {
         auto &frameBuffer = getCurrentFrameData().mFramebuffer;
-        frameBuffer.createFramebuffers(device, swapChainExtent, attachments, renderPass);
+        frameBuffer.createFramebuffer(static_cast<size_t>(type), device, swapChainExtent, attachments, renderPass);
         advanceFrame();
     }
 }
 
-void FrameHandler::completeFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, const std::vector<VkImageView> swapChainViews, const VkExtent2D swapChainExtent)
+//This one isn't much good either
+void FrameHandler::completeFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, RenderPassType type, const std::vector<VkImageView> swapChainViews, const VkExtent2D swapChainExtent)
 {
     std::vector<VkImageView> fbAttachments(1 + attachments.size());
     // Copy from index 1 to end of the attachments
@@ -116,9 +118,10 @@ void FrameHandler::completeFrameBuffers(VkDevice device, const std::vector<VkIma
         auto &frameBuffer = getCurrentFrameData().mFramebuffer;
         fbAttachments[0] = swapChainViews[getCurrentFrameIndex()];
 
-        frameBuffer.createFramebuffers(device, swapChainExtent, fbAttachments, renderPass);
+        frameBuffer.createFramebuffer(static_cast<size_t>(type), device, swapChainExtent, fbAttachments, renderPass);
         advanceFrame();
     }
+
 }
 
 // This delete all frame data including those used in Pipeline

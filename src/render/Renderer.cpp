@@ -29,6 +29,25 @@ void Renderer::createFramesData(uint32_t framesInFlightCount, const std::vector<
   mFrameHandler.updateUniformBuffers(mContext->getSwapChainManager().getSwapChainExtent());
 }
 
+void Renderer::initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth)
+{
+  const auto &mLogDeviceM = mContext->getLogicalDeviceManager();
+  const auto &mPhysDeviceM = mContext->getPhysicalDeviceManager();
+  const auto &mSwapChainM = mContext->getSwapChainManager();
+
+  const VkFormat depthFormat = mPhysDeviceM.findDepthFormat();
+  const VmaAllocator &allocator = mLogDeviceM.getVmaAllocator();
+
+  mGBuffers.init(mSwapChainM.getSwapChainExtent());
+
+  mGBuffers.createGBuffers(mLogDeviceM, mPhysDeviceM, gbufferFormats, allocator);
+  //if (depth)
+  //{
+
+    mGBuffers.createDepthBuffer(mLogDeviceM, mPhysDeviceM, depthFormat, allocator);
+  //}
+};
+
 void Renderer::initRenderInfrastructure(RenderPassType type, const RenderTargetConfig &cfg)
 {
   std::cout << "Init Render Infrastructure" << std::endl;
@@ -43,14 +62,8 @@ void Renderer::initRenderInfrastructure(RenderPassType type, const RenderTargetC
 
   if (cfg.type == RenderConfigType::Dynamic)
   {
-    std::vector<VkFormat> gbufferFormats = cfg.extractGBufferFormats();
-
-    mGBuffers.init(mSwapChainM.getSwapChainExtent());
-    mGBuffers.createGBuffers(mLogDeviceM, mPhysDeviceM, gbufferFormats, allocator);
-    mGBuffers.createDepthBuffer(mLogDeviceM, mPhysDeviceM, depthFormat, allocator);
-
     // Collect image views for dynamic rendering
-    std::vector<VkImageView> colorViews = mGBuffers.collectColorViews();
+    std::vector<VkImageView> colorViews = mGBuffers.collectColorViews(cfg.getClrAttachmentsID());
 
     // Configure per-frame rendering info
     createFramesDynamicRenderingInfo(type, cfg, colorViews, mGBuffers.getDepthImageView(),
@@ -75,21 +88,20 @@ void Renderer::initRenderInfrastructure(RenderPassType type, const RenderPassCon
 
   if (cfg.type == RenderConfigType::LegacyRenderPass)
   {
-    // Get the proper format which could be done before Re
 
-    mGBuffers.init(mSwapChainM.getSwapChainExtent());
-    std::vector<VkFormat> gbufferFormats = cfg.extractGBufferFormats();
-    mGBuffers.createGBuffers(mLogDeviceM, mPhysDeviceM, gbufferFormats, allocator);
-    mGBuffers.createDepthBuffer(mLogDeviceM, mPhysDeviceM, depthFormat, allocator);
     mRenderPassM.createRenderPass(device, type, cfg);
 
-    mFrameHandler.completeFrameBuffers(device, {mGBuffers.getDepthImageView()}, mRenderPassM.getRenderPass(type),
+    std::vector<VkImageView> views = mGBuffers.collectColorViews(cfg.getClrAttachmentsID());
+    views.push_back(mGBuffers.getDepthImageView());
+    
+    mFrameHandler.completeFrameBuffers(device, views,  mRenderPassM.getRenderPass(type),type,
                                        mSwapChainM.GetSwapChainImageViews(),
-                                       mSwapChainM.getSwapChainExtent());
+                                       mSwapChainM.getSwapChainExtent());                                       
   }
 };
 
-// All the rest or fram eressourees
+// All the rest are frame ressourees
+// Todo: This iss uploading which should be reworked once scene managment is redone
 void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &registry)
 {
   const VkDevice &device = mContext->getLogicalDeviceManager().getLogicalDevice();
@@ -251,7 +263,7 @@ void Renderer::createFramesDynamicRenderingInfo(RenderPassType type, const Rende
 /////////////////////////////////////////////////////////////////////////////////////////////////
 // Semaphore and command buffer tied to frames
 
-void Renderer::beginFrame(const SceneData &sceneData,  GLFWwindow *window)
+void Renderer::beginFrame(const SceneData &sceneData, GLFWwindow *window)
 {
 
   // Handle fetching
@@ -265,7 +277,6 @@ void Renderer::beginFrame(const SceneData &sceneData,  GLFWwindow *window)
   // Or maybe multiple submitted task with each their own fence they get so that they can move unto a specific task
   // I suppose it woud be on another thread
   frameRess.mSyncObjects.waitFenceSignal(device);
-
 
   bool resultAcq = chain.aquireNextImage(device,
                                          frameRess.mSyncObjects.getImageAvailableSemaphore(),
@@ -350,7 +361,7 @@ void Renderer::beginPass(RenderPassType type)
   else
   {
     mRenderPassM.startPass(renderPassIndex, command,
-                           frameRess.mFramebuffer.GetFramebuffers().at(0), extent);
+                           frameRess.mFramebuffer.getFramebuffers(renderPassIndex), extent);
   }
 
   // Setup viewport / scissor
@@ -367,10 +378,9 @@ void Renderer::beginPass(RenderPassType type)
   scissor.extent = extent;
   vkCmdSetScissor(command, 0, 1, &scissor);
 };
- 
+
 void Renderer::endPass(RenderPassType type)
 {
-
   FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
 
   if (mUseDynamic)
@@ -412,7 +422,7 @@ bind global resourcees          // set 0
 for each shader {
   bind shader pipeline
   for each material {
-    bind material resources  // sets 2,3
+    bind material resources  // sets 1 maybe 2
   }
 }
 }
@@ -454,16 +464,14 @@ for each shader {
     // Draw
     vkCmdDrawIndexed(cmd, draw->meshGPU.indexCount, 1, 0, 0, 0);
 
-
-  // Fake multi Viewport is basically this
-  /*
-  viewport.width = static_cast<float>(frameExtent.width);
-  viewport.height = static_cast<float>(frameExtent.height/2);
-  vkCmdSetViewport(command, 0, 1, &viewport);
-  vkCmdDrawIndexed(command, static_cast<uint32_t>(bufferSize), 1, 0, 0, 0);
-  */
+    // Fake multi Viewport is basically this
+    /*
+    viewport.width = static_cast<float>(frameExtent.width);
+    viewport.height = static_cast<float>(frameExtent.height/2);
+    vkCmdSetViewport(command, 0, 1, &viewport);
+    vkCmdDrawIndexed(command, static_cast<uint32_t>(bufferSize), 1, 0, 0, 0);
+    */
   }
-
 };
 
 /*
@@ -547,38 +555,7 @@ void Renderer::recordCommandBuffer(glm::mat4 viewproj, uint32_t imageIndex)
   commandPoolM.beginRecord();
   mRenderPassM.startPass(static_cast<uint32_t>(RenderPassType::Forward), command, frameRess.mFramebuffer.GetFramebuffers().at(0), frameExtent);
 
-  // Add this for dynamic Pipelin
-  VkViewport viewport{};
-  viewport.x = 0.0f;
-  viewport.y = 0.0f;
-  viewport.width = static_cast<float>(frameExtent.width);
-  viewport.height = static_cast<float>(frameExtent.height);
-  viewport.minDepth = 0.0f;
-  viewport.maxDepth = 1.0f;
-  vkCmdSetViewport(command, 0, 1, &viewport);
 
-  VkRect2D scissor{};
-  scissor.offset = {0, 0};
-  scissor.extent = frameExtent;
-  vkCmdSetScissor(command, 0, 1, &scissor);
-
-  /*
-  vertexCount: Even though we don't have a vertex buffer, we technically still have 3 vertices to draw.
-  instanceCount: Used for instanced rendering, use 1 if you're not doing that.
-  firstVertex: Used as an offset into the vertex buffer, defines the lowest value of gl_VertexIndex.
-  firstInstance: Used as an offset for instanced rendering, defines the lowest value of gl_InstanceIndex.
-
-  for each view {
-bind global resourcees          // set 0
-
-for each shader {
-  bind shader pipeline
-  for each material {
-    bind material resources  // sets 2,3
-  }
-}
-}
-  * /
 
   // 0 is not quite right
   // I m also not quite sure how location is determined, just through the attributes description
@@ -619,80 +596,4 @@ for each shader {
   commandPoolM.endRecord();
 }
 
-// Create Transition based on renderpassinfo when possible
-void Renderer::recordCommandBufferD(glm::mat4 viewproj, uint32_t imageIndex)
-{
-  FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
-  auto &commandPoolM = frameRess.mCommandPool;
-
-  VkExtent2D frameExtent = mContext->mSwapChainM.getSwapChainExtent();
-  const VkCommandBuffer command = commandPoolM.get();
-  // Todo: Untie Frame Iamge and Other ?
-  const auto &images = mContext->mSwapChainM.GetSwapChainImages();
-
-  commandPoolM.beginRecord();
-
-  // Transition swapchain image to COLOR_ATTACHMENT_OPTIMAL for rendering
-  auto transObj = vkUtils::Texture::makeTransition(images[imageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-  transObj.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-  transObj.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  transObj.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-  vkUtils::Texture::recordImageMemoryBarrier(command, transObj);
-  //  Transition
-
-  uint32_t renderPassIndex = static_cast<uint32_t>(RenderPassType::Forward);
-  mDynamicPassesInfo[renderPassIndex].colorAttachments[0].imageView = mContext->getSwapChainManager().GetSwapChainImageViews()[mFrameHandler.getCurrentFrameIndex()],
-  vkCmdBeginRendering(command, &mDynamicPassesInfo[renderPassIndex].info);
-
-  VkViewport viewport{};
-  viewport.x = 0.0f;
-  viewport.y = 0.0f;
-  viewport.width = static_cast<float>(frameExtent.width);
-  viewport.height = static_cast<float>(frameExtent.height);
-  viewport.minDepth = 0.0f;
-  viewport.maxDepth = 1.0f;
-  vkCmdSetViewport(command, 0, 1, &viewport);
-
-  VkRect2D scissor{};
-  scissor.offset = {0, 0};
-  scissor.extent = frameExtent;
-  vkCmdSetScissor(command, 0, 1, &scissor);
-
-  // MESH DRAWING
-
-  vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineM.getPipeline());
-
-  VkDeviceSize offsets[] = {0};
-
-  for (const Drawable *draw : renderQueue.getDrawables())
-  {
-    std::vector<VkDescriptorSet> sets = {frameRess.mDescriptor.getSet(0),
-                                         mMaterialDescriptors.getSet(draw->materialGPU.descriptorIndex)};
-
-    vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            mPipelineM.getPipelineLayout(), 0, sets.size(),
-                            sets.data(), 0,
-                            nullptr);
-    vkCmdBindVertexBuffers(command, 0, 1, &draw->meshGPU.vertexBuffer, offsets);
-    vkCmdBindIndexBuffer(command, draw->meshGPU.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdPushConstants(command, mPipelineM.getPipelineLayout(),
-                       VK_SHADER_STAGE_VERTEX_BIT,
-                       0, sizeof(glm::mat4), &viewproj);
-    vkCmdDrawIndexed(command, draw->meshGPU.indexCount, 1, 0, 0, 0);
-  }
-  vkCmdEndRendering(command);
-
-  // From here end the old ccode not using Render PAss
-  //  Transition
-  auto transObjb = vkUtils::Texture::makeTransition(images[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
-  transObjb.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  transObjb.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-  transObj.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-  transObj.dstAccessMask = 0;
-
-  vkUtils::Texture::recordImageMemoryBarrier(command, transObjb);
-
-  commandPoolM.endRecord();
-}
 */
