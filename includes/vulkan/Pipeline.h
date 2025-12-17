@@ -32,6 +32,8 @@ private:
         VkPipeline pipeline = VK_NULL_HANDLE;
         VkPipelineLayout layout = VK_NULL_HANDLE;
         /*
+        auto-release + ref count ?*/
+        /*
         enum class PipelineType {
         GraphicsMaterial,  
         GraphicsNoMaterial, 

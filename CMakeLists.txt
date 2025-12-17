@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(VulkanGLFWExample)
+
 #Todo: Better handling of the CMake ?
 # Set the C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -10,12 +11,12 @@ find_package(Vulkan REQUIRED)
 # GLFW setup
 find_package(glfw3 REQUIRED)
 
-
+#Directories
 set(SOURCE_DIR src)
 set(INCLUDE_DIR includes)
 set(THIRD_PARTY thirdparty)
 
-#Starting from Clock.cpp move all cpp together with their .h
+# I need to move all files to have both .cpp and .h together
 # Source files
 set(SOURCES
     ${SOURCE_DIR}/main.cpp
@@ -65,7 +66,8 @@ set(SOURCES
 
 file(COPY ressources DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
-# Create the executable
+
+# Main executable
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 # Include directories
@@ -81,12 +83,36 @@ ${INCLUDE_DIR}/core
 ${THIRD_PARTY})
 
 # Link libraries
-#set(LINK_LIBS${Vulkan_LIBRARIES} glfw)
-
-
-# Link libraries
 target_link_libraries(${PROJECT_NAME} 
 ${Vulkan_LIBRARIES} glfw)
 
+##############################################
+########################Testing
+##############################################
 
 
+find_package(Catch2 3 REQUIRED)
+# These tests can use the Catch2-provided main
+add_executable(allocator_tests ${SOURCE_DIR}/core/memory/tests/Memorytest.cpp ${SOURCE_DIR}/core/memory/Memory.cpp)
+
+set_target_properties( allocator_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests )
+
+target_include_directories(allocator_tests PRIVATE
+    ${SOURCE_DIR}/core/memory
+)
+
+target_link_libraries(allocator_tests PRIVATE Catch2::Catch2WithMain)
+
+# These tests need their own main
+#add_executable(custom-main-tests test.cpp test-main.cpp)
+#target_link_libraries(custom-main-tests PRIVATE Catch2::Catch2)
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(allocator_tests PRIVATE
+        -Wall -Wextra -Wpedantic
+        -fsanitize=address,undefined
+    )
+    target_link_options(allocator_tests PRIVATE
+        -fsanitize=address,undefined
+    )
+endif()

@@ -4,6 +4,8 @@
 #include <array>
 #include <unordered_map>
 
+
+//This is mostly deprecated and you should consider removing it 
 /*
 [ Px Py Pz Cx Cy Cz | Px Py Pz Cx Cy Cz | ... ]
 → One buffer, one binding  for ?

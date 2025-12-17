@@ -54,6 +54,9 @@ public:
 
 private:
     VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
+
+     /*
+        auto-release + ref count ?*/
     std::unordered_map<size_t, int> mLayoutHashToIndex;
     std::vector<VkDescriptorSetLayout> mDescriptorSetLayouts;
 

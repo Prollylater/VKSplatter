@@ -13,6 +13,7 @@ struct SceneData
     glm::vec4 sunlightDirection;
     glm::vec4 sunlightColor;
     glm::mat4 viewproj;
+    //Some card may require UBo to be padded 
 };
 
 class Scene

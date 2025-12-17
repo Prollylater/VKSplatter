@@ -1,9 +1,9 @@
 #pragma once
-
 #include <chrono>
+
 namespace cico {
 
-	//If we ever had a platform, this would be platform
+	//If we ever had a platform, this would be platform instead of std::chrono 
     struct Clock
 	{
         using  clockNamespace = std::chrono::high_resolution_clock ;

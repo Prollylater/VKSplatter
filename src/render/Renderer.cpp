@@ -215,12 +215,11 @@ void Renderer::createFramesDynamicRenderingInfo(RenderPassType type, const Rende
 
   renderColorInfos.clear();
 
-  // const VkImageView imageView = swapChainViews[getCurrentFrameIndex()];
 
   // SwapChain image
   VkRenderingAttachmentInfo swapchainColor;
   swapchainColor = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-  // swapchainColor.imageView = swapChainView; //Todo: Change this dynamically
+  // swapchainColor.imageView = swapChainView; //Notes: This is set dynamically during render
 
   swapchainColor.imageLayout = cfg.attachments[0].finalLayout; // target layout for rendering
   swapchainColor.loadOp = cfg.attachments[0].loadOp;
@@ -473,127 +472,3 @@ for each shader {
     */
   }
 };
-
-/*
-void Renderer::drawFrame(const SceneData &sceneData, bool framebufferResized, GLFWwindow *window)
-{
-  // Handle fetching
-  VkDevice device = mContext->mLogDeviceM.getLogicalDevice();
-  SwapChainManager &chain = mContext->getSwapChainManager();
-
-  // Todo: Not sure about exposing this as non const
-  FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
-
-  // In a real app we could do other stuff while waiting on Fence
-  // Or maybe multiple submitted task with each their own fence they get so that they can move unto a specific task
-  // I suppose it woud be on another thread
-  frameRess.mSyncObjects.waitFenceSignal(device);
-
-  uint32_t imageIndex;
-
-  bool resultAcq = chain.aquireNextImage(device,
-                                         frameRess.mSyncObjects.getImageAvailableSemaphore(),
-                                         imageIndex);
-
-  if (!resultAcq)
-  {
-    // Todo: Should be in swapchain
-    // recreateSwapChain(device, window);
-    // return;
-  }
-
-  frameRess.mSyncObjects.resetFence(device);
-
-  // Update Camera
-  mFrameHandler.updateUniformBuffers(sceneData.viewproj);
-
-  renderQueue.build(mRScene);
-  if (mUseDynamic)
-  {
-    recordCommandBufferD(sceneData.viewproj, imageIndex);
-  }
-  else
-  {
-    recordCommandBuffer(sceneData.viewproj, imageIndex);
-  }
-  // Submit Info set up
-  mContext->mLogDeviceM.submitFrameToGQueue(
-      frameRess.mCommandPool.get(),
-      frameRess.mSyncObjects.getImageAvailableSemaphore(),
-      frameRess.mSyncObjects.getRenderFinishedSemaphore(),
-      frameRess.mSyncObjects.getInFlightFence());
-  VkResult result = mContext->mLogDeviceM.presentImage(chain.GetChain(),
-                                                       frameRess.mSyncObjects.getRenderFinishedSemaphore(),
-                                                       imageIndex);
-
-  // Recreate the Swap Chain if suboptimal
-  // Todo: This checck could be directly hadnled in present Image if presentImage was in SwapcHain
-  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
-  {
-    framebufferResized = false;
-    // recreateSwapChain(device, window);
-  }
-  else if (result != VK_SUCCESS)
-  {
-    throw std::runtime_error("failed to present swap chain image!");
-  }
-
-  // Go to the next index
-  mFrameHandler.advanceFrame();
-}
-
-void Renderer::recordCommandBuffer(glm::mat4 viewproj, uint32_t imageIndex)
-{
-  // Handle fetching
-  // Todo: Not sure about exposing this
-  FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
-  auto &commandPoolM = frameRess.mCommandPool;
-
-  VkExtent2D frameExtent = mContext->mSwapChainM.getSwapChainExtent();
-  const VkCommandBuffer command = commandPoolM.get();
-
-  commandPoolM.beginRecord();
-  mRenderPassM.startPass(static_cast<uint32_t>(RenderPassType::Forward), command, frameRess.mFramebuffer.GetFramebuffers().at(0), frameExtent);
-
-
-
-  // 0 is not quite right
-  // I m also not quite sure how location is determined, just through the attributes description
-  // 1 interleaved buffer here
-
-  // MESH DRAWING
-
-  vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineM.getPipeline());
-
-  VkDeviceSize offsets[] = {0};
-
-  for (const Drawable *draw : renderQueue.getDrawables())
-  {
-    std::vector<VkDescriptorSet> sets = {frameRess.mDescriptor.getSet(0),
-                                         mMaterialDescriptors.getSet(draw->materialGPU.descriptorIndex)};
-    // Could also usetwo call
-    vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            mPipelineM.getPipelineLayout(), 0, sets.size(),
-                            sets.data(), 0,
-                            nullptr);
-    vkCmdBindVertexBuffers(command, 0, 1, &draw->meshGPU.vertexBuffer, offsets);
-    vkCmdBindIndexBuffer(command, draw->meshGPU.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdPushConstants(command, mPipelineM.getPipelineLayout(),
-                       VK_SHADER_STAGE_VERTEX_BIT,
-                       0, sizeof(glm::mat4), &viewproj);
-
-    vkCmdDrawIndexed(command, draw->meshGPU.indexCount, 1, 0, 0, 0);
-  }
-  // Fake multi Viewport is basically this
-  /*
-  viewport.width = static_cast<float>(frameExtent.width);
-  viewport.height = static_cast<float>(frameExtent.height/2);
-  vkCmdSetViewport(command, 0, 1, &viewport);
-  vkCmdDrawIndexed(command, static_cast<uint32_t>(bufferSize), 1, 0, 0, 0);
-  * /
-
-  mRenderPassM.endPass(command);
-  commandPoolM.endRecord();
-}
-
-*/
