@@ -172,6 +172,8 @@ void HelloTriangleApplication::mainLoop()
         // float frameTime = clock.elapsedMs() - appLastTime;
         // Calcilate the remainnig millisceond to reach targetFPS (float)
         // We idle
+
+        cico::logging::flushBuffer();
     }
 
     // Make sure the program exit properly once windows is closed
@@ -217,6 +219,9 @@ void HelloTriangleApplication::cleanup()
     // Due to asset Registry still holding texture GPU data Textures fail to be freed,
     // Best way to solve this is to properly separate Textures GPU and
     // Perhas removing the whole Texture class has it is more or less an helper at this point
+
+    cico::logging::shutdown();
+   
     renderer.deinitSceneRessources(logicScene);
     context.destroyAll();
     window.close();

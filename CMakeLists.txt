@@ -25,7 +25,10 @@ set(SOURCES
     ${SOURCE_DIR}/assetsystem/AssetIO.cpp   
     ${SOURCE_DIR}/assetsystem/AssetRegistry.cpp   
     ${SOURCE_DIR}/assetsystem/ResourceSystem.cpp 
-    
+   
+    ${SOURCE_DIR}/core/filesystem/Filesystem.cpp   
+    ${SOURCE_DIR}/core/logging/Logger.cpp   
+        
     ${SOURCE_DIR}/scene/Camera.cpp   
     ${SOURCE_DIR}/scene/Drawable.cpp   
     ${SOURCE_DIR}/scene/Material.cpp   
@@ -71,6 +74,7 @@ file(COPY ressources DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 # Include directories
+# This go a bit too deep in the directory to include
 target_include_directories(VulkanGLFWExample PRIVATE
 ${Vulkan_INCLUDE_DIRS} 
 ${GLFW_INCLUDE_DIRS}
@@ -80,6 +84,7 @@ ${INCLUDE_DIR}/render
 ${INCLUDE_DIR}/scene
 ${INCLUDE_DIR}/assetsystem
 ${INCLUDE_DIR}/core
+${SOURCE_DIR}/core
 ${THIRD_PARTY})
 
 # Link libraries

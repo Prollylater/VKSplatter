@@ -11,6 +11,7 @@
 // Make sure no double free may happen, deletion and so on
 // Only allocator should touch the pointer directly
 // Add logging here ?
+// Allocator expanson 
 
 namespace cico
 {

@@ -4,6 +4,9 @@
 #include "ResourceSystem.h"
 #include "WindowVk.h"
 #include "Clock.h"
+#include "logging/Logger.h"
+#include "filesystem/Filesystem.h"
+
 /*
 As you'll see, the general pattern that object creation function parameters in Vulkan follow is:
 
@@ -17,18 +20,34 @@ class HelloTriangleApplication
 public:
     void run()
     {
+        //Tood: Take a look on other pattern
+
+        cico::filesystem::setRoot(fs::current_path());
+
+        cico::filesystem::setShaders(cico::filesystem::shaders() / "shaders");
+        cico::filesystem::setTextures(cico::filesystem::textures() / "textures");
+        cico::filesystem::setMeshes(cico::filesystem::meshes() / "meshes");
+      
+        cico::logging::initialize( "logs.txt");
+
+        _CCRITICAL("Problem", "Mayday");
+        _CCRITICAL("Problem", "Mayday");
+
         initWindow();
+        _CINFO("Window initialized");
+        _CINFO("Window initialized");
+
         initVulkan();
         clock.reset();
         mainLoop();
         cleanup();
     }
 
-static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
-    auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
-    app->framebufferResized = true;
-}
-
+    static void framebufferResizeCallback(GLFWwindow *window, int width, int height)
+    {
+        auto app = reinterpret_cast<HelloTriangleApplication *>(glfwGetWindowUserPointer(window));
+        app->framebufferResized = true;
+    }
 
 private:
     void initWindow();
@@ -36,25 +55,23 @@ private:
     void initScene();
     void mainLoop();
     void cleanup();
-    void onEvent(Event& event);
+    void onEvent(Event &event);
 
     VulkanContext context;
-    Renderer renderer;  // This class has too many responsibility, however msot make senses so far ~
-    AssetSystem assetSystem; 
-    Scene logicScene;//Scenegraph/ECS
+    Renderer renderer; // This class has too many responsibility, however msot make senses so far ~
+    AssetSystem assetSystem;
+    Scene logicScene; // Scenegraph/ECS
 
-    
-    //Window abstraction for close, cleaner resize, pollingEvents too
+    // Window abstraction for close, cleaner resize, pollingEvents too
     VulkanWindow window;
-    //Window* window;
+    // Window* window;
 
-    //Application State
+    // Application State
     cico::Clock clock;
     float appLastTime;
     bool vkInitialized = false;
     bool wdwInitialized = false;
     bool framebufferResized = false;
-
 };
 
 /*

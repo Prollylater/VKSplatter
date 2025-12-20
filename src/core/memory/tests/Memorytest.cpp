@@ -276,7 +276,7 @@ TEST_CASE("FreeListAllocator Coalescing Benchmark", "[allocator][benchmark]") {
             freeOrder.push_back(i);}
 
         auto time = runBenchmark(freeOrder);
-        INFO("Interleaved free time (ns): " << time);
+        INFO("Interleaved free time: " << time);
         REQUIRE(time > 0);
     };
 
@@ -314,7 +314,7 @@ TEST_CASE("FreeListAllocator Coalescing Benchmark", "[allocator][benchmark]") {
             freeOrder.push_back(i);}
 
         auto time = runBenchmark(freeOrder);
-        INFO("Clustered free time (ns): " << time);
+        INFO("Clustered free time: " << time);
         REQUIRE(time > 0);
     };
 };
