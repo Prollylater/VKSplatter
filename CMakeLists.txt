@@ -99,25 +99,33 @@ ${Vulkan_LIBRARIES} glfw)
 find_package(Catch2 3 REQUIRED)
 # These tests can use the Catch2-provided main
 add_executable(allocator_tests ${SOURCE_DIR}/core/memory/tests/Memorytest.cpp ${SOURCE_DIR}/core/memory/Memory.cpp)
+add_executable(container_tests ${SOURCE_DIR}/core/containers/tests/Containerstest.cpp ${SOURCE_DIR}/core/memory/Memory.cpp)
 
-set_target_properties( allocator_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests )
+set_target_properties(
+allocator_tests 
+container_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests )
 
-target_include_directories(allocator_tests PRIVATE
-    ${SOURCE_DIR}/core/memory
+
+add_library(test_common INTERFACE)
+target_include_directories(test_common INTERFACE
+    ${SOURCE_DIR}/core/memory ${SOURCE_DIR}/core/containers
 )
-
-target_link_libraries(allocator_tests PRIVATE Catch2::Catch2WithMain)
+target_link_libraries(test_common INTERFACE
+    Catch2::Catch2WithMain 
+)
+target_link_libraries(allocator_tests PRIVATE test_common)
+target_link_libraries(container_tests PRIVATE test_common)
 
 # These tests need their own main
 #add_executable(custom-main-tests test.cpp test-main.cpp)
 #target_link_libraries(custom-main-tests PRIVATE Catch2::Catch2)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_options(allocator_tests PRIVATE
+    target_compile_options(allocator_tests container_tests PRIVATE
         -Wall -Wextra -Wpedantic
         -fsanitize=address,undefined
     )
-    target_link_options(allocator_tests PRIVATE
+    target_link_options(allocator_tests container_tests PRIVATE
         -fsanitize=address,undefined
     )
 endif()
