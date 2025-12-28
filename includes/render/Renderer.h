@@ -5,7 +5,7 @@
 #include "SwapChain.h"
 #include "FrameHandler.h"
 #include "GBuffers.h"
-#include "ResourceGPUManager.h"
+#include "GPUResourceSystem.h"
 #include "ResourceSystem.h"
 #include "RenderPass.h"
 #include "ContextController.h"

@@ -3,7 +3,7 @@
 #include "Mesh.h"
 #include "Drawable.h"
 #include "Material.h"
-#include "RessourcesGPU.h"
+#include "GPUResource.h"
 #include "Camera.h"
 #include "config/PipelineConfigs.h"
 

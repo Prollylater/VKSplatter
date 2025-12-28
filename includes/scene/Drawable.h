@@ -17,7 +17,7 @@ struct MeshGPU;
 struct MaterialGPU;
 struct InstanceGPU;
 */
-#include "ResourceGPUManager.h"
+#include "GPUResourceSystem.h"
 
 struct Drawable
 {

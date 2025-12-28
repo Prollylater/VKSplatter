@@ -53,8 +53,8 @@ set(SOURCES
 
     ${SOURCE_DIR}/render/RenderQueue.cpp  
     ${SOURCE_DIR}/render/FrameHandler.cpp  
-    ${SOURCE_DIR}/render/ResourceGPUManager.cpp   
-    ${SOURCE_DIR}/render/RessourcesGPU.cpp   
+    ${SOURCE_DIR}/render/GPUResourceSystem.cpp   
+    ${SOURCE_DIR}/render/GPUResource.cpp   
     ${SOURCE_DIR}/render/VertexDescriptions.cpp   
     ${SOURCE_DIR}/render/Renderer.cpp   
 

@@ -215,6 +215,7 @@ void Texture::destroy(VkDevice device, VmaAllocator alloc)
     mImage.destroyImage(device, alloc);
 }
 
+//Todo: Dummy are not added to the map and are thus generally unreleased
 Texture *Texture::getDummyAlbedo(VkPhysicalDevice physDevice,
                                  const LogicalDeviceManager &deviceM,
                                  uint32_t queueIndice,

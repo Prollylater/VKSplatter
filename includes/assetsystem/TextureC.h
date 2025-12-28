@@ -2,6 +2,7 @@
 #include "stb_image.h"
 #include "AssetTypes.h"
 #include "iostream"
+
 template <typename T>
 void FreeImage(T *data)
 {

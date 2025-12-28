@@ -23,7 +23,6 @@ void Renderer::createFramesData(uint32_t framesInFlightCount, const std::vector<
   mFrameHandler.createFramesDescriptorSet(logicalDevice, layoutBindings);
 
   // Update/Store UBO
-  // Todo: Need to introduce a proper camera
   mFrameHandler.writeFramesDescriptors(logicalDevice, 0);
   mFrameHandler.updateUniformBuffers(mContext->getSwapChainManager().getSwapChainExtent());
 }
@@ -40,10 +39,10 @@ void Renderer::initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth)
   mGBuffers.init(mSwapChainM.getSwapChainExtent());
 
   mGBuffers.createGBuffers(mLogDeviceM, mPhysDeviceM, gbufferFormats, allocator);
-  //if (depth)
+  // if (depth)
   //{
 
-    mGBuffers.createDepthBuffer(mLogDeviceM, mPhysDeviceM, depthFormat, allocator);
+  mGBuffers.createDepthBuffer(mLogDeviceM, mPhysDeviceM, depthFormat, allocator);
   //}
 };
 
@@ -92,10 +91,10 @@ void Renderer::initRenderInfrastructure(RenderPassType type, const RenderPassCon
 
     std::vector<VkImageView> views = mGBuffers.collectColorViews(cfg.getClrAttachmentsID());
     views.push_back(mGBuffers.getDepthImageView());
-    
-    mFrameHandler.completeFrameBuffers(device, views,  mRenderPassM.getRenderPass(type),type,
+
+    mFrameHandler.completeFrameBuffers(device, views, mRenderPassM.getRenderPass(type), type,
                                        mSwapChainM.GetSwapChainImageViews(),
-                                       mSwapChainM.getSwapChainExtent());                                       
+                                       mSwapChainM.getSwapChainExtent());
   }
 };
 
@@ -136,7 +135,7 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   // TODO:
   // Important:
   // This can't stay longterm
-  mRScene.syncFromScene(scene, uploader,mGpuRegistry, materialGpuCache);
+  mRScene.syncFromScene(scene, uploader, mGpuRegistry, materialGpuCache);
   std::cout << "Ressourcess uploaded" << std::endl;
   std::cout << "Scene Ressources Initialized" << std::endl;
 };
@@ -151,6 +150,7 @@ void Renderer::deinitSceneRessources(Scene &scene)
   // Below is more destroy Renderer than anything else
   mGBuffers.destroy(device, allocator);
 
+  mGpuRegistry.clearAll(device, allocator);
   for (int i = 0; i < mContext->mSwapChainM.GetSwapChainImageViews().size(); i++)
   {
     auto &frameData = mFrameHandler.getCurrentFrameData();
@@ -173,7 +173,7 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config,
 
   const VkDevice &device = mContext->getLogicalDeviceManager().getLogicalDevice();
 
-  // For dynamic rendering 
+  // For dynamic rendering
   // slice = std::vector<VkFormat>();
   // Slice asssuming  attachment last attachment is the depth
 
@@ -210,7 +210,6 @@ void Renderer::createFramesDynamicRenderingInfo(RenderPassType type, const Rende
   mDynamicPassesConfig[index] = cfg;
 
   renderColorInfos.clear();
-
 
   // SwapChain image
   VkRenderingAttachmentInfo swapchainColor;
@@ -437,8 +436,8 @@ for each shader {
     // Todo: Sorting drawables to minimize binding
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineM.getPipeline());
 
-    auto* meshGpu = mGpuRegistry.get(draw->meshGPU);
-    auto* materialGpu = mGpuRegistry.get(draw->materialGPU);
+    auto *meshGpu = mGpuRegistry.get(draw->meshGPU);
+    auto *materialGpu = mGpuRegistry.get(draw->materialGPU);
 
     // Bind descriptors
     std::vector<VkDescriptorSet> sets = {

@@ -1,5 +1,5 @@
 #pragma once
-#include "RessourcesGPU.h"
+#include "GPUResource.h"
 #include "AssetTypes.h"
 #include "Texture.h"
 #include <functional>
@@ -20,10 +20,14 @@ public:
     bool operator==(const GPUHandle & other)  const { return id == other.id; }
 
 };
+
+//Are that many forward declaration useful ?
+class Mesh;
 class VulkanContext;
 class DescriptorManager;
 class PipelineManager;
-
+class GPUResourceRegistry;
+class AssetRegistry;
 
 class GpuResourceUploader
 {

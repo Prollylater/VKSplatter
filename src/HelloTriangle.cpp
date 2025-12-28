@@ -60,13 +60,8 @@ void HelloTriangleApplication::initVulkan()
     }
 
     initScene();
-    std::cout << "Here" << std::endl;
-    std::cout << "Here" << std::endl;
 
     renderer.initRenderingRessources(logicScene, assetSystem.registry());
-    std::cout << "Here" << std::endl;
-    std::cout << "Here" << std::endl;
-
     vkInitialized = true;
 }
 

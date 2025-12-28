@@ -1,6 +1,7 @@
 #pragma once
-#include "TextureC.h"
 #include "BaseVk.h" //Todo: move away
+
+#include "TextureC.h"
 #include <glm/glm.hpp> //COLOR header ?
 
 class RenderTargetInfo;

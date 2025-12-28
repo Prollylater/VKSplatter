@@ -2,14 +2,8 @@
 #include "BaseVk.h"
 #include "AssetTypes.h"
 
-struct Mesh;
 struct Material;
-class LogicalDeviceManager;
-class DescriptorManager;
-class AssetRegistry;
-class GPUResourceRegistry;
 
-// Todo: Can this also be shared ? Depending on howw other color data are handled
 struct MaterialGPU
 {
     int pipelineEntryIndex = -1;
@@ -25,12 +19,9 @@ struct MaterialGPU
     struct MaterialGPUCreateInfo
     {
         AssetID<Material> cpuMaterial;
-         int descriptorLayoutIdx;
+        int descriptorLayoutIdx;
         int pipelineIndex;
     };
-
-    static MaterialGPU createMaterialGPU(const AssetRegistry &registry, GPUResourceRegistry &gpuRegistry,
-                                         MaterialGPUCreateInfo info, const LogicalDeviceManager &deviceM, DescriptorManager &descriptor, VkPhysicalDevice physDevice, uint32_t indice);
 };
 
 struct MeshGPU
@@ -50,11 +41,8 @@ struct MeshGPU
     uint32_t indexCount = 0;
     uint32_t vertexStride = 0;
 
-    static MeshGPU createMeshGPU(const Mesh &mesh, const LogicalDeviceManager &deviceM, const VkPhysicalDevice &physDevice, uint32_t indice, bool SSBO = false);
-    // void bind()
     void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
 };
-
 
 struct InstanceData;
 struct InstanceGPU
@@ -67,8 +55,6 @@ struct InstanceGPU
     uint32_t instanceCount;
     uint32_t instanceStride;
 
-    static InstanceGPU createInstanceGPU(const std::vector<InstanceData> &mesh, const LogicalDeviceManager &deviceM, const VkPhysicalDevice &physDevice, uint32_t indice);
-    // void bind()
     void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
 };
 
