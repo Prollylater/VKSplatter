@@ -13,7 +13,7 @@ struct SceneData
     glm::vec4 sunlightDirection;
     glm::vec4 sunlightColor;
     glm::mat4 viewproj;
-    //Some card may require UBo to be padded 
+    // Some card may require UBo to be padded
 };
 
 class Scene
@@ -56,8 +56,8 @@ public:
 
     PipelineSetLayoutBuilder sceneLayout;
 
-    //Temporary
-    Camera& getCamera(){return camera;};
+    // Temporary
+    Camera &getCamera() { return camera; };
     SceneData getSceneData()
     {
         glm::mat4 proj = camera.getProjectionMatrix();
@@ -65,26 +65,6 @@ public:
 
         return {ambientColor, sunlightDirection, sunlightColor, proj * camera.getViewMatrix()};
     };
-};
-
-class GpuResourceUploader
-{
-public:
-    GpuResourceUploader(const VulkanContext &ctx,
-                        const AssetRegistry &assets,
-                        DescriptorManager &descriptors,
-                        PipelineManager &pipelines);
-
-    MeshGPU buildMeshGPU(const AssetID<Mesh>, bool useSSBO = false) const;
-    // Todo:Uint
-    MaterialGPU buildMaterialGPU(const AssetID<Material> matID, int descriptorIdx, int pipelineIndex) const;
-    InstanceGPU buildInstanceGPU(const std::vector<InstanceData> &) const;
-
-private:
-    const VulkanContext &context;
-    const AssetRegistry &assetRegistry;
-    DescriptorManager &materialDescriptors;
-    PipelineManager &pipelineManager;
 };
 
 class RenderScene
@@ -98,12 +78,22 @@ public:
 
     void syncFromScene(const Scene &cpuScene,
                        const GpuResourceUploader &builder,
+                        GPUResourceRegistry& registry,
                        const std::vector<MaterialGPU::MaterialGPUCreateInfo> &matCaches);
+    struct PassRequirements
+    {
+        bool needsMaterial = false;
+        bool needsMesh = true;
+        bool needsTransform = true;
+    };
+    /*
 
-    struct PassRequirements {
-    bool needsMaterial = false;
-    bool needsMesh = true;
-    bool needsTransform = true;
+
+enum RenderBits {
+    RENDER_BIT_MAIN = 1 << 0,
+    RENDER_BIT_SHADOW = 1 << 1,
+    RENDER_BIT_REFLECTION = 1 << 2,
+    RENDER_BIT_DEBUG = 1 << 3,
 };
-    
+*/
 };

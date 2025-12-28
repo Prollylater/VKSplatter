@@ -2,7 +2,6 @@
 #include <stdexcept>
 #include <cstddef>
 
-//Todo:Rework and implement with memory allocator
 template <typename T>
 class CircularVector {
 public:

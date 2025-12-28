@@ -1,4 +1,3 @@
-#define CATCH_CONFIG_MAIN
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
 #include <cstdint>
@@ -96,8 +95,8 @@ TEST_CASE("ArenaAllocator Overflow", "[arenaAllocator]") {
 TEST_CASE("PoolAllocator Capacity", "[poolAllocator]") {
     PoolAllocator pool(4, sizeof(int));
     void* p[4];
-    for (int i = 0; i < 4; i++)
-        p[i] = pool.allocate();
+    for (int i = 0; i < 4; i++){
+        p[i] = pool.allocate();}
     REQUIRE(pool.allocate() == nullptr);
 }
 

@@ -258,14 +258,19 @@ A frame in flight refers to a rendering operation that
 // Undecided on the need for templating here for our need
 
 #define INVALID_ASSET_ID 0
+struct AssetBase {
+    uint64_t hashedKey;  
+    std::string name;    
+};
 
 template <typename T>
 struct AssetID
 {
-    uint32_t id = INVALID_ASSET_ID; // Private
+    uint64_t id = INVALID_ASSET_ID; 
 
     AssetID() = default;
-    explicit AssetID(uint32_t id) : id(id) {}
+    explicit AssetID(uint64_t _id) : id(_id) {};
+    //explicit AssetID(std::string name) : id(std::hash<std::string>{}()) {};
 
     uint32_t getID() const { return id; }
     bool isValid() const { return id != INVALID_ASSET_ID; }

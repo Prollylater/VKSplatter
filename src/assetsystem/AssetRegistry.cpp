@@ -1,37 +1,37 @@
 #include "AssetRegistry.h"
 
 template <>
-std::unordered_map<uint32_t, AssetRegistry::AssetRecord<Mesh>> &AssetRegistry::getAssetMap<Mesh>()
+std::unordered_map<uint64_t, AssetRegistry::AssetRecord<Mesh>> &AssetRegistry::getAssetMap<Mesh>()
 {
     return meshes;
 }
 
 template <>
-std::unordered_map<uint32_t, AssetRegistry::AssetRecord<Texture>> &AssetRegistry::getAssetMap<Texture>()
+std::unordered_map<uint64_t, AssetRegistry::AssetRecord<Texture>> &AssetRegistry::getAssetMap<Texture>()
 {
     return textures;
 }
 
 template <>
-std::unordered_map<uint32_t, AssetRegistry::AssetRecord<Material>> &AssetRegistry::getAssetMap<Material>()
+std::unordered_map<uint64_t, AssetRegistry::AssetRecord<Material>> &AssetRegistry::getAssetMap<Material>()
 {
     return materials;
 }
 
 template <>
-const std::unordered_map<uint32_t, AssetRegistry::AssetRecord<Mesh>> &AssetRegistry::getAssetMap<Mesh>() const
+const std::unordered_map<uint64_t, AssetRegistry::AssetRecord<Mesh>> &AssetRegistry::getAssetMap<Mesh>() const
 {
     return meshes;
 }
 
 template <>
-const std::unordered_map<uint32_t, AssetRegistry::AssetRecord<Texture>> &AssetRegistry::getAssetMap<Texture>() const
+const std::unordered_map<uint64_t, AssetRegistry::AssetRecord<Texture>> &AssetRegistry::getAssetMap<Texture>() const
 {
     return textures;
 }
 
 template <>
-const std::unordered_map<uint32_t, AssetRegistry::AssetRecord<Material>> &AssetRegistry::getAssetMap<Material>() const
+const std::unordered_map<uint64_t, AssetRegistry::AssetRecord<Material>> &AssetRegistry::getAssetMap<Material>() const
 {
     return materials;
 }
@@ -54,9 +54,9 @@ std::vector<Material *> AssetResolver::resolveMaterials(AssetID<Mesh> meshHandle
     return result;
 }
 
-std::vector<Texture *> AssetResolver::resolveTextures(AssetID<Mesh> meshHandle)
+std::vector<TextureCPU *> AssetResolver::resolveTextures(AssetID<Mesh> meshHandle)
 {
-    std::vector<Texture *> result;
+    std::vector<TextureCPU *> result;
     Mesh *mesh = registry.get(meshHandle);
     if (!mesh)
         return result;

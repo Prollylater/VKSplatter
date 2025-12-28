@@ -5,15 +5,16 @@
 #include "Material.h"
 #include "utils/PipelineHelper.h"
 #include "Texture.h"
+#include "TextureC.h"
 #include "Descriptor.h"
 #include "AssetRegistry.h"
 
-
-    static MaterialGPU createMaterialGPU(const AssetRegistry &registry,  const LogicalDeviceManager &deviceM, DescriptorManager &descriptor,  VkPhysicalDevice physDevice, uint32_t indice);
-
+// Todo:
+// This is an awfully heavy method
 MaterialGPU MaterialGPU::createMaterialGPU(
     // Todo: const
     const AssetRegistry &registry,
+    GPUResourceRegistry &gpuRegistry,
     MaterialGPUCreateInfo info,
     const LogicalDeviceManager &deviceM,
     DescriptorManager &descriptor,
@@ -21,30 +22,48 @@ MaterialGPU MaterialGPU::createMaterialGPU(
     uint32_t queueindices)
 {
     // Create or not a Pipeline
-    const Material& material = *(registry.get(info.cpuMaterial));
+    const Material &material = *(registry.get(info.cpuMaterial));
 
     const auto &allocator = deviceM.getVmaAllocator();
-    MaterialGPU gpuMat;
 
-    gpuMat.pipelineEntryIndex =info.pipelineIndex;
-    // Create buffers via Buffer helper
+    MaterialGPU gpuMat;
+    gpuMat.pipelineEntryIndex = info.pipelineIndex;
+
     Buffer materialUniformBuffer;
     materialUniformBuffer.createBuffer(deviceM.getLogicalDevice(), physDevice, sizeof(Material::MaterialConstants), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
     materialUniformBuffer.uploadBuffer(&material.mConstants, sizeof(Material::MaterialConstants), 0, physDevice, deviceM, queueindices, allocator);
     // Better way to create this ?
 
-    auto getOrDummy = [&](Texture *tex, Texture *(*getter)(VkPhysicalDevice, const LogicalDeviceManager &, uint32_t, VmaAllocator)) -> Texture *
+    auto getOrDummy = [&](TextureCPU *tex, Texture *(*getter)(VkPhysicalDevice, const LogicalDeviceManager &, uint32_t, VmaAllocator)) -> Texture *
     {
-        return tex ? tex : getter(physDevice, deviceM, queueindices, allocator);
+        if (!tex)
+        {
+            return getter(physDevice, deviceM, queueindices, allocator);
+        }
+        Texture *textureGPU = new Texture();
+        textureGPU->createTextureImage(physDevice, deviceM, *(tex), queueindices, allocator);
+        textureGPU->createTextureImageView(deviceM.getLogicalDevice());
+        textureGPU->createTextureSampler(deviceM.getLogicalDevice(), physDevice);
+
+        return textureGPU;
     };
 
-    Texture *albedo = getOrDummy(registry.get(material.albedoMap), Texture::getDummyAlbedo);
-    Texture *normal = getOrDummy(registry.get(material.normalMap), Texture::getDummyNormal);
-    Texture *metallic = getOrDummy(registry.get(material.metallicMap), Texture::getDummyMetallic);
-    Texture *roughness = getOrDummy(registry.get(material.roughnessMap), Texture::getDummyRoughness);
-    //Todo
-    //MetalRoughAO Check if can just do that
-    //Also perhaps use this as a way to decide if a vecor would be easier to deal with (definitly)
+    auto acquireTex = [&](AssetID<TextureCPU> id, Texture *(*getter)(VkPhysicalDevice, const LogicalDeviceManager &, uint32_t, VmaAllocator)) -> Texture *
+    {
+        if (id.getID() != INVALID_ASSET_ID)
+        {
+            return gpuRegistry.get<Texture>(GPUHandle<Texture>(id.getID()));
+        };
+        return getOrDummy(registry.get(material.albedoMap), getter);
+    };
+
+    Texture *albedo = acquireTex(material.albedoMap, Texture::getDummyAlbedo);
+    Texture *normal = acquireTex(material.normalMap, Texture::getDummyNormal);
+    Texture *metallic = acquireTex(material.metallicMap, Texture::getDummyMetallic);
+    Texture *roughness = acquireTex(material.roughnessMap, Texture::getDummyRoughness);
+    // Todo
+    // MetalRoughAO Check if can just do that
+    // Also perhaps use this as a way to decide if a vecor would be easier to deal with (definitly)
     VkDescriptorBufferInfo uboDescInfo = materialUniformBuffer.getDescriptor();
     VkDescriptorImageInfo albedoDescInfo = albedo->getImage().getDescriptor();
     VkDescriptorImageInfo normalDescInfo = normal->getImage().getDescriptor();
@@ -179,4 +198,87 @@ void InstanceGPU::destroy(VkDevice device, VmaAllocator allocator)
     instanceBuffer = VK_NULL_HANDLE;
     instanceAlloc = VK_NULL_HANDLE;
     instanceMem = VK_NULL_HANDLE;
+}
+
+/////////////////////////////////////////////////////////////////
+
+MeshGPU GpuResourceUploader::uploadMeshGPU(const AssetID<Mesh> meshId, bool useSSBO) const
+{
+    return MeshGPU::createMeshGPU(*assetRegistry.get(meshId), context.getLogicalDeviceManager(), context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value(), useSSBO);
+};
+
+MaterialGPU GpuResourceUploader::uploadMaterialGPU(const AssetID<Material> matID, GPUResourceRegistry &gpuRegistry, int descriptorIdx, int pipelineIndex) const
+{
+    return MaterialGPU::createMaterialGPU(assetRegistry, gpuRegistry, {matID, descriptorIdx, pipelineIndex}, context.getLogicalDeviceManager(), materialDescriptors, context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value());
+};
+InstanceGPU GpuResourceUploader::uploadInstanceGPU(const std::vector<InstanceData> &instance) const
+{
+    return InstanceGPU::createInstanceGPU(instance, context.getLogicalDeviceManager(), context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value());
+};
+
+Texture GpuResourceUploader::uploadTexture(const AssetID<TextureCPU> textureId) const
+{
+    Texture textureGPU;
+    auto &deviceM = context.getLogicalDeviceManager();
+    auto &physDevice = context.getPhysicalDeviceManager();
+
+    // Check on CPU might be needed here or above
+    textureGPU.createTextureImage(physDevice.getPhysicalDevice(),
+                                  deviceM, *(assetRegistry.get(textureId)), physDevice.getIndices().graphicsFamily.value(), deviceM.getVmaAllocator());
+    textureGPU.createTextureImageView(deviceM.getLogicalDevice());
+    textureGPU.createTextureSampler(deviceM.getLogicalDevice(), physDevice.getPhysicalDevice());
+
+    return textureGPU;
+};
+
+///////////////////////////////////////////
+
+void GPUResourceRegistry::clearAll(VkDevice device, VmaAllocator allocator)
+{
+    // Destroy all meshes
+    for (auto &pair : meshes)
+    {
+        if (pair.second.resource)
+            pair.second.resource->destroy(device, allocator);
+    }
+    meshes.clear();
+
+    // Destroy all materials
+    for (auto &pair : materials)
+    {
+        if (pair.second.resource)
+            pair.second.resource->destroy(device, allocator);
+    }
+    materials.clear();
+
+    // Destroy all textures
+    for (auto &pair : textures)
+    {
+        if (pair.second.resource)
+            pair.second.resource->destroy(device, allocator);
+    }
+    textures.clear();
+
+    // Destroy all instances
+    for (auto &pair : instances)
+    {
+        if (pair.second.resource)
+            pair.second.resource->destroy(device, allocator);
+    }
+    instances.clear();
+}
+
+template <typename GpuT>
+void GPUResourceRegistry::release(GPUHandle<GpuT> handle, VkDevice device, VmaAllocator allocator)
+{
+    auto &map = getMap<GpuT>();
+    auto it = map.find(handle);
+    if (it != map.end())
+    {
+        if (--it->second.refCount == 0)
+        {
+            it->second.resource->destroy(device, allocator);
+            map.erase(it);
+        }
+    }
 }

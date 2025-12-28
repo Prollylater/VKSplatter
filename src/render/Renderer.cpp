@@ -137,7 +137,7 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   // TODO:
   // Important:
   // This can't stay longterm
-  mRScene.syncFromScene(scene, uploader, materialGpuCache);
+  mRScene.syncFromScene(scene, uploader,mGpuRegistry, materialGpuCache);
   std::cout << "Ressourcess uploaded" << std::endl;
   std::cout << "Scene Ressources Initialized" << std::endl;
 };
@@ -174,9 +174,7 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config,
 
   const VkDevice &device = mContext->getLogicalDeviceManager().getLogicalDevice();
 
-  // For dynamic rendering
-  // std::vector<VkFormat> slice;
-  // We get SLice from the Gbuffer i guess
+  // For dynamic rendering 
   // slice = std::vector<VkFormat>();
   // Slice asssuming  attachment last attachment is the depth
 
@@ -194,7 +192,6 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config,
   }
   else
   {
-    // Todo::
     builder.setRenderPass(mRenderPassM.getRenderPass(RenderPassType::Forward));
   }
 
@@ -441,10 +438,13 @@ for each shader {
     // Todo: Sorting drawables to minimize binding
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineM.getPipeline());
 
+    auto* meshGpu = mGpuRegistry.get(draw->meshGPU);
+    auto* materialGpu = mGpuRegistry.get(draw->materialGPU);
+
     // Bind descriptors
     std::vector<VkDescriptorSet> sets = {
         frameRess.mDescriptor.getSet(0),
-        mMaterialDescriptors.getSet(draw->materialGPU.descriptorIndex)};
+        mMaterialDescriptors.getSet(materialGpu->descriptorIndex)};
 
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             mPipelineM.getPipelineLayout(), 0,
@@ -453,15 +453,15 @@ for each shader {
 
     // Bind vertex
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(cmd, 0, 1, &draw->meshGPU.vertexBuffer, offsets);
-    vkCmdBindIndexBuffer(cmd, draw->meshGPU.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(cmd, 0, 1, &meshGpu->vertexBuffer, offsets);
+    vkCmdBindIndexBuffer(cmd, meshGpu->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     // Push constants
     vkCmdPushConstants(cmd, mPipelineM.getPipelineLayout(),
                        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &sceneData.viewproj);
 
     // Draw
-    vkCmdDrawIndexed(cmd, draw->meshGPU.indexCount, 1, 0, 0, 0);
+    vkCmdDrawIndexed(cmd, meshGpu->indexCount, 1, 0, 0, 0);
 
     // Fake multi Viewport is basically this
     /*

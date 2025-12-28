@@ -1,10 +1,15 @@
 #include "AssetIO.h"
 
+#include <tiny_obj_loader.h>
+
+//Todo: Proper handling  of cpu destruction 
 
 
-Material loadMaterial(AssetIO &assets, const tinyobj::material_t &objMaterial)
+Material loadMaterial(const tinyobj::material_t &objMaterial)
 {
     Material material;
+    material.hashedKey = std::hash<std::string>{}(objMaterial.name);
+    material.name =  objMaterial.name;
 
     material.mType = MaterialType::PBR;
 
@@ -15,41 +20,12 @@ Material loadMaterial(AssetIO &assets, const tinyobj::material_t &objMaterial)
     material.mConstants.metallic = objMaterial.metallic;
     material.mConstants.roughness = objMaterial.roughness;
 
-    // Load texture maps names
-    /*
-    if (!objMaterial.diffuse_texname.empty())
-    {
-        Texture texture(objMaterial.diffuse_texname);
-        AssetID textureID = assets.add<Texture>(objMaterial.diffuse_texname, std::make_unique<Texture>(texture));
-        material.albedoMap = textureID;
-    }
-
-    if (!objMaterial.bump_texname.empty())
-    {
-        Texture texture(objMaterial.bump_texname);
-        AssetID textureID = assets.add<Texture>(objMaterial.diffuse_texname, std::make_unique<Texture>(texture));
-        material.normalMap = textureID;
-    }
-    if (!objMaterial.roughness_texname.empty())
-    {
-        Texture texture(objMaterial.metallic_texname);
-        AssetID textureID = assets.add<Texture>(objMaterial.diffuse_texname, std::make_unique<Texture>(texture));
-        material.metallicMap = textureID;
-    }
-
-    if (!objMaterial.roughness_texname.empty())
-    {
-        Texture texture(objMaterial.roughness_texname);
-        AssetID textureID = assets.add<Texture>(objMaterial.diffuse_texname, std::make_unique<Texture>(texture));
-        material.roughnessMap = textureID;
-    } */
-
     return material;
 }
 
 // Todo: Decoyple Asset Registry from t
 // Ex: Multi steps with first step sending back Mesh + Material names
-Mesh loadMesh(AssetIO &assets, std::string filename)
+Mesh loadMesh(std::string filename)
 {
     Mesh mesh;
     mesh.name = filename;
@@ -124,14 +100,7 @@ Mesh loadMesh(AssetIO &assets, std::string filename)
             mesh.indices.push_back(uniqueVertices[vertex]);
         }
     }
-/*
-    // Load materials through the registry
-    for (const auto &mtl : materials)
-    {
-        Material material = loadMaterial(assets, mtl);
-        AssetID materialID = assets.add<Material>(mtl.name, std::make_unique<Material>(material));
-        mesh.materialIds.push_back(materialID);
-    }*/
+
     std::cout << "Model loaded successfully: " << filename << std::endl;
     std::cout << " - Total unique vertices: " << mesh.positions.size() << std::endl;
     std::cout << " - Total indices: " << mesh.indices.size() << std::endl;
@@ -167,15 +136,16 @@ Mesh loadMesh(AssetIO &assets, std::string filename)
 
 std::unique_ptr<Mesh> AssetIO::loadMeshFromFile(const std::string &path)
 {
-    return std::make_unique<Mesh>(::loadMesh(*this,path));
+    return std::make_unique<Mesh>(::loadMesh(path));
 };
 
-std::unique_ptr<Texture> AssetIO::loadTextureFromFile(const std::string &path)
+std::unique_ptr<TextureCPU> AssetIO::loadTextureFromFile(const std::string &path)
 {
-    return std::make_unique<Texture>(Texture{});
+    //Too generalist
+    return std::make_unique<TextureCPU>(::LoadImageTemplate<stbi_uc>(path, STBI_rgb_alpha));
 };
 
-std::unique_ptr<Material>  AssetIO::loadMaterialFromFile(const std::string &path)
+std::unique_ptr<Material> AssetIO::loadMaterialFromFile(const std::string &path)
 {
     return std::make_unique<Material>(Material{});
 };

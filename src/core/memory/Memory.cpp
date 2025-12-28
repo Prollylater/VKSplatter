@@ -230,7 +230,7 @@ namespace cico
 
         FreeListAllocator::~FreeListAllocator()
         {
-            ::std::free(mMemory);
+            ::std::free(mMemory); //Todo: No aligned Free
             mMemory = nullptr;
         };
 
@@ -289,9 +289,9 @@ namespace cico
             if (!ptr)
                 return;
 
-            FreeListNode *h = (FreeListNode *)((uint8_t *)ptr - sizeof(FreeListNode));
+            FreeListNode *node = (FreeListNode *)((uint8_t *)ptr - sizeof(FreeListNode));
 
-            h->markFree();
+            node->markFree();
             //Todo: Should coalesce start right from h ?
             //We might miss one element behind however without the explicit design
             coalesce();
@@ -318,9 +318,9 @@ namespace cico
             // Notes: This could be wrotten in a prettier way
             while (cursor < end)
             {
-                FreeListNode *h = (FreeListNode *)cursor;
-                size_t size = h->getSize();
-                if (!h->isAllocated())
+                FreeListNode *node = (FreeListNode *)cursor;
+                size_t size = node->getSize();
+                if (!node->isAllocated())
                 {
                     uint8_t *nextAddr = cursor + size;
                     if (nextAddr >= end)
@@ -330,7 +330,7 @@ namespace cico
 
                     if (!next->isAllocated())
                     {
-                        h->mChunkSize = size + next->getSize();
+                        node->mChunkSize = size + next->getSize();
                         continue;
                     }
                 }

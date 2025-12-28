@@ -4,50 +4,7 @@
 #include "SwapChain.h"
 #include "utils/RessourceHelper.h"
 
-// TODO: Rethink how command are passed
-// Array untreated
-// Store laytour for given rendereingn post and pre renderpass  ?
-template <typename T>
-ImageData<T> LoadImageTemplate(
-    const std::string &filepath,
-    int desired_channels,
-    bool flip_vertically,
-    bool verbose)
-{
-    static_assert(std::is_same_v<T, unsigned char> || std::is_same_v<T, float>,
-                  "Unsupported type");
-
-    stbi_set_flip_vertically_on_load(flip_vertically);
-
-    int width, height, channels;
-    T *data = nullptr;
-
-    if constexpr (std::is_same_v<T, float>)
-    {
-        data = stbi_loadf(filepath.c_str(), &width, &height, &channels, desired_channels);
-    }
-    else
-    {
-        data = stbi_load(filepath.c_str(), &width, &height, &channels, desired_channels);
-    }
-
-    if (!data)
-    {
-        std::cerr << "Failed to load image: " << filepath << "\nReason: " << stbi_failure_reason() << std::endl;
-        return {nullptr, 0, 0, 0};
-    }
-
-    if (verbose)
-    {
-        std::cout << "Loaded image: " << filepath << "\n";
-        std::cout << "Size: " << width << "x" << height << "\n";
-        std::cout << "Channels: " << (desired_channels ? desired_channels : channels) << "\n";
-        std::cout << "Type: " << (std::is_same_v<T, float> ? "float" : "unsigned char") << "\n";
-    }
-
-    // Warining here
-    return {data, width, height, desired_channels ? desired_channels : channels};
-}
+ 
 
 void Image::createImage(vkUtils::Texture::ImageCreateConfig &config)
 {
@@ -176,14 +133,6 @@ void Texture::createTextureSampler(VkDevice device, VkPhysicalDevice physDevice)
     mImage.createImageSampler(device, physDevice);
 }
 
-void Texture::createKnowTextureImage(VkPhysicalDevice physDevice,
-                                 const LogicalDeviceManager &deviceM,
-                                 uint32_t queueIndice, VmaAllocator allocator)
-{
-    ImageData<stbi_uc> textureData = LoadImageTemplate<stbi_uc>(tempFP.c_str(), STBI_rgb_alpha);
-    createTextureImage(physDevice, deviceM, textureData, queueIndice, allocator);
-    textureData.freeImage();
-}
 
 void Texture::createTextureImage(VkPhysicalDevice physDevice,
                                  const LogicalDeviceManager &deviceM, const std::string &filepath,
@@ -261,7 +210,7 @@ void Texture::createTextureImage(VkPhysicalDevice physDevice,
     stagingBuffer.destroyBuffer(device, allocator);
 }
 
-void Texture::destroyTexture(VkDevice device, VmaAllocator alloc)
+void Texture::destroy(VkDevice device, VmaAllocator alloc)
 {
     mImage.destroyImage(device, alloc);
 }
@@ -278,7 +227,7 @@ Texture *Texture::getDummyAlbedo(VkPhysicalDevice physDevice,
     {
         stbi_uc whitePixel[4] = {255, 255, 255, 255};
 
-        ImageData<stbi_uc> img{whitePixel, 1, 1, 4};
+        ImageData<stbi_uc> img{.data =  whitePixel, .width= 1, .height=  1, .channels = 4};
 
         dummyAlbedo.createTextureImage(physDevice, deviceM, img, queueIndice, allocator);
         dummyAlbedo.createTextureImageView(deviceM.getLogicalDevice());
@@ -303,7 +252,7 @@ Texture *Texture::getDummyNormal(VkPhysicalDevice physDevice,
         // This translate to a flat normal (0.5, 0.5, 1.0)
         stbi_uc flatNormal[4] = {128, 128, 255, 255};
 
-        ImageData<stbi_uc> img{flatNormal, 1, 1, 4};
+        ImageData<stbi_uc> img{.data =  flatNormal, .width= 1, .height=  1, .channels = 4};
         dummyNormal.createTextureImage(physDevice, deviceM, img, queueIndices, allocator);
         dummyNormal.createTextureImageView(deviceM.getLogicalDevice());
         dummyNormal.createTextureSampler(deviceM.getLogicalDevice(), physDevice);
@@ -325,7 +274,8 @@ Texture *Texture::getDummyRoughness(VkPhysicalDevice physDevice,
     if (!created)
     {
         stbi_uc whitePixel[4] = {255, 255, 255, 255};
-        ImageData<stbi_uc> img{whitePixel, 1, 1, 4};
+        ImageData<stbi_uc> img{.data =  whitePixel, .width= 1, .height=  1, .channels = 4};
+        
         dummyRough.createTextureImage(physDevice, deviceM, img, queueIndices, allocator);
         dummyRough.createTextureImageView(deviceM.getLogicalDevice());
         dummyRough.createTextureSampler(deviceM.getLogicalDevice(), physDevice);
@@ -346,7 +296,8 @@ Texture *Texture::getDummyMetallic(VkPhysicalDevice physDevice,
     if (!created)
     {
         stbi_uc blackPixel[4] = {0, 0, 0, 255}; // dielectric
-        ImageData<stbi_uc> img{blackPixel, 1, 1, 4};
+        ImageData<stbi_uc> img{.data =  blackPixel, .width= 1, .height=  1, .channels = 4};
+
         dummyMetallic.createTextureImage(physDevice, deviceM, img, queueIndices, allocator);
         dummyMetallic.createTextureImageView(deviceM.getLogicalDevice());
         dummyMetallic.createTextureSampler(deviceM.getLogicalDevice(), physDevice);
@@ -355,4 +306,3 @@ Texture *Texture::getDummyMetallic(VkPhysicalDevice physDevice,
 
     return &dummyMetallic;
 }
-// Creation utils

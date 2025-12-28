@@ -4,14 +4,15 @@ void RenderScene::destroy(VkDevice device, VmaAllocator alloc)
 {
     for (auto &drawable : drawables)
     {
-        drawable.materialGPU.destroy(device, alloc);
-        drawable.meshGPU.destroy(device, alloc);
+        // draw gable.materialGPU.destroy(device, alloc);
+        // drawable.meshGPU.destroy(device, alloc);
     };
 };
 
 void RenderScene::syncFromScene(const Scene &cpuScene,
                                 const GpuResourceUploader &builder,
-                                const std::vector<MaterialGPU::MaterialGPUCreateInfo>& matCaches)
+                                GPUResourceRegistry &registry,
+                                const std::vector<MaterialGPU::MaterialGPUCreateInfo> &matCaches)
 {
     drawables.clear();
     drawables.reserve(cpuScene.nodes.size());
@@ -20,38 +21,16 @@ void RenderScene::syncFromScene(const Scene &cpuScene,
     {
         Drawable d;
         std::cout << "Mesh \n";
-        d.meshGPU = builder.buildMeshGPU(node.mesh);
+        d.meshGPU = registry.add(node.mesh, builder.uploadMeshGPU(node.mesh));
+
         std::cout << "Material \n"
                   << std::endl;
 
-        const auto & cache = matCaches[index];
-        d.materialGPU = builder.buildMaterialGPU(cache.cpuMaterial, cache.descriptorLayoutIdx, cache.pipelineIndex);
+        const auto &cache = matCaches[index];
+        d.materialGPU = registry.add(cache.cpuMaterial, builder.uploadMaterialGPU(cache.cpuMaterial, registry, cache.descriptorLayoutIdx, cache.pipelineIndex););
+
         // d.instanceGPU = builder.buildInstanceGPU(d.inst);
 
         drawables.push_back(std::move(d));
     }
-
 }
-
-GpuResourceUploader::GpuResourceUploader(const VulkanContext &ctx,
-                                         const AssetRegistry &assets,
-                                         DescriptorManager &descriptors,
-                                         PipelineManager &pipelines) : context(ctx), assetRegistry(assets),
-                                                                       materialDescriptors(descriptors),
-                                                                       pipelineManager(pipelines) {
-                                                                       };
-
-// Todo: Additional reminder on removing such calls
-MeshGPU GpuResourceUploader::buildMeshGPU(const AssetID<Mesh> meshId, bool useSSBO) const
-{
-    return MeshGPU::createMeshGPU(*assetRegistry.get(meshId), context.getLogicalDeviceManager(), context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value(), useSSBO);
-};
-
-MaterialGPU GpuResourceUploader::buildMaterialGPU(const AssetID<Material> matID, int descriptorIdx, int pipelineIndex) const
-{
-    return MaterialGPU::createMaterialGPU(assetRegistry, {matID, descriptorIdx, pipelineIndex}, context.getLogicalDeviceManager(), materialDescriptors, context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value());
-};
-InstanceGPU GpuResourceUploader::buildInstanceGPU(const std::vector<InstanceData> &instance) const
-{
-    return InstanceGPU::createInstanceGPU(instance, context.getLogicalDeviceManager(), context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value());
-};

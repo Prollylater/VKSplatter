@@ -3,36 +3,8 @@
 #include "BaseVk.h"
 #include "stb_image.h"
 #include "Buffer.h"
+#include "TextureC.h"
 
-// Shared Sampler concept ?
-template <typename T>
-void FreeImage(T *data)
-{
-    stbi_image_free(data);
-}
-
-template <typename T>
-struct ImageData
-{
-    T *data;
-    uint32_t width;
-    uint32_t height;
-    int channels;
-
-    void freeImage()
-    {
-        FreeImage<T>(data);
-    };
-};
-
-template <typename T>
-ImageData<T> LoadImageTemplate(
-    const std::string &filepath,
-    int desired_channels = 0,
-    bool flip_vertically = false,
-    bool verbose = false);
-
-// Utility related to textures
 
 namespace vkUtils
 {
@@ -102,17 +74,14 @@ private:
 */
 
 // Semantic Helper to create Texture
-class Texture
+
+
+//Todo: Moved to RessourcesGPU ?
+class Texture 
 {
 public:
     Texture() = default;
-    Texture(std::string filePath): tempFP(filePath){};
     ~Texture() = default;
-
-    //Todo: This function only exist for prototyping sake and should be removed
-    void createKnowTextureImage(VkPhysicalDevice physDevice,
-                            const LogicalDeviceManager &deviceM, 
-                            uint32_t queuIndice, VmaAllocator alloc = VK_NULL_HANDLE);
 
     // Introduce parameter to decide mMipLevel and format etc..
     void createTextureImage(VkPhysicalDevice physDevice,
@@ -124,7 +93,7 @@ public:
     void createTextureImageView(VkDevice device);
     void createTextureSampler(VkDevice device, VkPhysicalDevice physDevice);
 
-    void destroyTexture(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
+    void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
 
     const Image &getImage() const { return mImage; }
     VkImageView getView() const { return mImage.getView(); }
@@ -150,8 +119,6 @@ public:
 
     
 private:
-    //Todo: This variable only exist for prototyping sake and should be removed
-    std::string tempFP;
     Image mImage;
     VkDevice mDevice = VK_NULL_HANDLE;
 };

@@ -24,20 +24,18 @@ public:
 
         cico::filesystem::setRoot(fs::current_path());
 
-        cico::filesystem::setShaders(cico::filesystem::shaders() / "shaders");
-        cico::filesystem::setTextures(cico::filesystem::textures() / "textures");
-        cico::filesystem::setMeshes(cico::filesystem::meshes() / "meshes");
+
+        cico::filesystem::setShaders(cico::filesystem::shaders() / "ressources/shaders");
+        cico::filesystem::setTextures(cico::filesystem::textures() / "ressources/textures");
+        cico::filesystem::setMeshes(cico::filesystem::meshes() / "ressources/models");
       
         cico::logging::initialize( "logs.txt");
 
-        _CCRITICAL("Problem", "Mayday");
-        _CCRITICAL("Problem", "Mayday");
-
+    
         initWindow();
         _CINFO("Window initialized");
-        _CINFO("Window initialized");
-
         initVulkan();
+        _CINFO("Vulkan initialized");
         clock.reset();
         mainLoop();
         cleanup();

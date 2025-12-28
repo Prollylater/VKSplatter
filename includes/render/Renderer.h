@@ -84,6 +84,7 @@ private:
     // OpenGL wouldn't need it
     VulkanContext *mContext;
     AssetRegistry *mRegistry;
+    
 
     RenderScene mRScene;
     RenderQueue renderQueue;
@@ -93,7 +94,7 @@ private:
     // Recent addition
     DescriptorManager mMaterialDescriptors;
     RenderPassManager mRenderPassM;
-
+    GPUResourceRegistry mGpuRegistry;
     // Todo: Dynamic pass manager
     //  Dynamic Rendering Path
     std::array<DynamicPassInfo, (size_t)RenderPassType::Count> mDynamicPassesInfo{};

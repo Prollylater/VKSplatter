@@ -75,7 +75,7 @@ void HelloTriangleApplication::initScene()
 
     // Also load Texture
     // Todo: SHould be able to load everything
-
+    /*
     const LogicalDeviceManager &deviceM = context.getLogicalDeviceManager();
     const VmaAllocator &allocator = context.getLogicalDeviceManager().getVmaAllocator();
     const VkDevice &device = context.getLogicalDeviceManager().getLogicalDevice();
@@ -91,7 +91,7 @@ void HelloTriangleApplication::initScene()
         text->createTextureImage(physDevice, deviceM, TEXTURE_PATH, indice, allocator);
         text->createTextureImageView(device);
         text->createTextureSampler(device, physDevice);
-    }
+    }*/
 }
 
 // Revise the separation between event dispatching and inputing

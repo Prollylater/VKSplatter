@@ -2,21 +2,20 @@
 #include "BaseVk.h"
 #include "config/PipelineConfigs.h"
 #include "ContextController.h"
-
-class Texture;
+#include "TextureC.h"
+//class TextureCPU;
 class RenderTargetInfo;
 
 // Opaque, Transparent etc...
 
-struct Material
+struct Material : AssetBase
 {
   MaterialType mType = MaterialType::PBR;
 
-  // Ressources
-  AssetID<Texture> albedoMap;
-  AssetID<Texture> normalMap;
-  AssetID<Texture> metallicMap;
-  AssetID<Texture> roughnessMap;
+  AssetID<TextureCPU> albedoMap;
+  AssetID<TextureCPU> normalMap;
+  AssetID<TextureCPU> metallicMap;
+  AssetID<TextureCPU> roughnessMap;
 
   struct MaterialConstants
   {
