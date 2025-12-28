@@ -5,6 +5,7 @@
 #include "Material.h"
 #include "RessourcesGPU.h"
 #include "Camera.h"
+#include "config/PipelineConfigs.h"
 
 // Todo: Move it somewhere else close to Vertex maybe in a common Tpes
 struct SceneData

@@ -1,6 +1,8 @@
 #include "LogicalDevice.h"
+#include "CommandPool.h" //Not strictly necessary
+#include <functional>
 #include <set>
-#include "CommandPool.h"
+
 ////////////
 void LogicalDeviceManager::createVmaAllocator(VkPhysicalDevice physicalDevice, VkInstance instance)
 {
@@ -215,7 +217,6 @@ VkResult LogicalDeviceManager::submitToQueue(
     return vkQueueSubmit(queue, 1, &submitInfo, fence);
 }
 
-//Todo: Consider this 
 //https://vkguide.dev/docs/new_chapter_2/vulkan_imgui_setup/
 VkResult LogicalDeviceManager::immediateSubmit(CommandPoolManager &poolCmd,
                                                std::function<void(VkCommandBuffer)> recordFunction,

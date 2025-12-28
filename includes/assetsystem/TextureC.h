@@ -1,9 +1,7 @@
 #pragma once
-
-#include "BaseVk.h"
 #include "stb_image.h"
-#include "Buffer.h"
-
+#include "AssetTypes.h"
+#include "iostream"
 template <typename T>
 void FreeImage(T *data)
 {
@@ -13,6 +11,8 @@ void FreeImage(T *data)
 template <typename T>
 struct ImageData : AssetBase
 {
+    //static AssetType getStaticType() { return AssetType::Texture; }
+    //AssetType type() const override { return getStaticType(); }
     T *data;
     uint32_t width;
     uint32_t height;
@@ -53,11 +53,11 @@ ImageData<T> LoadImageTemplate(
     {
         data = stbi_load(filepath.c_str(), &width, &height, &channels, desired_channels);
     }
-
+    //Aggregate name initialization
     if (!data)
     {
         std::cerr << "Failed to load image: " << filepath << "\nReason: " << stbi_failure_reason() << std::endl;
-        return {nullptr, 0, 0, 0};
+        return {INVALID_ASSET_ID, "",  nullptr, 0, 0, 0};
     }
 
     if (verbose)

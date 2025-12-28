@@ -1,7 +1,5 @@
 #pragma once
 #include "BaseVk.h"
-
-#include <array>
 #include "VertexDescriptions.h"
 
 class PipelineBuilder;

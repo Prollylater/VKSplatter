@@ -1,10 +1,5 @@
-// CommandPool.h
-
 #pragma once
-
 #include "BaseVk.h"
-
-#include "QueueFam.h"
 
 // Todo: Capacity to combine multiple buffer into one.
 // Todo: Error checking
@@ -28,7 +23,6 @@ class CommandPoolManager
 public:
     CommandPoolManager() = default;
 
-    // QueueFamilyIndices queueFamilyIndices
     void createCommandPool(VkDevice device, CommandPoolType type, uint32_t familyIndex);
 
     void createCommandBuffers(size_t nbBuffers);

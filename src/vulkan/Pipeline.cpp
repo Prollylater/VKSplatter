@@ -1,8 +1,7 @@
 #include "Pipeline.h"
+#include "utils/PipelineHelper.h"
 #include <fstream>
 #include <stdexcept>
-#include "Buffer.h"
-#include "utils/PipelineHelper.h"
 
 // COuld you rewrite it ? IF possible in a most flewible way ?
 // For example separating shaderstage creation,

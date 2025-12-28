@@ -1,15 +1,8 @@
 #pragma once
 #include "BaseVk.h"
-#include <glm/glm.hpp>
-#include <array>
-#include <unordered_map>
-#include "VertexDescriptions.h"
 #include "LogicalDevice.h"
-#include "PhysicalDevice.h"
 
-#include "CommandPool.h"
-#include "RessourcesGPU.h"
-
+struct Mesh;
 // A class for holding a buffer (principally for Mesh)
 class Buffer
 {
@@ -84,12 +77,10 @@ private:
 
 public:
     // Todo: Helper to move out
+    //Should be in an helper
     void createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const std::vector<Mesh> &mesh,
                                   const LogicalDeviceManager &deviceM, uint32_t indice);
 
-    //Todo: Reduce complexity by removing upload from those fucntion
-    //Todo: Reduce complexity by removing upload from those fucntion
-    //Todo: Reduce complexity by removing upload from those fucntion
     //Todo: Reduce complexity by removing upload from those fucntion
     void createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
                              const LogicalDeviceManager &deviceM, uint32_t queueIndice, VmaAllocator alloc = VK_NULL_HANDLE, bool SSBO = false);
@@ -97,5 +88,4 @@ public:
                             const LogicalDeviceManager &deviceM, uint32_t queueIndice, VmaAllocator alloc = VK_NULL_HANDLE);
 };
 
-// TOOD: Change eother at VK_NULL_HANDLE
-//  Destroy on not real object nor null handle can have weird conseuqeujces
+// TODO: Destroy scheme could be overhauled

@@ -1,9 +1,14 @@
 #pragma once
+//#include "AssetTypes.h"
 #include "VertexDescriptions.h"
-#include "RessourcesGPU.h"
+#include "Material.h"
 
 struct Mesh : AssetBase
 {
+
+    //static AssetType getStaticType() { return AssetType::Mesh; }
+    //AssetType type() const override { return getStaticType(); }
+
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;
     std::vector<glm::vec2> uvs;

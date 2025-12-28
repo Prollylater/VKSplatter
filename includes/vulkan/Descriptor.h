@@ -1,23 +1,10 @@
 #pragma once
 
 #include "BaseVk.h"
-#include <glm/glm.hpp>
-#include <array>
 #include <unordered_map>
-#include "VertexDescriptions.h"
-#include "LogicalDevice.h"
-#include "Buffer.h"
-
-#define GLM_FORCE_RADIANS
-// Default aligned helper
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#include <glm/gtc/matrix_transform.hpp>
-// Use alignas
-#include <chrono>
 
 size_t hashBindings(const std::vector<VkDescriptorSetLayoutBinding> &bindings);
 
-// REad on this VK_EXT_descriptor_indexing
 class DescriptorManager
 {
 public:
@@ -55,30 +42,9 @@ public:
 private:
     VkDescriptorPool mDescriptorPool = VK_NULL_HANDLE;
 
-     /*
-        auto-release + ref count ?*/
     std::unordered_map<size_t, int> mLayoutHashToIndex;
     std::vector<VkDescriptorSetLayout> mDescriptorSetLayouts;
 
     // std::vector<VkDescriptorSetLayout> mDescriptorSetLayouts;
     std::vector<VkDescriptorSet> mDescriptorSets;
 };
-
-/*
-SSSBO
-//Shoudl Material be
-struct Material {
-    vec4 baseColorFactor;
-    float metallicFactor;
-    float roughnessFactor;
-
-    int baseColorTextureID;
-    int normalTextureID;
-    int metallicRoughnessTextureID;
-    int emissiveTextureID;
-
-    vec3 emissiveFactor;
-    int alphaMode; // 0 = opaque, 1 = mask, 2 = blend
-};
-
-*/

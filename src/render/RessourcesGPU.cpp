@@ -9,6 +9,8 @@
 #include "Descriptor.h"
 #include "AssetRegistry.h"
 
+#include "ResourceGPUManager.h"
+
 // Todo:
 // This is an awfully heavy method
 MaterialGPU MaterialGPU::createMaterialGPU(
@@ -21,6 +23,9 @@ MaterialGPU MaterialGPU::createMaterialGPU(
     VkPhysicalDevice physDevice,
     uint32_t queueindices)
 {
+         std::cout << "INMatGPu \n"
+                  << std::endl;
+
     // Create or not a Pipeline
     const Material &material = *(registry.get(info.cpuMaterial));
 
@@ -50,13 +55,17 @@ MaterialGPU MaterialGPU::createMaterialGPU(
 
     auto acquireTex = [&](AssetID<TextureCPU> id, Texture *(*getter)(VkPhysicalDevice, const LogicalDeviceManager &, uint32_t, VmaAllocator)) -> Texture *
     {
-        if (id.getID() != INVALID_ASSET_ID)
+        auto texPtr = gpuRegistry.get<Texture>(GPUHandle<Texture>(id.getID()));
+        if (texPtr)
         {
-            return gpuRegistry.get<Texture>(GPUHandle<Texture>(id.getID()));
+            return texPtr;
         };
+        //Else we create it
         return getOrDummy(registry.get(material.albedoMap), getter);
     };
 
+     std::cout << "INMatGPu \n"
+                  << std::endl;
     Texture *albedo = acquireTex(material.albedoMap, Texture::getDummyAlbedo);
     Texture *normal = acquireTex(material.normalMap, Texture::getDummyNormal);
     Texture *metallic = acquireTex(material.metallicMap, Texture::getDummyMetallic);
@@ -64,6 +73,8 @@ MaterialGPU MaterialGPU::createMaterialGPU(
     // Todo
     // MetalRoughAO Check if can just do that
     // Also perhaps use this as a way to decide if a vecor would be easier to deal with (definitly)
+     std::cout << "INMatGPu \n"  << albedo <<" " << material.albedoMap.id << " " <<  normal
+                  << std::endl;
     VkDescriptorBufferInfo uboDescInfo = materialUniformBuffer.getDescriptor();
     VkDescriptorImageInfo albedoDescInfo = albedo->getImage().getDescriptor();
     VkDescriptorImageInfo normalDescInfo = normal->getImage().getDescriptor();
@@ -71,7 +82,8 @@ MaterialGPU MaterialGPU::createMaterialGPU(
     VkDescriptorImageInfo roughnessDescInfo = roughness->getImage().getDescriptor();
 
     gpuMat.descriptorIndex = descriptor.allocateDescriptorSet(deviceM.getLogicalDevice(), info.descriptorLayoutIdx);
-
+ std::cout << "INMatGPu \n"
+                  << std::endl;
     auto &materialSet = descriptor.getSet(gpuMat.descriptorIndex);
     std::vector<VkWriteDescriptorSet> writes = {
         vkUtils::Descriptor::makeWriteDescriptor(materialSet, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &uboDescInfo),
@@ -80,7 +92,8 @@ MaterialGPU MaterialGPU::createMaterialGPU(
         vkUtils::Descriptor::makeWriteDescriptor(materialSet, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &metallicDescInfo),
         vkUtils::Descriptor::makeWriteDescriptor(materialSet, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &roughnessDescInfo),
     };
-
+ std::cout << "INMatGPu \n"
+                  << std::endl;
     descriptor.updateDescriptorSet(deviceM.getLogicalDevice(), writes);
 
     return gpuMat;
@@ -198,87 +211,4 @@ void InstanceGPU::destroy(VkDevice device, VmaAllocator allocator)
     instanceBuffer = VK_NULL_HANDLE;
     instanceAlloc = VK_NULL_HANDLE;
     instanceMem = VK_NULL_HANDLE;
-}
-
-/////////////////////////////////////////////////////////////////
-
-MeshGPU GpuResourceUploader::uploadMeshGPU(const AssetID<Mesh> meshId, bool useSSBO) const
-{
-    return MeshGPU::createMeshGPU(*assetRegistry.get(meshId), context.getLogicalDeviceManager(), context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value(), useSSBO);
-};
-
-MaterialGPU GpuResourceUploader::uploadMaterialGPU(const AssetID<Material> matID, GPUResourceRegistry &gpuRegistry, int descriptorIdx, int pipelineIndex) const
-{
-    return MaterialGPU::createMaterialGPU(assetRegistry, gpuRegistry, {matID, descriptorIdx, pipelineIndex}, context.getLogicalDeviceManager(), materialDescriptors, context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value());
-};
-InstanceGPU GpuResourceUploader::uploadInstanceGPU(const std::vector<InstanceData> &instance) const
-{
-    return InstanceGPU::createInstanceGPU(instance, context.getLogicalDeviceManager(), context.getPhysicalDeviceManager().getPhysicalDevice(), context.getPhysicalDeviceManager().getIndices().graphicsFamily.value());
-};
-
-Texture GpuResourceUploader::uploadTexture(const AssetID<TextureCPU> textureId) const
-{
-    Texture textureGPU;
-    auto &deviceM = context.getLogicalDeviceManager();
-    auto &physDevice = context.getPhysicalDeviceManager();
-
-    // Check on CPU might be needed here or above
-    textureGPU.createTextureImage(physDevice.getPhysicalDevice(),
-                                  deviceM, *(assetRegistry.get(textureId)), physDevice.getIndices().graphicsFamily.value(), deviceM.getVmaAllocator());
-    textureGPU.createTextureImageView(deviceM.getLogicalDevice());
-    textureGPU.createTextureSampler(deviceM.getLogicalDevice(), physDevice.getPhysicalDevice());
-
-    return textureGPU;
-};
-
-///////////////////////////////////////////
-
-void GPUResourceRegistry::clearAll(VkDevice device, VmaAllocator allocator)
-{
-    // Destroy all meshes
-    for (auto &pair : meshes)
-    {
-        if (pair.second.resource)
-            pair.second.resource->destroy(device, allocator);
-    }
-    meshes.clear();
-
-    // Destroy all materials
-    for (auto &pair : materials)
-    {
-        if (pair.second.resource)
-            pair.second.resource->destroy(device, allocator);
-    }
-    materials.clear();
-
-    // Destroy all textures
-    for (auto &pair : textures)
-    {
-        if (pair.second.resource)
-            pair.second.resource->destroy(device, allocator);
-    }
-    textures.clear();
-
-    // Destroy all instances
-    for (auto &pair : instances)
-    {
-        if (pair.second.resource)
-            pair.second.resource->destroy(device, allocator);
-    }
-    instances.clear();
-}
-
-template <typename GpuT>
-void GPUResourceRegistry::release(GPUHandle<GpuT> handle, VkDevice device, VmaAllocator allocator)
-{
-    auto &map = getMap<GpuT>();
-    auto it = map.find(handle);
-    if (it != map.end())
-    {
-        if (--it->second.refCount == 0)
-        {
-            it->second.resource->destroy(device, allocator);
-            map.erase(it);
-        }
-    }
 }

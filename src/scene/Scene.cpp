@@ -21,13 +21,20 @@ void RenderScene::syncFromScene(const Scene &cpuScene,
     {
         Drawable d;
         std::cout << "Mesh \n";
-        d.meshGPU = registry.add(node.mesh, builder.uploadMeshGPU(node.mesh));
+        const auto &mesh = node.mesh;
+
+        d.meshGPU = registry.add(mesh, std::function<MeshGPU()>([&]()
+                                                                { return builder.uploadMeshGPU(node.mesh); }));
 
         std::cout << "Material \n"
                   << std::endl;
 
         const auto &cache = matCaches[index];
-        d.materialGPU = registry.add(cache.cpuMaterial, builder.uploadMaterialGPU(cache.cpuMaterial, registry, cache.descriptorLayoutIdx, cache.pipelineIndex););
+        d.materialGPU = registry.add(cache.cpuMaterial,
+                                     std::function<MaterialGPU()>([&]()
+                                                                  { return builder.uploadMaterialGPU(cache.cpuMaterial, registry, cache.descriptorLayoutIdx, cache.pipelineIndex); }));
+     std::cout << "Material \n"
+                  << std::endl;
 
         // d.instanceGPU = builder.buildInstanceGPU(d.inst);
 

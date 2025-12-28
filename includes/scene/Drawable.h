@@ -1,13 +1,23 @@
 #pragma once
-#include "RessourcesGPU.h"
 #include <glm/glm.hpp>
-#include "AssetRegistry.h"
+#include "AssetTypes.h"
+
+
+struct Mesh;
+struct Material;
+
 
 struct SceneNode
 {
     AssetID<Mesh> mesh;
     AssetID<Material> material;
 };
+/*
+struct MeshGPU;
+struct MaterialGPU;
+struct InstanceGPU;
+*/
+#include "ResourceGPUManager.h"
 
 struct Drawable
 {

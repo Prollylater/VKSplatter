@@ -1,6 +1,7 @@
 #include "Buffer.h"
 #include "utils/RessourceHelper.h"
-#include "Mesh.h" //Scene
+#include "Mesh.h" 
+
 
 ///////////////////////////////////
 // Buffer
@@ -166,45 +167,6 @@ VkBufferView Buffer::createBufferView(VkFormat format, VkDeviceSize offset, VkDe
     return vkUtils::BufferHelper::createBufferView(mDevice, mBuffer, format, offset, size);
 }
 
-void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
-                                 const LogicalDeviceManager &deviceM, uint32_t indice, VmaAllocator allocator, bool SSBO)
-{
-    //const VertexFormat &format = mesh.getFormat();
-    const VertexFormat &format = VertexFormatRegistry::getStandardFormat();
-    
-    VertexBufferData vbd = buildInterleavedVertexBuffer(mesh, format);
-
-    const auto &data = vbd.mBuffers[0];
-    // SSBO VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-    //Todo: better handling of
-    if (SSBO)
-    {
-        createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
-    }
-    else
-    {
-        createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
-    }
-
-    uploadBuffer(data.data(), data.size(), 0, physDevice, deviceM, indice, allocator);
-}
-
-void Buffer::createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
-                                const LogicalDeviceManager &deviceM, uint32_t indice, VmaAllocator allocator)
-
-{
-    //const VertexFormat &format = mesh.getFormat();
-    const VertexFormat &format = VertexFormatRegistry::getStandardFormat();
-    const auto &indices = mesh.indices;
-
-    VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
-    createBuffer(device, physDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
-    uploadBuffer(indices.data(), bufferSize, 0, physDevice, deviceM, indice, allocator);
-}
-
 // This function will not check if the buffer is properly mapped
 void *Buffer::map(VmaAllocator allocator)
 {
@@ -248,3 +210,43 @@ void Buffer::unmap(VmaAllocator allocator)
 
     mMapped = nullptr;
 }
+
+void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
+                                 const LogicalDeviceManager &deviceM, uint32_t indice, VmaAllocator allocator, bool SSBO)
+{
+    //const VertexFormat &format = mesh.getFormat();
+    const VertexFormat &format = VertexFormatRegistry::getStandardFormat();
+    
+    VertexBufferData vbd = buildInterleavedVertexBuffer(mesh, format);
+
+    const auto &data = vbd.mBuffers[0];
+    // SSBO VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+    //Todo: better handling of
+    if (SSBO)
+    {
+        createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
+    }
+    else
+    {
+        createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
+    }
+
+    uploadBuffer(data.data(), data.size(), 0, physDevice, deviceM, indice, allocator);
+}
+
+void Buffer::createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
+                                const LogicalDeviceManager &deviceM, uint32_t indice, VmaAllocator allocator)
+
+{
+    //const VertexFormat &format = mesh.getFormat();
+    const VertexFormat &format = VertexFormatRegistry::getStandardFormat();
+    const auto &indices = mesh.indices;
+
+    VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
+    createBuffer(device, physDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
+    uploadBuffer(indices.data(), bufferSize, 0, physDevice, deviceM, indice, allocator);
+}
+

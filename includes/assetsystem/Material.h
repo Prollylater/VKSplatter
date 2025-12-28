@@ -1,15 +1,14 @@
 #pragma once
-#include "BaseVk.h"
-#include "config/PipelineConfigs.h"
-#include "ContextController.h"
 #include "TextureC.h"
-//class TextureCPU;
+#include "BaseVk.h" //Todo: move away
+#include <glm/glm.hpp> //COLOR header ?
+
 class RenderTargetInfo;
-
-// Opaque, Transparent etc...
-
 struct Material : AssetBase
 {
+  //static AssetType getStaticType() { return AssetType::Material; }
+  //AssetType type() const override { return getStaticType(); }
+  
   MaterialType mType = MaterialType::PBR;
 
   AssetID<TextureCPU> albedoMap;

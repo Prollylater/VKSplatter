@@ -7,7 +7,7 @@ std::unordered_map<uint64_t, AssetRegistry::AssetRecord<Mesh>> &AssetRegistry::g
 }
 
 template <>
-std::unordered_map<uint64_t, AssetRegistry::AssetRecord<Texture>> &AssetRegistry::getAssetMap<Texture>()
+std::unordered_map<uint64_t, AssetRegistry::AssetRecord<TextureCPU>> &AssetRegistry::getAssetMap<TextureCPU>()
 {
     return textures;
 }
@@ -25,7 +25,7 @@ const std::unordered_map<uint64_t, AssetRegistry::AssetRecord<Mesh>> &AssetRegis
 }
 
 template <>
-const std::unordered_map<uint64_t, AssetRegistry::AssetRecord<Texture>> &AssetRegistry::getAssetMap<Texture>() const
+const std::unordered_map<uint64_t, AssetRegistry::AssetRecord<TextureCPU>> &AssetRegistry::getAssetMap<TextureCPU>() const
 {
     return textures;
 }

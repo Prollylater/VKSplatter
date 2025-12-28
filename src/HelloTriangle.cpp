@@ -40,8 +40,8 @@ void HelloTriangleApplication::initVulkan()
 
     renderer.initialize(context, assetSystem.registry());
 
-    //Todo: Generalist
-    //Logging and "check", throw, error handling
+    // Todo: Generalist
+    // Logging and "check", throw, error handling
     renderer.initAllGbuffers({}, true);
 
     renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT, logicScene.sceneLayout.descriptorSetLayoutsBindings);
@@ -51,47 +51,35 @@ void HelloTriangleApplication::initVulkan()
         RenderTargetConfig defRenderPass;
         defRenderPass.addAttachment(context.mSwapChainM.getSwapChainImageFormat().format, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, AttachmentConfig::Role::Present)
             .addAttachment(context.mPhysDeviceM.findDepthFormat(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, AttachmentConfig::Role::Depth);
-        renderer.addPass(RenderPassType::Forward,defRenderPass);
+        renderer.addPass(RenderPassType::Forward, defRenderPass);
     }
     else
     {
-        RenderPassConfig defConfigRenderPass = RenderPassConfig::defaultForward(context.mSwapChainM.getSwapChainImageFormat().format, context.mPhysDeviceM.findDepthFormat());        
-        renderer.addPass(RenderPassType::Forward,defConfigRenderPass);
+        RenderPassConfig defConfigRenderPass = RenderPassConfig::defaultForward(context.mSwapChainM.getSwapChainImageFormat().format, context.mPhysDeviceM.findDepthFormat());
+        renderer.addPass(RenderPassType::Forward, defConfigRenderPass);
     }
-   
+
     initScene();
+    std::cout << "Here" << std::endl;
+    std::cout << "Here" << std::endl;
 
     renderer.initRenderingRessources(logicScene, assetSystem.registry());
+    std::cout << "Here" << std::endl;
+    std::cout << "Here" << std::endl;
 
     vkInitialized = true;
 }
 
 void HelloTriangleApplication::initScene()
 {
+
     auto assetMesh = assetSystem.loadMeshWithMaterials(MODEL_PATH);
+
     const auto &materialIds = assetSystem.registry().get(assetMesh)->materialIds;
+
     SceneNode node{assetMesh, materialIds[0]};
+
     logicScene.addNode(node);
-
-    // Also load Texture
-    // Todo: SHould be able to load everything
-    /*
-    const LogicalDeviceManager &deviceM = context.getLogicalDeviceManager();
-    const VmaAllocator &allocator = context.getLogicalDeviceManager().getVmaAllocator();
-    const VkDevice &device = context.getLogicalDeviceManager().getLogicalDevice();
-    const VkPhysicalDevice &physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
-    const uint32_t indice = context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
-
-    for (auto &material : materialIds)
-    {
-        auto mat = assetSystem.registry().get(material);
-        auto text = assetSystem.registry().get(mat->albedoMap);
-
-        // Load texture assets
-        text->createTextureImage(physDevice, deviceM, TEXTURE_PATH, indice, allocator);
-        text->createTextureImageView(device);
-        text->createTextureSampler(device, physDevice);
-    }*/
 }
 
 // Revise the separation between event dispatching and inputing
@@ -159,7 +147,7 @@ void HelloTriangleApplication::mainLoop()
         // Input and stuff
         // I want this pattern
         auto sceneData = logicScene.getSceneData();
-        
+
         renderer.beginFrame(sceneData, window.getGLFWWindow());
         renderer.beginPass(RenderPassType::Forward);
         renderer.drawFrame(sceneData);
@@ -221,7 +209,7 @@ void HelloTriangleApplication::cleanup()
     // Perhas removing the whole Texture class has it is more or less an helper at this point
 
     cico::logging::shutdown();
-   
+
     renderer.deinitSceneRessources(logicScene);
     context.destroyAll();
     window.close();

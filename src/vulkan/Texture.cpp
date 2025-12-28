@@ -1,10 +1,10 @@
 
-#include "BaseVk.h"
 #include "Texture.h"
-#include "SwapChain.h"
 #include "utils/RessourceHelper.h"
-
- 
+#include "Buffer.h"
+#include "LogicalDevice.h"
+#include "CommandPool.h"
+#include <cmath>
 
 void Image::createImage(vkUtils::Texture::ImageCreateConfig &config)
 {

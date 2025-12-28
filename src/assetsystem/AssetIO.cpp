@@ -2,14 +2,14 @@
 
 #include <tiny_obj_loader.h>
 
-//Todo: Proper handling  of cpu destruction 
 
+// Todo: Proper handling  of cpu destruction
 
 Material loadMaterial(const tinyobj::material_t &objMaterial)
 {
     Material material;
     material.hashedKey = std::hash<std::string>{}(objMaterial.name);
-    material.name =  objMaterial.name;
+    material.name = objMaterial.name;
 
     material.mType = MaterialType::PBR;
 
@@ -123,17 +123,15 @@ Mesh loadMesh(std::string filename)
     }
     if (!mesh.colors.empty())
     { // Color is so so in this ? Same as indices to be quite fair
-       // mesh.inputFlag = static_cast<VertexFlags>(mesh.inputFlag | Vertex_Color);
+      // mesh.inputFlag = static_cast<VertexFlags>(mesh.inputFlag | Vertex_Color);
     }
     if (!mesh.indices.empty())
     {
-       // mesh.inputFlag = static_cast<VertexFlags>(mesh.inputFlag | Vertex_Indices);
+        // mesh.inputFlag = static_cast<VertexFlags>(mesh.inputFlag | Vertex_Indices);
     }
 
     return mesh;
 }
-
-
 std::unique_ptr<Mesh> AssetIO::loadMeshFromFile(const std::string &path)
 {
     return std::make_unique<Mesh>(::loadMesh(path));
@@ -141,7 +139,7 @@ std::unique_ptr<Mesh> AssetIO::loadMeshFromFile(const std::string &path)
 
 std::unique_ptr<TextureCPU> AssetIO::loadTextureFromFile(const std::string &path)
 {
-    //Too generalist
+    // Too generalist
     return std::make_unique<TextureCPU>(::LoadImageTemplate<stbi_uc>(path, STBI_rgb_alpha));
 };
 
@@ -150,4 +148,17 @@ std::unique_ptr<Material> AssetIO::loadMaterialFromFile(const std::string &path)
     return std::make_unique<Material>(Material{});
 };
 
- 
+std::unique_ptr<AssetBase> AssetIO::loadAsset(AssetType type, const std::string &path)
+{
+    switch (type)
+    {
+    case AssetType::Mesh:
+        return loadMeshFromFile(path);
+    case AssetType::Texture:
+        return loadTextureFromFile(path);
+    case AssetType::Material:
+        return loadMaterialFromFile(path);
+    default:
+        throw std::runtime_error("AssetIO::loadAsset: Unknown AssetType");
+    }
+}

@@ -1,15 +1,15 @@
 
 #pragma once
-#include "BaseVk.h"
 #include <unordered_map>
 #include <functional>
 
-// Materials ?
-
+#include "AssetTypes.h"
+// Todo: Remove this
 #include "Material.h"
 #include "Mesh.h"
 #include "TextureC.h"
-//#include "Hashmap.h"
+
+// #include "Hashmap.h"
 #include "logging/Logger.h"
 
 template <typename T>
@@ -20,10 +20,10 @@ struct isAsset : std::is_base_of<AssetBase, T>
 // concept AssetType = std::is_base_of_v<AssetBase, T>;
 // Enforce it class wide ?
 
-//This could actually be simple
-//template<typename T>
-//using AssetID = uint64_t;
-//We would lose the explicit cosntructor and the direct hashing however
+// This could actually be simple
+// template<typename T>
+// using AssetID = uint64_t;
+// We would lose the explicit cosntructor and the direct hashing however
 
 class AssetRegistry
 {
@@ -40,16 +40,18 @@ public:
         auto it = assetMap.find(key);
         if (it != assetMap.end())
         {
-            //This might collide but it is unlikely in most realistic solution
-            //Todo: Better solution ?
-            //Test it or something
-            //Rehash could be possible here since ID is for the better or worse
+            // This might collide but it is unlikely in most realistic solution
+            // Todo: Better solution ?
+            // Test it or something
+            // Rehash could be possible here since ID is for the better or worse
 
-            if(it->second.asset->name != asset->name){
-            _CERROR("Asset hash collision: ", 
-                it->second.asset->name, 
-                "and", asset->name, "at id", key);
-            assert(it->second.asset->name == asset->name)};
+            if (it->second.asset->name != asset->name)
+            {
+                _CERROR("Asset hash collision: ",
+                        it->second.asset->name,
+                        "and", asset->name, "at id", key);
+                assert(it->second.asset->name == asset->name);
+            }
 
             ++it->second.refCount;
             return AssetID<T>{key};
@@ -95,11 +97,12 @@ public:
         {
             if (--it->second.refCount == 0)
             {
-                //Notes: So far this won't destroy the content of those structures
-                //Specifically, textures need to be freed manually due to lack of destructor
-                if constexpr(std::is_same<T, TextureCPU>){
+                // Notes: So far this won't destroy the content of those structures
+                // Specifically, textures need to be freed manually due to lack of destructor
+                if constexpr (std::is_same<T, TextureCPU>::value)
+                {
                     it->second.asset->freeImage();
-                } 
+                }
                 assetMap.erase(it);
             }
         }
@@ -119,7 +122,7 @@ private:
     std::unordered_map<uint64_t, AssetRecord<Mesh>> meshes;
     // Todo: Design problem
     // Textures are bit treachrous has they actually load data in gpu
-    std::unordered_map<uint64_t, AssetRecord<Texture>> textures;
+    std::unordered_map<uint64_t, AssetRecord<TextureCPU>> textures;
     std::unordered_map<uint64_t, AssetRecord<Material>> materials;
 
     template <typename T>
@@ -131,7 +134,7 @@ private:
 // Mesh being an object containing Material is not the best idea as we need to add a Mesh to then have it have separate material
 // Explicit template instantiation
 
-//Todo: Weird constnesss here is due to prototyping state
+// Todo: Weird constnesss here is due to prototyping state
 
 template Mesh *AssetRegistry::get<Mesh>(const AssetID<Mesh> &);
 template TextureCPU *AssetRegistry::get<TextureCPU>(const AssetID<TextureCPU> &);

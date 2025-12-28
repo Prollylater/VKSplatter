@@ -1,14 +1,13 @@
 #pragma once
 #include "BaseVk.h"
 #include "QueueFam.h"
-
 #include <functional>
-///////////////////////////////////
-// Physical device handling
-///////////////////////////////////
+
+//Todo: C++ header should be in a pch
+
 class CommandPoolManager;
 /*
-
+Todo:
 Modify QueueFamilyIndices and findQueueFamilies to explicitly look for a queue family with the VK_QUEUE_TRANSFER_BIT bit, but not the VK_QUEUE_GRAPHICS_BIT.
 Modify createLogicalDevice to request a handle to the transfer queue
 Create a second command pool for command buffers that are submitted on the transfer queue family

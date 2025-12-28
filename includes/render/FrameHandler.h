@@ -1,6 +1,36 @@
 #pragma once
 
-#include "SwapChain.h"
+#include "SyncObjects.h"
+#include "CommandPool.h"
+#include "Descriptor.h"
+#include "Buffer.h"
+#include "config/PipelineConfigs.h"
+
+class SwapChainResources
+{
+public:
+    void createFramebuffer(uint32_t index, VkDevice device, VkExtent2D extent, const std::vector<VkImageView> &attachments, VkRenderPass renderPass);
+    void destroyFramebuffers(VkDevice device);
+
+    const VkFramebuffer &getFramebuffers(uint32_t index) const;
+
+private:
+    std::array<VkFramebuffer, 6> mPassFramebuffers;
+};
+
+struct FrameResources
+{
+    CommandPoolManager mCommandPool;
+    FrameSyncObjects mSyncObjects;
+    DescriptorManager mDescriptor;
+
+    // Todo: Mapping is now included in Buffer
+    Buffer mCameraBuffer;
+    void *mCameraMapping;
+
+    // Legacy
+    SwapChainResources mFramebuffer;
+};
 
 class FrameHandler
 {

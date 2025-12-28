@@ -1,6 +1,5 @@
 
 #include "Descriptor.h"
-#include "Buffer.h"
 
 ///////////////////////////////////
 // Descriptor

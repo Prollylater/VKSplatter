@@ -3,7 +3,6 @@
 #include "utils/RessourceHelper.h"
 #include "Texture.h"
 #include "Material.h"
-#include "ContextController.h"
 
 /*
 Thing not implementend:

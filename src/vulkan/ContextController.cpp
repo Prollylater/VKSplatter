@@ -2,9 +2,6 @@
 #include "QueueFam.h"
 #include "ContextController.h"
 #include "Descriptor.h"
-#include "Texture.h"
-#include <span>
-#include "utils/PipelineHelper.h"
 
 void VulkanContext::initVulkanBase(GLFWwindow *window, ContextCreateInfo &createInfo)
 {
@@ -75,27 +72,9 @@ void VulkanContext::recreateSwapchain(GLFWwindow *window)
     const auto &allocator = mLogDeviceM.getVmaAllocator();
 
     mSwapChainM.destroySwapChain(device);
-    /*
-    // Destroy FrameBuffers/GBuffers/Modify render pass Info
-
-    mGBuffers.destroy(device, allocator);
-
-    for (int i = 0; i < mSwapChainM.GetSwapChainImageViews().size(); i++)
-    {
-        auto &frameData = mSwapChainM.getCurrentFrameData();
-        frameData.mFramebuffer.destroyFramebuffers(device);
-        mSwapChainM.advanceFrame();
-    }
-
-    // SwapChain
-    mSwapChainM.createSwapChain(mPhysDeviceM.getPhysicalDevice(), device, window, mSwapChainM.getConfig(), mPhysDeviceM.getIndices());
-    mSwapChainM.createImageViews(device);
-
-    initRenderInfrastructure();
-    */
 }
 
-// Todo: Tale care of this
+// Todo: Take care of this
 #ifdef USE_VMA
 // vmaCreateImage(...)
 #else

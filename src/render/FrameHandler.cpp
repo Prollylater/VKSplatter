@@ -1,7 +1,9 @@
 #include "FrameHandler.h"
 #include "utils/PipelineHelper.h"
-#include "Scene.h"
-/*const*/ FrameResources &FrameHandler::getCurrentFrameData() // const
+
+#include "Scene.h" //Exist solely due to SizeOfSceneData
+
+FrameResources &FrameHandler::getCurrentFrameData() // const
 {
     //Todo: This condition shouldn't usually happen 
     //assert(mFramesData.size() < currentFrame );
@@ -149,11 +151,12 @@ void FrameHandler::updateUniformBuffers(glm::mat4 data)
 
 void FrameHandler::updateUniformBuffers(VkExtent2D swapChainExtent)
 {
+/*
+
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-/*
     UniformBufferObject ubo{};
     ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -175,3 +178,38 @@ void FrameHandler::writeFramesDescriptors(VkDevice device, int setIndex)
         frame.mDescriptor.updateDescriptorSet(device, writes);
     }
 };
+
+
+void SwapChainResources::createFramebuffer(uint32_t index, VkDevice device, VkExtent2D extent, const std::vector<VkImageView> &attachments, VkRenderPass renderPass)
+{
+  VkFramebufferCreateInfo framebufferInfo{};
+  framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+  framebufferInfo.renderPass = renderPass;
+  framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+  framebufferInfo.pAttachments = attachments.data();
+  framebufferInfo.width = extent.width;
+  framebufferInfo.height = extent.height;
+  framebufferInfo.layers = 1; // sort of array
+
+  if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &mPassFramebuffers[static_cast<size_t>(index)]) != VK_SUCCESS)
+  {
+    throw std::runtime_error("failed to create framebuffer!");
+  }
+}
+const VkFramebuffer & SwapChainResources::getFramebuffers(uint32_t index) const
+{
+  return mPassFramebuffers[static_cast<size_t>(index)];
+}
+
+void SwapChainResources::destroyFramebuffers(VkDevice device)
+{
+  for (auto framebuffer : mPassFramebuffers)
+  {
+      if (framebuffer != VK_NULL_HANDLE)
+      {
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
+      }
+  }
+    mPassFramebuffers.fill(VK_NULL_HANDLE);
+
+}

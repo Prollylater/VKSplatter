@@ -1,10 +1,7 @@
 #pragma once
 
 #include "BaseVk.h"
-#include "stb_image.h"
-#include "Buffer.h"
-#include "TextureC.h"
-
+class LogicalDeviceManager;
 
 namespace vkUtils
 {
@@ -76,7 +73,8 @@ private:
 // Semantic Helper to create Texture
 
 
-//Todo: Moved to RessourcesGPU ?
+#include "TextureC.h"
+
 class Texture 
 {
 public:

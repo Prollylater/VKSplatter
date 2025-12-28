@@ -1,5 +1,6 @@
 #include "ResourceSystem.h"
 #include <functional>
+#include <tiny_obj_loader.h>
 
 // Todo: Asset System should not be owning that logic
 // FileSystem
@@ -88,40 +89,46 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
 
         if (!mtl.diffuse_texname.empty())
         {
-            auto texture = std::make_unique<TextureCPU>(mtl.diffuse_texname);
+
+            auto texture = std::make_unique<TextureCPU>(
+                LoadImageTemplate<stbi_uc>(TEXTURE_PATH, STBI_rgb_alpha));
             texture->hashedKey = hasher(mtl.diffuse_texname);
             texture->name = mtl.diffuse_texname;
-            AssetID textureID = mRegistry.add<TextureCPU>(mtl.diffuse_texname, std::move(texture));
+            AssetID textureID = mRegistry.add<TextureCPU>(std::move(texture));
             material->albedoMap = textureID;
         }
 
         if (!mtl.bump_texname.empty())
         {
-            auto texture = std::make_unique<TextureCPU>(mtl.bump_texname);
+            auto texture = std::make_unique<TextureCPU>(
+                LoadImageTemplate<stbi_uc>(TEXTURE_PATH, STBI_rgb_alpha));
             texture->hashedKey = hasher(mtl.normal_texname);
             texture->name = mtl.normal_texname;
-            AssetID textureID = mRegistry.add<TextureCPU>(mtl.bump_texname, std::move(texture));
+
+            AssetID textureID = mRegistry.add<TextureCPU>(std::move(texture));
             material->normalMap = textureID;
         }
         if (!mtl.metallic_texname.empty())
         {
-            auto texture = std::make_unique<TextureCPU>(mtl.metallic_texname);
+            auto texture = std::make_unique<TextureCPU>(
+                LoadImageTemplate<stbi_uc>(TEXTURE_PATH, STBI_rgb_alpha));
             texture->hashedKey = hasher(mtl.metallic_texname);
             texture->name = mtl.metallic_texname;
-            AssetID textureID = mRegistry.add<TextureCPU>(mtl.metallic_texname, std::move(texture));
+            AssetID textureID = mRegistry.add<TextureCPU>(std::move(texture));
             material->metallicMap = textureID;
         }
 
         if (!mtl.roughness_texname.empty())
         {
-            auto texture = std::make_unique<TextureCPU>(mtl.roughness_texname);
+            auto texture = std::make_unique<TextureCPU>(
+                LoadImageTemplate<stbi_uc>(TEXTURE_PATH, STBI_rgb_alpha));
             texture->hashedKey = hasher(mtl.roughness_texname);
             texture->name = mtl.roughness_texname;
-            AssetID textureID = mRegistry.add<TextureCPU>(mtl.roughness_texname, std::move(texture));
+            AssetID textureID = mRegistry.add<TextureCPU>(std::move(texture));
             material->roughnessMap = textureID;
         }
 
-        AssetID materialID = mRegistry.add<Material>(mtl.name, std::move(material));
+        AssetID materialID = mRegistry.add<Material>(std::move(material));
         mesh->materialIds.push_back(materialID);
     }
 
@@ -131,7 +138,7 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
     std::cout << " - Total shapes: " << shapes.size() << std::endl;
     std::cout << " - Total materials: " << materials.size() << std::endl;
 
-    AssetID meshID = mRegistry.add<Mesh>(filename, std::move(mesh));
+    AssetID meshID = mRegistry.add<Mesh>(std::move(mesh));
     return meshID;
 }
 
@@ -144,7 +151,7 @@ AssetID<Mesh> AssetSystem::loadMesh(const std::string &path)
     {
         return AssetID<Mesh>{};
     }
-    return mRegistry.add<Mesh>(path, std::move(meshPtr));
+    return mRegistry.add<Mesh>(std::move(meshPtr));
 }
 
 AssetID<TextureCPU> AssetSystem::loadTexture(const std::string &path)
@@ -154,7 +161,7 @@ AssetID<TextureCPU> AssetSystem::loadTexture(const std::string &path)
     {
         return AssetID<TextureCPU>{};
     };
-    return mRegistry.add<TextureCPU>(path, std::move(texPtr));
+    return mRegistry.add<TextureCPU>(std::move(texPtr));
 }
 
 AssetID<Material> AssetSystem::loadMaterial(const std::string &path)
@@ -164,7 +171,7 @@ AssetID<Material> AssetSystem::loadMaterial(const std::string &path)
     {
         return AssetID<Material>{};
     };
-    return mRegistry.add<Material>(path, std::move(matPtr));
+    return mRegistry.add<Material>(std::move(matPtr));
 }
 
 // Provide direct access to registry and loader if needed

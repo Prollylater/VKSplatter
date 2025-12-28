@@ -25,14 +25,14 @@ set(SOURCES
     ${SOURCE_DIR}/assetsystem/AssetIO.cpp   
     ${SOURCE_DIR}/assetsystem/AssetRegistry.cpp   
     ${SOURCE_DIR}/assetsystem/ResourceSystem.cpp 
-   
+    ${SOURCE_DIR}/assetsystem/Material.cpp   
+    ${SOURCE_DIR}/assetsystem/Mesh.cpp   
+    
     ${SOURCE_DIR}/core/filesystem/Filesystem.cpp   
     ${SOURCE_DIR}/core/logging/Logger.cpp   
         
     ${SOURCE_DIR}/scene/Camera.cpp   
     ${SOURCE_DIR}/scene/Drawable.cpp   
-    ${SOURCE_DIR}/scene/Material.cpp   
-    ${SOURCE_DIR}/scene/Mesh.cpp   
     ${SOURCE_DIR}/scene/Scene.cpp   
 
 
@@ -43,6 +43,7 @@ set(SOURCES
     ${SOURCE_DIR}/vulkan/Pipeline.cpp   
     ${SOURCE_DIR}/vulkan/ContextController.cpp   
     ${SOURCE_DIR}/vulkan/Texture.cpp   
+    ${SOURCE_DIR}/vulkan/GBuffers.cpp   
     ${SOURCE_DIR}/vulkan/RenderPass.cpp   
     ${SOURCE_DIR}/vulkan/SwapChain.cpp   
     ${SOURCE_DIR}/vulkan/SyncObjects.cpp   
@@ -51,7 +52,8 @@ set(SOURCES
     ${SOURCE_DIR}/vulkan/VulkanInstance.cpp
 
     ${SOURCE_DIR}/render/RenderQueue.cpp  
-    ${SOURCE_DIR}/render/FrameHandler.cpp   
+    ${SOURCE_DIR}/render/FrameHandler.cpp  
+    ${SOURCE_DIR}/render/ResourceGPUManager.cpp   
     ${SOURCE_DIR}/render/RessourcesGPU.cpp   
     ${SOURCE_DIR}/render/VertexDescriptions.cpp   
     ${SOURCE_DIR}/render/Renderer.cpp   
