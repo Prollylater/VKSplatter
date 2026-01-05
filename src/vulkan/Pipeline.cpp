@@ -358,8 +358,6 @@ namespace
     VkPipelineInputAssemblyStateCreateInfo createDefaultInputAssemblyState(const PipelineVertexInputConfig &info)
     {
         /*
-        The VkPipelineInputAssemblyStateCreateInfo struct describes two things:
-        what kind of geometry will be drawn from the vertices and if primitive restart should be enabled.
         Normally, the vertices are loaded from the vertex buffer by index in sequential order,
         but with an element buffer you can specify the indices to use yourself.
         This allows you to perform optimizations like reusing vertices.

@@ -109,33 +109,38 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   // NOT CONFIDENt
   // Descriptor from Scene
   // Create pipeline
-  std::vector<MaterialGPU::MaterialGPUCreateInfo> materialGpuCache;
+ 
+  GpuResourceUploader uploader(*mContext, registry, mMaterialDescriptors, mPipelineM);
 
   for (auto &node : scene.nodes)
   {
-    const auto &materialIds = registry.get(node.mesh)->materialIds;
-    PipelineLayoutConfig sceneConfig{{mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0)}, scene.sceneLayout.pushConstants};
-    for (auto &material : materialIds)
-    {
-      auto mat = mRegistry->get(material);
-      PipelineSetLayoutBuilder materialSetLayout = MaterialLayoutRegistry::Get(mat->mType);
-      int matLayoutIndex = mMaterialDescriptors.getOrCreateSetLayout(device, materialSetLayout.descriptorSetLayoutsBindings);
 
-      sceneConfig.descriptorSetLayouts.push_back(mMaterialDescriptors.getDescriptorLat(matLayoutIndex));
+    const auto &mesh = mRegistry->get(node.mesh);
+
+    // resolve materials globally
+    for (auto matId : mesh->materialIds)
+    {
+      PipelineLayoutConfig sceneConfig{{mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0)}, scene.sceneLayout.pushConstants};
+
+      std::cout << "Material setup \n";
+
+      const auto &mat = mRegistry->get(matId);
+
+      auto layout = MaterialLayoutRegistry::Get(mat->mType);
+      int matLayoutIdx = mMaterialDescriptors.getOrCreateSetLayout(device, layout.descriptorSetLayoutsBindings);
+      sceneConfig.descriptorSetLayouts.push_back(mMaterialDescriptors.getDescriptorLat(matLayoutIdx));
       int pipelineEntryIndex = requestPipeline(sceneConfig, vertPath, fragPath);
 
-      materialGpuCache.emplace_back(MaterialGPU::MaterialGPUCreateInfo{material, matLayoutIndex, pipelineEntryIndex});
+      mGpuRegistry.add(matId, std::function<MaterialGPU()>([&]()
+                                                           { return uploader.uploadMaterialGPU(matId, mGpuRegistry, matLayoutIdx, pipelineEntryIndex); }));
     }
   }
   // NOT CONFIDENt
-
-  // Upload GPU Data
-  GpuResourceUploader uploader(*mContext, registry, mMaterialDescriptors, mPipelineM);
-  std::cout << "Upload Mesh & Material" << indice << std::endl;
   // TODO:
   // Important:
   // This can't stay longterm
-  mRScene.syncFromScene(scene, uploader, mGpuRegistry, materialGpuCache);
+
+  mRScene.syncFromScene(scene, registry, mGpuRegistry, uploader);
   std::cout << "Ressourcess uploaded" << std::endl;
   std::cout << "Scene Ressources Initialized" << std::endl;
 };
@@ -276,7 +281,6 @@ void Renderer::beginFrame(const SceneData &sceneData, GLFWwindow *window)
                                          frameRess.mSyncObjects.getImageAvailableSemaphore(),
                                          mIndexImage);
 
-  std::cout << mIndexImage << " && " << mFrameHandler.getCurrentFrameIndex();
   if (!resultAcq)
   {
     // Todo: Should be in swapchain?
@@ -287,7 +291,8 @@ void Renderer::beginFrame(const SceneData &sceneData, GLFWwindow *window)
   frameRess.mSyncObjects.resetFence(device);
 
   // Update Camera and global UBO
-  mFrameHandler.updateUniformBuffers(sceneData.viewproj);
+  // mFrameHandler.updateUniformBuffers(sceneData.viewproj);
+  memcpy(mFrameHandler.getCurrentFrameData().mCameraMapping, &sceneData, sizeof(SceneData));
 
   renderQueue.build(mRScene);
 
@@ -402,6 +407,7 @@ void Renderer::endPass(RenderPassType type)
   }
 };
 
+//Handle non Material object
 void Renderer::drawFrame(const SceneData &sceneData)
 {
   /*
@@ -459,7 +465,7 @@ for each shader {
                        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &sceneData.viewproj);
 
     // Draw
-    vkCmdDrawIndexed(cmd, meshGpu->indexCount, 1, 0, 0, 0);
+    vkCmdDrawIndexed(cmd, draw->indexCount, 1, draw->indexOffset, 0, 0);
 
     // Fake multi Viewport is basically this
     /*

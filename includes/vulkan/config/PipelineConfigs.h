@@ -178,6 +178,8 @@ struct PipelineSetLayoutBuilder
     }
 };
 
+//Todo: SHould be directly in Material
+//But hten Material would need to output it ?
 // PipelineSetLayoutBuilder materialLayoutInfo;
 // Introduce information too much tied to the Pipeline here
 struct MaterialLayoutRegistry
@@ -204,9 +206,9 @@ struct MaterialLayoutRegistry
                 layout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
                 layout.addDescriptor(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // albedo
                 layout.addDescriptor(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // normal
-                layout.addDescriptor(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // metal/rough
-                layout.addDescriptor(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // ao
-                // layout.addDescriptor(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // emissive
+                layout.addDescriptor(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // metal
+                layout.addDescriptor(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // rough
+                layout.addDescriptor(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // emissive
                 return layout;
             }();
 
@@ -214,8 +216,6 @@ struct MaterialLayoutRegistry
         }
     }
 };
-
-
 
 // Expand it for Subpasses and multiple attachements
 // TOdo: Do i froget the {.membervariable}
@@ -349,7 +349,7 @@ struct RenderTargetConfigCRTP
 
     const std::vector<uint8_t> getClrAttachmentsID() const
     {
-        //Todo: Still on the subject of trying more of C++20 tools, this kind of situation ? filter, transform
+        // Todo: Still on the subject of trying more of C++20 tools, this kind of situation ? filter, transform
         std::vector<uint8_t> attachementsUsed;
         attachementsUsed.reserve(attachments.size());
         for (const auto &attachment : attachments)

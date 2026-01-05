@@ -56,6 +56,7 @@ class GPUResourceRegistry
 public:
      GPUResourceRegistry() = default;
 
+     //Todo: Guardcheck and ivalid asset ID
     //The use of function here is a bit rigid
     template <typename CpuT, typename GpuT>
     GPUHandle<GpuT> add(const AssetID<CpuT> asset, std::function<GpuT()> uploader)
@@ -77,6 +78,7 @@ public:
         return GPUHandle<GpuT>{key};
     }
 
+    //Todo: A get based on on Asset ID ? That would increase the ref count or a softer add function removing the funtion object
     template <typename GpuT>
     GpuT *get(const GPUHandle<GpuT> &handle)
     {

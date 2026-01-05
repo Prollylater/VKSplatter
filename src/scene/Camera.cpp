@@ -1,5 +1,8 @@
 #include "Camera.h"
 
+// Todo: Remove
+#include <iostream>
+
 Camera::Camera()
     : mPosition(0.0f, 0.0f, 1.0f),
       mWorldUp(0.0f, 1.0f, 0.0f),
@@ -30,8 +33,13 @@ glm::mat4 Camera::getProjectionMatrix() const
 {
     return projection;
 }
-// Todo: Remove
-#include <iostream>
+
+glm::vec4 Camera::getEye() const
+{
+    return glm::vec4(mPosition, 0.0);
+}
+
+
 
 void Camera::processKeyboardMovement(float deltaTime, bool forward, bool backward, bool left, bool right, bool up, bool down)
 {
@@ -77,7 +85,7 @@ void Camera::processMouseMovement(float xoffset, float yoffset)
         pitch = 89.0f;
     if (pitch < -89.0f)
         pitch = -89.0f;
-        
+
     updateCameraVectors();
 }
 

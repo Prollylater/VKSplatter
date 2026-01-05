@@ -4,24 +4,23 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <GLFW/glfw3.h>
 
-
 class Camera
 { // Perspective Camera
 public:
     Camera();
-
 
     Camera(glm::vec3 position, glm::vec3 worldUp, float yaw, float pitch, float fov, float aspect, float nearPlane, float farPlane);
     glm::mat4 getViewMatrix() const;
 
     glm::mat4 getProjectionMatrix() const;
 
-    void processKeyboardMovement(float deltaTime, bool forward, bool backward, bool left, bool right,bool up, bool down);
+    glm::vec4 getEye() const;
+    void processKeyboardMovement(float deltaTime, bool forward, bool backward, bool left, bool right, bool up, bool down);
     void processMouseMovement(float xoffset, float yoffset);
     void processMouseScroll(float yoffset);
 
-    void setMvmtSpd(float newSpeed );
-    void setMouseSensitivity(float newSensitivity );
+    void setMvmtSpd(float newSpeed);
+    void setMouseSensitivity(float newSensitivity);
 
 private:
     glm::vec3 mPosition;

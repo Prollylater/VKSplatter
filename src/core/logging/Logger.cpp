@@ -34,7 +34,7 @@ namespace cico
 
         void flushBuffer(bool immediate)
         {
-            std::cout << "Inserted " << cico::logging::bufferPos << " character" << std::endl;
+            //std::cout << "Inserted " << cico::logging::bufferPos << " character" << std::endl;
             if (immediate || bufferPos > 756)
             {
                 logFile.open(logFilePath, std::ios::app);
@@ -44,7 +44,7 @@ namespace cico
                 }
                 //Todo: other write method
                 std::string text(buffer, bufferPos);
-                std::cout << text<<std::endl;
+                //std::cout << text<<std::endl;
                 logFile << text;
 
                 logFile.flush();

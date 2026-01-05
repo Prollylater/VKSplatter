@@ -10,13 +10,11 @@ struct Material;
 struct SceneNode
 {
     AssetID<Mesh> mesh;
-    AssetID<Material> material;
+    
+    // 
+   // std::vector<AssetID<Material>> materialOverrides;
 };
-/*
-struct MeshGPU;
-struct MaterialGPU;
-struct InstanceGPU;
-*/
+
 #include "GPUResourceSystem.h"
 
 struct Drawable
@@ -24,12 +22,14 @@ struct Drawable
     GPUHandle<MeshGPU> meshGPU;
     GPUHandle<MaterialGPU> materialGPU;
     GPUHandle<InstanceGPU> instanceGPU;
+    //Todo: Implement 
     bool visible = true;
-    //  uint32_t parentIndex;
-    //    uint32_t renderMask;
+    uint32_t indexOffset = 0;
+    uint32_t indexCount = 0;
+
+    //uint32_t renderMask;
     // for filtering by pass directly here
-    // Add bounds i guess
-    //    BoundingBox worldBounds;
+    // BoundingBox worldBounds; and transform here
 
     // Binding
 

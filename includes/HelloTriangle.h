@@ -21,6 +21,7 @@ public:
     void run()
     {
         //Tood: Take a look on other pattern
+        //Tood: Create an interface for application
 
         cico::filesystem::setRoot(fs::current_path());
 

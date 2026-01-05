@@ -10,34 +10,35 @@ void RenderScene::destroy(VkDevice device, VmaAllocator alloc)
 };
 
 void RenderScene::syncFromScene(const Scene &cpuScene,
-                                const GpuResourceUploader &builder,
+                                const AssetRegistry &cpuRegistry,
                                 GPUResourceRegistry &registry,
-                                const std::vector<MaterialGPU::MaterialGPUCreateInfo> &matCaches)
+                                const GpuResourceUploader &builder)
 {
     drawables.clear();
     drawables.reserve(cpuScene.nodes.size());
     int index = 0;
+
     for (auto &node : cpuScene.nodes)
     {
-        Drawable d;
-        std::cout << "Mesh \n";
-        const auto &mesh = node.mesh;
+        // Is there a way to not add more add registry more than once
+        const auto &meshHandle = node.mesh;
+        const auto &mesh = cpuRegistry.get(meshHandle);
 
-        d.meshGPU = registry.add(mesh, std::function<MeshGPU()>([&]()
-                                                                { return builder.uploadMeshGPU(node.mesh); }));
+        for (auto &submesh : mesh->submeshes)
+        {
+            Drawable d;
+            d.indexOffset = submesh.indexOffset;
+            d.indexCount = submesh.indexCount;
 
-        std::cout << "Material \n"
-                  << std::endl;
+            d.meshGPU = registry.add(meshHandle, std::function<MeshGPU()>([&]()
+                                                                    { return builder.uploadMeshGPU(node.mesh); }));
+            //Todo:
+            //In practice, i could create a GpuHandle using the id but that's not a behavior i am clear on
+            d.materialGPU = registry.add(mesh->materialIds[submesh.materialId],
+                            std::function<MaterialGPU()>([&](){return MaterialGPU();}));
 
-        const auto &cache = matCaches[index];
-        d.materialGPU = registry.add(cache.cpuMaterial,
-                                     std::function<MaterialGPU()>([&]()
-                                                                  { return builder.uploadMaterialGPU(cache.cpuMaterial, registry, cache.descriptorLayoutIdx, cache.pipelineIndex); }));
-     std::cout << "Material \n"
-                  << std::endl;
-
-        // d.instanceGPU = builder.buildInstanceGPU(d.inst);
-
-        drawables.push_back(std::move(d));
+            // d.instanceGPU = builder.buildInstanceGPU(d.inst);
+            drawables.push_back(std::move(d));
+        }
     }
 }

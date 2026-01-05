@@ -69,12 +69,23 @@ void HelloTriangleApplication::initScene()
 {
 
     auto assetMesh = assetSystem.loadMeshWithMaterials(MODEL_PATH);
+    const Mesh *meshAsset = assetSystem.registry().get(assetMesh);
 
-    const auto &materialIds = assetSystem.registry().get(assetMesh)->materialIds;
+    // const auto &materialIds = meshAsset->materialIds;
 
-    SceneNode node{assetMesh, materialIds[0]};
+    // for (uint32_t i = 0; i < meshAsset->submeshes.size(); ++i)
+    // {
+    //   const auto &sub = meshAsset->submeshes[i];
+
+    SceneNode node{
+        .mesh = assetMesh,
+        //.material = materialIds[sub.materialId],
+        // .submeshIndex = i
+    };
 
     logicScene.addNode(node);
+    std::cout<<"Logic Scene" << logicScene.nodes.size() << std::endl;
+    //}
 }
 
 // Revise the separation between event dispatching and inputing
@@ -136,13 +147,13 @@ void HelloTriangleApplication::mainLoop()
         }
 
         // Todo: Camera Mouse Movement definitly feel off
-        std::cout << "Curr" << mainLoopMouseState.XY[0] << " " << mainLoopMouseState.XY[1] << " Prev "
-                  << mainLoopMouseState.prevXY[0] << " " << mainLoopMouseState.prevXY[1] << "Bool " << mainLoopMouseState.dragging << std::endl;
+        // std::cout << "Curr" << mainLoopMouseState.XY[0] << " " << mainLoopMouseState.XY[1] << " Prev "
+        //          << mainLoopMouseState.prevXY[0] << " " << mainLoopMouseState.prevXY[1] << "Bool " << mainLoopMouseState.dragging << std::endl;
 
         // Input and stuff
         // I want this pattern
-        auto sceneData = logicScene.getSceneData();
 
+        auto sceneData = logicScene.getSceneData();
         renderer.beginFrame(sceneData, window.getGLFWWindow());
         renderer.beginPass(RenderPassType::Forward);
         renderer.drawFrame(sceneData);
@@ -200,11 +211,8 @@ void HelloTriangleApplication::cleanup()
 {
     // Todo:
     // Due to asset Registry still holding texture GPU data Textures fail to be freed,
-    // Best way to solve this is to properly separate Textures GPU and
-    // Perhas removing the whole Texture class has it is more or less an helper at this point
-
+    // Only apply to DummyTexture now
     cico::logging::shutdown();
-
     renderer.deinitSceneRessources(logicScene);
     context.destroyAll();
     window.close();

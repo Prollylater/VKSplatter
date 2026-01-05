@@ -24,10 +24,8 @@ MeshGPU GpuResourceUploader::uploadMeshGPU(const AssetID<Mesh> meshId, bool useS
     const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
     // Todo: There's no guarantee  id exist so i should usse pointer
     auto &mesh = *assetRegistry.get(meshId);
-    gpu.vertexCount = static_cast<uint32_t>(mesh.positions.size());
-    gpu.indexCount = static_cast<uint32_t>(mesh.indices.size());
-    // Calculated using the vertex flag
-    gpu.vertexStride = calculateVertexStride(mesh.getflag());
+    //gpu.vertexCount = static_cast<uint32_t>(mesh.positions.size());
+    //gpu.indexCount = static_cast<uint32_t>(mesh.indices.size());
 
     // Create buffers via Buffer helper
     Buffer vertexBuffer;
@@ -56,6 +54,7 @@ MeshGPU GpuResourceUploader::uploadMeshGPU(const AssetID<Mesh> meshId, bool useS
 };
 
 // Todo: Rewrite this method 
+// Descriptor writing is too much responsibility here
 MaterialGPU GpuResourceUploader::uploadMaterialGPU(const AssetID<Material> matID, GPUResourceRegistry &gpuRegistry, int descriptorIdx, int pipelineIndex) const
 {
     MaterialGPU::MaterialGPUCreateInfo info{matID, descriptorIdx, pipelineIndex};
@@ -104,6 +103,8 @@ MaterialGPU GpuResourceUploader::uploadMaterialGPU(const AssetID<Material> matID
     Texture *normal = acquireTex(material.normalMap, Texture::getDummyNormal);
     Texture *metallic = acquireTex(material.metallicMap, Texture::getDummyMetallic);
     Texture *roughness = acquireTex(material.roughnessMap, Texture::getDummyRoughness);
+    Texture *emissive = acquireTex(material.emissiveMap, Texture::getDummyMetallic);
+
     // Todo
     // MetalRoughAO Check if can just do that
     // Also perhaps use this as a way to decide if a vecor would be easier to deal with (definitly)
@@ -112,6 +113,8 @@ MaterialGPU GpuResourceUploader::uploadMaterialGPU(const AssetID<Material> matID
     VkDescriptorImageInfo normalDescInfo = normal->getImage().getDescriptor();
     VkDescriptorImageInfo metallicDescInfo = metallic->getImage().getDescriptor();
     VkDescriptorImageInfo roughnessDescInfo = roughness->getImage().getDescriptor();
+    VkDescriptorImageInfo emissiveDesc = emissive->getImage().getDescriptor();
+
 
     gpuMat.descriptorIndex = materialDescriptors.allocateDescriptorSet(deviceM.getLogicalDevice(), info.descriptorLayoutIdx);
     auto &materialSet = materialDescriptors.getSet(gpuMat.descriptorIndex);
@@ -121,6 +124,7 @@ MaterialGPU GpuResourceUploader::uploadMaterialGPU(const AssetID<Material> matID
         vkUtils::Descriptor::makeWriteDescriptor(materialSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &normalDescInfo),
         vkUtils::Descriptor::makeWriteDescriptor(materialSet, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &metallicDescInfo),
         vkUtils::Descriptor::makeWriteDescriptor(materialSet, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &roughnessDescInfo),
+        vkUtils::Descriptor::makeWriteDescriptor(materialSet, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &emissiveDesc)
     };
     materialDescriptors.updateDescriptorSet(deviceM.getLogicalDevice(), writes);
 

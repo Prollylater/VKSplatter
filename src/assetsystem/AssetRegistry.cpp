@@ -84,6 +84,10 @@ std::vector<TextureCPU *> AssetResolver::resolveTextures(AssetID<Mesh> meshHandl
         {
             result.push_back(registry.get(mat->roughnessMap));
         };
+        if (mat->emissiveMap.isValid())
+        {
+            result.push_back(registry.get(mat->emissiveMap));
+        };
     }
     return result;
 }

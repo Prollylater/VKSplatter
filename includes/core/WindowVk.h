@@ -11,7 +11,7 @@
 static bool s_glfwInitialized = false;
 static bool s_glfwWinCount = 0;
 
-
+//Replace by a Window tied to OS and not the graphic API
 class VulkanWindow : public AbstractWindow
 {
 public:

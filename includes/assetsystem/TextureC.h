@@ -69,7 +69,6 @@ ImageData<T> LoadImageTemplate(
         std::cout << "Type: " << (std::is_same_v<T, float> ? "float" : "unsigned char") << "\n";
     }
 
-    // Warining here
-    return {std::hash<std::string>{}(filepath), filepath, data, width, height, desired_channels ? desired_channels : channels};
+    return {std::hash<std::string>{}(filepath), filepath, data, static_cast<uint32_t>(width), static_cast<uint32_t>(height), desired_channels ? desired_channels : channels};
 }
 using TextureCPU = ImageData<stbi_uc>;

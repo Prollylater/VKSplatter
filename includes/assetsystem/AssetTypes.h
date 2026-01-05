@@ -3,7 +3,9 @@
 #include <string>
 #include <cstdint>
 
-#define INVALID_ASSET_ID 0
+
+constexpr uint64_t INVALID_ASSET_ID = UINT64_MAX;
+//#define INVALID_ASSET_ID UINT64_MAX
 enum class AssetType { Mesh, Texture, Material };
 
 

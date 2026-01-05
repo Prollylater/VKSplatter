@@ -36,11 +36,12 @@ struct MeshGPU
     VkDeviceMemory indexMem = VK_NULL_HANDLE;
 
     VkDeviceAddress vertexAddress = 0;
-
-    uint32_t vertexCount = 0; // Not too sure if this would be useful
-    uint32_t indexCount = 0;
-    uint32_t vertexStride = 0;
-
+    //Todo: Unused so far
+    uint32_t indexBufferOffset = 0;
+    uint32_t vertexBufferOffset = 0;
+    //uint32_t indexCount = 0;
+    //uint32_t vertexCount = 0; // Not too sure if this would be useful
+    //uint32_t vertexStride = 0;
     void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
 };
 
