@@ -28,6 +28,13 @@ struct FrameResources
     Buffer mCameraBuffer;
     void *mCameraMapping;
 
+    //Hold a Light Packet
+    Buffer mPtLightsBuffer;
+    void *mPtLightMapping;
+
+    Buffer mDirLightsBuffer;
+    void *mDirLightMapping;
+
     // Legacy
     SwapChainResources mFramebuffer;
 };

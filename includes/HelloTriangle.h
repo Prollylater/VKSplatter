@@ -15,6 +15,10 @@ Pointer to custom allocator callbacks, always nullptr in this tutorial
 Pointer to the variable that stores the handle to the new object
 */
 
+/*
+Todo: Gp gems 4/6
+*/
+
 class HelloTriangleApplication
 {
 public:
@@ -38,6 +42,7 @@ public:
         initVulkan();
         _CINFO("Vulkan initialized");
         clock.reset();
+
         mainLoop();
         cleanup();
     }

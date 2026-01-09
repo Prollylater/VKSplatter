@@ -24,7 +24,6 @@ void Renderer::createFramesData(uint32_t framesInFlightCount, const std::vector<
 
   // Update/Store UBO
   mFrameHandler.writeFramesDescriptors(logicalDevice, 0);
-  mFrameHandler.updateUniformBuffers(mContext->getSwapChainManager().getSwapChainExtent());
 }
 
 void Renderer::initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth)
@@ -109,7 +108,7 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   // NOT CONFIDENt
   // Descriptor from Scene
   // Create pipeline
- 
+
   GpuResourceUploader uploader(*mContext, registry, mMaterialDescriptors, mPipelineM);
 
   for (auto &node : scene.nodes)
@@ -122,12 +121,12 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
     {
       PipelineLayoutConfig sceneConfig{{mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0)}, scene.sceneLayout.pushConstants};
 
-      std::cout << "Material setup \n";
-
       const auto &mat = mRegistry->get(matId);
 
       auto layout = MaterialLayoutRegistry::Get(mat->mType);
+
       int matLayoutIdx = mMaterialDescriptors.getOrCreateSetLayout(device, layout.descriptorSetLayoutsBindings);
+     
       sceneConfig.descriptorSetLayouts.push_back(mMaterialDescriptors.getDescriptorLat(matLayoutIdx));
       int pipelineEntryIndex = requestPipeline(sceneConfig, vertPath, fragPath);
 
@@ -141,6 +140,32 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   // This can't stay longterm
 
   mRScene.syncFromScene(scene, registry, mGpuRegistry, uploader);
+
+  // Get the light packet from the scene
+  //Todo: Result of Frames tied light
+  LightPacket lights = scene.getLightPacket();
+  for (int i = 0; i < mFrameHandler.getFramesCount(); i++)
+  {
+     uint8_t* dirLightMapping = static_cast<uint8_t*>(mFrameHandler.getCurrentFrameData().mDirLightMapping);
+    uint8_t* ptLightMapping = static_cast<uint8_t*>(mFrameHandler.getCurrentFrameData().mPtLightMapping);
+    //lights.directionalCount
+    int count = 10;
+    memcpy(dirLightMapping,
+           lights.directionalLights.data(),
+           lights.dirLigthSize * count);
+    
+    memcpy(dirLightMapping + (lights.dirLigthSize * count),
+           &lights.directionalCount,
+           sizeof(lights.directionalCount));
+           
+    memcpy(ptLightMapping,
+           lights.pointLights.data(),
+           lights.pointLightSize * count);
+    memcpy(ptLightMapping + (lights.pointLightSize * count),
+           &lights.pointCount,
+           sizeof(lights.pointCount));
+    mFrameHandler.advanceFrame();
+  }
   std::cout << "Ressourcess uploaded" << std::endl;
   std::cout << "Scene Ressources Initialized" << std::endl;
 };
@@ -154,7 +179,6 @@ void Renderer::deinitSceneRessources(Scene &scene)
 
   // Below is more destroy Renderer than anything else
   mGBuffers.destroy(device, allocator);
-
   mGpuRegistry.clearAll(device, allocator);
   for (int i = 0; i < mContext->mSwapChainM.GetSwapChainImageViews().size(); i++)
   {
@@ -407,7 +431,7 @@ void Renderer::endPass(RenderPassType type)
   }
 };
 
-//Handle non Material object
+// Handle non Material object
 void Renderer::drawFrame(const SceneData &sceneData)
 {
   /*

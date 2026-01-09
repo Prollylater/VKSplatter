@@ -4,7 +4,8 @@
 #include "Drawable.h"
 #include "Material.h"
 #include "GPUResource.h"
-#include "AssetRegistry.h" //
+#include "AssetRegistry.h"
+#include "Light.h"
 #include "Camera.h"
 #include "config/PipelineConfigs.h"
 
@@ -14,60 +15,42 @@ struct SceneData
     glm::mat4 viewproj;
     glm::vec4 view;
     glm::vec4 ambientColor;
-    glm::vec4 sunlightDirection;
-    glm::vec4 sunlightColor;
 };
 
+// Todo: Alignment
+struct LightPacket
+{
+    std::vector<DirectionalLight> directionalLights;
+    uint32_t directionalCount;
+    std::vector<PointLight> pointLights;
+    uint32_t pointCount;
+
+    static constexpr uint32_t dirLigthSize = sizeof(DirectionalLight);
+    static constexpr uint32_t pointLightSize = sizeof(PointLight);
+};
+
+// Temporary
 class Scene
 {
 public:
-    Scene()
-    {
-        //Temp
-        sceneLayout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-        sceneLayout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SceneData));
-    };
+    Scene();
+    explicit Scene(int compute);
 
-    explicit Scene(int compute)
-    {
-        sceneLayout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-        sceneLayout.addDescriptor(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-        sceneLayout.addDescriptor(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-
-        sceneLayout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SceneData));
-    };
     ~Scene() = default;
+
+    void addNode(SceneNode node);
+    void clearScene();
+
+    Camera &getCamera();
+    SceneData getSceneData();
+    LightPacket getLightPacket();
 
     // Todo: Something about rebuild when an Asset become invalid
     std::vector<SceneNode> nodes;
-    void addNode(SceneNode node)
-    {
-        nodes.push_back(node);
-    }
-    void clearScene()
-    {
-        nodes.clear();
-    }
-
     // Camera object
     Camera camera;
-
-    // Light
-    glm::vec4 ambientColor;
-    glm::vec4 sunlightDirection;
-    glm::vec4 sunlightColor;
-
-    PipelineSetLayoutBuilder sceneLayout;
-
-    // Temporary
-    Camera &getCamera() { return camera; };
-    SceneData getSceneData()
-    {
-        glm::mat4 proj = camera.getProjectionMatrix();
-        proj[1][1] *= -1;
-
-        return {proj * camera.getViewMatrix(), camera.getEye(), ambientColor, sunlightDirection, sunlightColor};
-    };
+    LightSystem lights;
+    PipelineSetLayoutBuilder sceneLayout; // This should either become Api agnostic or be removed
 };
 
 class RenderScene
@@ -80,16 +63,19 @@ public:
     std::vector<Drawable> drawables;
 
     void syncFromScene(const Scene &cpuScene,
-                                const AssetRegistry& cpuRegistry,
-                                GPUResourceRegistry &registry,
-                                const GpuResourceUploader &builder);
-                                
+                       const AssetRegistry &cpuRegistry,
+                       GPUResourceRegistry &registry,
+                       const GpuResourceUploader &builder);
+
     struct PassRequirements
     {
         bool needsMaterial = false;
         bool needsMesh = true;
         bool needsTransform = true;
     };
+
+    // Todo:
+    // Would light do better here than in Frame handler ?
     /*
 
 

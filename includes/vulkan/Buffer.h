@@ -17,13 +17,13 @@ public:
                       VkMemoryPropertyFlags properties,
                       VmaAllocator alloc = VK_NULL_HANDLE);
 
-    void destroyBuffer(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
+    void destroyBuffer(VkDevice device, VmaAllocator allocator = VK_NULL_HANDLE);
 
     void uploadBuffer(const void *data, VkDeviceSize dataSize,
                       VkDeviceSize dstOffset,
                       VkPhysicalDevice physDevice,
                       const LogicalDeviceManager &physDev,
-                      uint32_t queueIndice, VmaAllocator allocator);
+                      uint32_t queueIndice, VmaAllocator allocator = VK_NULL_HANDLE);
 
     void copyToBuffer(VkBuffer dstBuffer,
                       VkDeviceSize size, const LogicalDeviceManager &deviceM,
@@ -42,8 +42,8 @@ public:
 
     VkBufferView createBufferView(VkFormat format, VkDeviceSize offset = 0, VkDeviceSize size = VK_WHOLE_SIZE);
 
-    void *map(VmaAllocator allocator);
-    void unmap(VmaAllocator allocator);
+    void *map(VmaAllocator allocator = VK_NULL_HANDLE);
+    void unmap(VmaAllocator allocator= VK_NULL_HANDLE);
 
     VkBuffer getBuffer() const { return mBuffer; }
     VkDeviceMemory getMemory() const { return mMemory; }

@@ -36,6 +36,8 @@ const std::string fragPath = "./ressources/shaders/frag.spv";
 const std::string MODEL_PATH = "./ressources/models/hearthspring.obj";
 const std::string TEXTURE_PATH = "./ressources/models/hearthspring.png";
 
+//const std::string MODEL_PATH = "./ressources/models/bmw.obj";
+//const std::string TEXTURE_PATH = "./ressources/models/bmw.png";
 // Also repass on fucntion while looking into the structure
 //https://docs.vulkan.org/tutorial/latest/12_Ecosystem_Utilities_and_Compatibility.html#_supporting_older_gpus
 struct DeviceSelectionCriteria

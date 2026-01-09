@@ -66,3 +66,4 @@ struct InstanceData
     glm::mat4 transform = glm::mat4(1.0f);
     glm::vec4 color;
 };
+

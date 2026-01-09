@@ -62,7 +62,8 @@ void HelloTriangleApplication::initVulkan()
     initScene();
 
     renderer.initRenderingRessources(logicScene, assetSystem.registry());
-    vkInitialized = true;
+
+     vkInitialized = true;
 }
 
 void HelloTriangleApplication::initScene()

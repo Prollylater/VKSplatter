@@ -5,17 +5,16 @@
 
 FrameResources &FrameHandler::getCurrentFrameData() // const
 {
-    //Todo: This condition shouldn't usually happen 
-    //assert(mFramesData.size() < currentFrame );
+    // Todo: This condition shouldn't usually happen
+    // assert(mFramesData.size() < currentFrame );
 
     return mFramesData[currentFrame];
 }
 
-  uint32_t FrameHandler::getFramesCount() const
-    {
-        return mFramesData.size();
-    }
-
+uint32_t FrameHandler::getFramesCount() const
+{
+    return mFramesData.size();
+}
 
 uint32_t FrameHandler::getCurrentFrameIndex() const
 {
@@ -32,6 +31,18 @@ void FrameHandler::advanceFrame()
     }
 }
 
+// Todo! with scene light being added, this will need to become more dynamic
+void FrameHandler::createFramesData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice, uint32_t frameInFlightCount)
+{
+    mFramesData.resize(frameInFlightCount);
+    currentFrame = 0;
+    for (int i = 0; i < mFramesData.size(); i++)
+    {
+        createFrameData(device, physDevice, queueIndice);
+        advanceFrame();
+    }
+};
+
 void FrameHandler::createFrameData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice)
 {
     auto &frameData = mFramesData[currentFrame];
@@ -45,9 +56,21 @@ void FrameHandler::createFrameData(VkDevice device, VkPhysicalDevice physDevice,
     // UBO
     frameData.mCameraBuffer.createBuffer(device, physDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    VkDeviceSize plightBufferSize = 10 * sizeof(PointLight) + sizeof(uint32_t);
+    VkDeviceSize dlightBufferSize = 10 * sizeof(DirectionalLight) + sizeof(uint32_t);
+
+    frameData.mPtLightsBuffer.createBuffer(device, physDevice, plightBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    frameData.mDirLightsBuffer.createBuffer(device, physDevice, dlightBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
     // Persistent Mapping
-    //Todo:
+    // Todo:
     vkMapMemory(device, frameData.mCameraBuffer.getMemory(), 0, bufferSize, 0, &frameData.mCameraMapping);
+    frameData.mPtLightMapping = frameData.mPtLightsBuffer.map();
+    frameData.mDirLightMapping = frameData.mDirLightsBuffer.map();
 };
 
 void FrameHandler::destroyFrameData(VkDevice device)
@@ -59,20 +82,11 @@ void FrameHandler::destroyFrameData(VkDevice device)
     frameData.mDescriptor.destroyDescriptorLayout(device);
     frameData.mDescriptor.destroyDescriptorPool(device);
     frameData.mCameraBuffer.destroyBuffer(device);
+    frameData.mPtLightsBuffer.destroyBuffer(device);
+    frameData.mDirLightsBuffer.destroyBuffer(device);
+
 };
 
-void FrameHandler::createFramesData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice, uint32_t frameInFlightCount)
-{
-    mFramesData.resize(frameInFlightCount);
-    currentFrame = 0;
-    for (int i = 0; i < mFramesData.size(); i++)
-    {
-        createFrameData(device, physDevice, queueIndice);
-        advanceFrame();
-    }
-};
-
-// Todo:
 void FrameHandler::createFramesDescriptorSet(VkDevice device, const std::vector<std::vector<VkDescriptorSetLayoutBinding>> &layouts)
 {
     for (const auto &layout : layouts)
@@ -96,7 +110,7 @@ void FrameHandler::createFramesDescriptorSet(VkDevice device, const std::vector<
     }
 };
 
-//Todo: Inconsistent  order of argupments
+// Todo: Inconsistent  order of argupments
 void FrameHandler::createFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, RenderPassType type, const VkExtent2D swapChainExtent)
 {
 
@@ -108,7 +122,7 @@ void FrameHandler::createFrameBuffers(VkDevice device, const std::vector<VkImage
     }
 }
 
-//This one isn't much good either
+// This one isn't much good either
 void FrameHandler::completeFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, RenderPassType type, const std::vector<VkImageView> swapChainViews, const VkExtent2D swapChainExtent)
 {
     std::vector<VkImageView> fbAttachments(1 + attachments.size());
@@ -123,7 +137,6 @@ void FrameHandler::completeFrameBuffers(VkDevice device, const std::vector<VkIma
         frameBuffer.createFramebuffer(static_cast<size_t>(type), device, swapChainExtent, fbAttachments, renderPass);
         advanceFrame();
     }
-
 }
 
 // This delete all frame data including those used in Pipeline
@@ -139,77 +152,79 @@ void FrameHandler::destroyFramesData(VkDevice device)
     currentFrame = 0;
 };
 
-
 void FrameHandler::updateUniformBuffers(glm::mat4 data)
 {
-    //Notes: This currently fill the uniformSceneData with garbage since the Descriptor are differently shaped
-    //It only work for the push constants
-    //Not that anyone care
-    //Copy into persistently mapped buffer
+    // Notes: This currently fill the uniformSceneData with garbage since the Descriptor are differently shaped
+    // It only work for the push constants
+    // Not that anyone care
+    // Copy into persistently mapped buffer
     memcpy(getCurrentFrameData().mCameraMapping, &data, sizeof(glm::mat4));
 };
 
-void FrameHandler::updateUniformBuffers(VkExtent2D swapChainExtent)
-{
-/*
+void FrameHandler::updateUniformBuffers(VkExtent2D swapChainExtent) {
+    /*
 
-    static auto startTime = std::chrono::high_resolution_clock::now();
+        static auto startTime = std::chrono::high_resolution_clock::now();
 
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-    UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+        UniformBufferObject ubo{};
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
 
-    ubo.proj[1][1] *= -1;
+        ubo.proj[1][1] *= -1;
 
-    // Copy into persistently mapped buffer
-    memcpy(getCurrentFrameData().mCameraMapping, &ubo, sizeof(ubo));*/
+        // Copy into persistently mapped buffer
+        memcpy(getCurrentFrameData().mCameraMapping, &ubo, sizeof(ubo));*/
 };
 
 void FrameHandler::writeFramesDescriptors(VkDevice device, int setIndex)
 {
     for (auto &frame : mFramesData)
     {
-        auto descriptorBuffer = frame.mCameraBuffer.getDescriptor();
+        auto dscrptrCam = frame.mCameraBuffer.getDescriptor();
+        auto dscrptrDirLght = frame.mDirLightsBuffer.getDescriptor();
+        auto dscrptrPtLght = frame.mPtLightsBuffer.getDescriptor();
+
         std::vector<VkWriteDescriptorSet> writes = {
-            vkUtils::Descriptor::makeWriteDescriptor(frame.mDescriptor.getSet(setIndex), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &descriptorBuffer)};
+            vkUtils::Descriptor::makeWriteDescriptor(frame.mDescriptor.getSet(setIndex), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &dscrptrCam),
+            vkUtils::Descriptor::makeWriteDescriptor(frame.mDescriptor.getSet(setIndex), 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &dscrptrDirLght),
+            vkUtils::Descriptor::makeWriteDescriptor(frame.mDescriptor.getSet(setIndex), 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &dscrptrPtLght)};
+
         frame.mDescriptor.updateDescriptorSet(device, writes);
     }
 };
 
-
 void SwapChainResources::createFramebuffer(uint32_t index, VkDevice device, VkExtent2D extent, const std::vector<VkImageView> &attachments, VkRenderPass renderPass)
 {
-  VkFramebufferCreateInfo framebufferInfo{};
-  framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-  framebufferInfo.renderPass = renderPass;
-  framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-  framebufferInfo.pAttachments = attachments.data();
-  framebufferInfo.width = extent.width;
-  framebufferInfo.height = extent.height;
-  framebufferInfo.layers = 1; // sort of array
+    VkFramebufferCreateInfo framebufferInfo{};
+    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebufferInfo.renderPass = renderPass;
+    framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    framebufferInfo.pAttachments = attachments.data();
+    framebufferInfo.width = extent.width;
+    framebufferInfo.height = extent.height;
+    framebufferInfo.layers = 1; // sort of array
 
-  if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &mPassFramebuffers[static_cast<size_t>(index)]) != VK_SUCCESS)
-  {
-    throw std::runtime_error("failed to create framebuffer!");
-  }
+    if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &mPassFramebuffers[static_cast<size_t>(index)]) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create framebuffer!");
+    }
 }
-const VkFramebuffer & SwapChainResources::getFramebuffers(uint32_t index) const
+const VkFramebuffer &SwapChainResources::getFramebuffers(uint32_t index) const
 {
-  return mPassFramebuffers[static_cast<size_t>(index)];
+    return mPassFramebuffers[static_cast<size_t>(index)];
 }
 
 void SwapChainResources::destroyFramebuffers(VkDevice device)
 {
-  for (auto framebuffer : mPassFramebuffers)
-  {
-      if (framebuffer != VK_NULL_HANDLE)
-      {
-        vkDestroyFramebuffer(device, framebuffer, nullptr);
-      }
-  }
+    for (auto framebuffer : mPassFramebuffers)
+    {
+        if (framebuffer != VK_NULL_HANDLE)
+        {
+            vkDestroyFramebuffer(device, framebuffer, nullptr);
+        }
+    }
     mPassFramebuffers.fill(VK_NULL_HANDLE);
-
 }

@@ -42,7 +42,7 @@ public:
 
         // Setup Pipeline Cache and Pool
         mPipelineM.initialize(device, "");
-        mMaterialDescriptors.createDescriptorPool(device, 10, {});
+        mMaterialDescriptors.createDescriptorPool(device, 50, {});
     }
 
     void addPass(RenderPassType type, RenderPassConfig legacyConfig)

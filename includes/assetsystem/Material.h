@@ -7,7 +7,8 @@
 #include "TextureC.h"
 #include <glm/glm.hpp> //COLOR header ?
 
-
+//Todo: 
+//Add default material
 //Change codeStyle to code_style
 class RenderTargetInfo;
 struct Material : AssetBase
@@ -32,10 +33,11 @@ LightingPath mLightingPath = LightingPath::Forward;
     glm::vec4 albedoColor = glm::vec4(1.0f);
     glm::vec4 emissive = glm::vec4(0.0f);
     float metallic = 0.0f;  
-    float roughness = 1.0f; 
+    float roughness = 0.0f; 
+    float specular = 0.0f;
     uint32_t flags;
 
-    float padding;
+    //Specularityt
   } mConstants;
 
   void setType(MaterialType type);

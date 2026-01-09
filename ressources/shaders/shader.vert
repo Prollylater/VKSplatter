@@ -4,8 +4,6 @@ layout(set = 0, binding = 0) uniform SceneData{
 	mat4 viewproj;
     vec4 eye;
 	vec4 ambientColor;
-	vec4 sunlightDirection; 
-	vec4 sunlightColor;
 } sceneUBO;
 
 layout(push_constant) uniform UniformBufferObjectB {

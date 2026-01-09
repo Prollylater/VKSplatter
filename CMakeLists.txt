@@ -34,8 +34,11 @@ set(SOURCES
     ${SOURCE_DIR}/scene/Camera.cpp   
     ${SOURCE_DIR}/scene/Drawable.cpp   
     ${SOURCE_DIR}/scene/Scene.cpp   
-
-
+    ${SOURCE_DIR}/scene/Light.cpp   
+    #${SOURCE_DIR}/scene/geometry/Frustrum.cpp   
+    #${SOURCE_DIR}/scene/geometry/Extents.cpp   
+    ${SOURCE_DIR}/scene/Transform.cpp   
+    
     ${SOURCE_DIR}/vulkan/Buffer.cpp   
     ${SOURCE_DIR}/vulkan/CommandPool.cpp   
     ${SOURCE_DIR}/vulkan/LogicalDevice.cpp   
@@ -87,6 +90,7 @@ ${INCLUDE_DIR}/scene
 ${INCLUDE_DIR}/assetsystem
 ${INCLUDE_DIR}/core
 ${SOURCE_DIR}/core
+${SOURCE_DIR}/scene
 ${THIRD_PARTY})
 
 # Link libraries

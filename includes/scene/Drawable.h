@@ -1,7 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 #include "AssetTypes.h"
-
+#include "Transform.h"
 
 struct Mesh;
 struct Material;
@@ -10,6 +10,7 @@ struct Material;
 struct SceneNode
 {
     AssetID<Mesh> mesh;
+    Transform transform;
     
     // 
    // std::vector<AssetID<Material>> materialOverrides;

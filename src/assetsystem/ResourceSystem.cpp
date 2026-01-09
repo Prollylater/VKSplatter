@@ -60,7 +60,7 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
                                                          mtl.diffuse[1], mtl.diffuse[2], 1.0};
         }
 
-        if (!mtl.bump_texname.empty())
+        if (!mtl.normal_texname.empty())
         {
             auto texture = std::make_unique<TextureCPU>(
                 LoadImageTemplate<stbi_uc>(TEXTURE_PATH, STBI_rgb_alpha));
