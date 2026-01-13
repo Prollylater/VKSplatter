@@ -111,10 +111,23 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
 
   GpuResourceUploader uploader(*mContext, registry, mMaterialDescriptors, mPipelineM);
 
+  //Todo: Temp
+  auto vf = VertexFormatRegistry::getStandardFormat();
+  const auto layoutInst = scene.getNode(0).layout;
+  vf.bindings.push_back(makeVtxInputBinding(1, layoutInst.stride, VK_VERTEX_INPUT_RATE_INSTANCE));
+  vf.attributes.push_back(makeVtxInputAttr(3, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0));
+  vf.attributes.push_back(makeVtxInputAttr(4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)));
+  vf.attributes.push_back(makeVtxInputAttr(5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)*2));
+  vf.attributes.push_back(makeVtxInputAttr(6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)*3));
+  vf.attributes.push_back(makeVtxInputAttr(7, 1, VK_FORMAT_R32_UINT, sizeof(glm::mat4)));
+  VertexFormatRegistry::registerFormat(vf.mVertexFlags, vf);
+
   for (auto &node : scene.nodes)
   {
 
     const auto &mesh = mRegistry->get(node.mesh);
+    // If instance were layout
+    // int instanceLayout = mMaterialDescriptors.getOrCreateSetLayout(device, layout.descriptorSetLayoutsBindings);
 
     // resolve materials globally
     for (auto matId : mesh->materialIds)
@@ -126,7 +139,7 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
       auto layout = MaterialLayoutRegistry::Get(mat->mType);
 
       int matLayoutIdx = mMaterialDescriptors.getOrCreateSetLayout(device, layout.descriptorSetLayoutsBindings);
-     
+
       sceneConfig.descriptorSetLayouts.push_back(mMaterialDescriptors.getDescriptorLat(matLayoutIdx));
       int pipelineEntryIndex = requestPipeline(sceneConfig, vertPath, fragPath);
 
@@ -142,22 +155,22 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   mRScene.syncFromScene(scene, registry, mGpuRegistry, uploader);
 
   // Get the light packet from the scene
-  //Todo: Result of Frames tied light
+  // Todo: Result of Frames tied light
   LightPacket lights = scene.getLightPacket();
   for (int i = 0; i < mFrameHandler.getFramesCount(); i++)
   {
-     uint8_t* dirLightMapping = static_cast<uint8_t*>(mFrameHandler.getCurrentFrameData().mDirLightMapping);
-    uint8_t* ptLightMapping = static_cast<uint8_t*>(mFrameHandler.getCurrentFrameData().mPtLightMapping);
-    //lights.directionalCount
+    uint8_t *dirLightMapping = static_cast<uint8_t *>(mFrameHandler.getCurrentFrameData().mDirLightMapping);
+    uint8_t *ptLightMapping = static_cast<uint8_t *>(mFrameHandler.getCurrentFrameData().mPtLightMapping);
+    // lights.directionalCount
     int count = 10;
     memcpy(dirLightMapping,
            lights.directionalLights.data(),
            lights.dirLigthSize * count);
-    
+
     memcpy(dirLightMapping + (lights.dirLigthSize * count),
            &lights.directionalCount,
            sizeof(lights.directionalCount));
-           
+
     memcpy(ptLightMapping,
            lights.pointLights.data(),
            lights.pointLightSize * count);
@@ -166,6 +179,7 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
            sizeof(lights.pointCount));
     mFrameHandler.advanceFrame();
   }
+
   std::cout << "Ressourcess uploaded" << std::endl;
   std::cout << "Scene Ressources Initialized" << std::endl;
 };
@@ -206,6 +220,7 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config,
   // slice = std::vector<VkFormat>();
   // Slice asssuming  attachment last attachment is the depth
 
+  // Pipeline should obviously not be constructed here
   PipelineBuilder builder;
   builder.setShaders({vertexPath, fragmentPath})
       .setInputConfig({.vertexFormat = VertexFormatRegistry::getStandardFormat()});
@@ -468,6 +483,7 @@ for each shader {
 
     auto *meshGpu = mGpuRegistry.get(draw->meshGPU);
     auto *materialGpu = mGpuRegistry.get(draw->materialGPU);
+    auto *instanceGPU = mGpuRegistry.getInstances(draw->instanceGPU, mFrameHandler.getCurrentFrameIndex());
 
     // Bind descriptors
     std::vector<VkDescriptorSet> sets = {
@@ -482,6 +498,8 @@ for each shader {
     // Bind vertex
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(cmd, 0, 1, &meshGpu->vertexBuffer, offsets);
+    vkCmdBindVertexBuffers(cmd, 1, 1, &instanceGPU->instanceBuffer, offsets);
+
     vkCmdBindIndexBuffer(cmd, meshGpu->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     // Push constants
@@ -489,7 +507,7 @@ for each shader {
                        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &sceneData.viewproj);
 
     // Draw
-    vkCmdDrawIndexed(cmd, draw->indexCount, 1, draw->indexOffset, 0, 0);
+    vkCmdDrawIndexed(cmd, draw->indexCount, instanceGPU->count, draw->indexOffset, 0, 0);
 
     // Fake multi Viewport is basically this
     /*

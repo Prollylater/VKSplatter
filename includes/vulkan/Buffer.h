@@ -77,7 +77,7 @@ private:
 
 public:
     // Todo: Helper to move out
-    //Should be in an helper
+    //Should be in an helper namespace or just free non member
     void createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const std::vector<Mesh> &mesh,
                                   const LogicalDeviceManager &deviceM, uint32_t indice);
 

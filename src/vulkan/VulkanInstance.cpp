@@ -87,7 +87,7 @@ bool VulkanInstanceManager::checkExtensionsSupport()
     // Additonal test
     // Can't get both elements at the same time
     uint32_t extensionCount = 0;
-    // Todo : Directly use Context
+    // Todo: Directly use Context
     auto extensionProperties = mContext.enumerateInstanceExtensionProperties();
     // vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
     // std::vector<VkExtensionProperties> extensions(extensionCount);

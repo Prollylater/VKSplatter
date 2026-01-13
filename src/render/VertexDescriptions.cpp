@@ -9,31 +9,6 @@ constexpr uint32_t LOCATION_COLOR = 3;
 
 
 
-VkVertexInputBindingDescription makeVtxInputBinding(
-    uint32_t binding,
-    uint32_t stride,
-    VkVertexInputRate inputRate)
-{
-    VkVertexInputBindingDescription desc{};
-    desc.binding = binding;
-    desc.stride = stride;
-    desc.inputRate = inputRate;
-    return desc;
-}
-
-VkVertexInputAttributeDescription makeVtxInputAttr(
-    uint32_t location,
-    uint32_t binding,
-    VkFormat format,
-    uint32_t offset)
-{
-    VkVertexInputAttributeDescription desc{};
-    desc.location = location;
-    desc.binding = binding;
-    desc.format = format;
-    desc.offset = offset;
-    return desc;
-}
 
 VkPipelineVertexInputStateCreateInfo VertexFormat::toCreateInfo() const
 {
@@ -123,10 +98,6 @@ VertexFormat VertexFormatRegistry::generateVertexFormat(VertexFlags flags)
 
     if (flags & Vertex_Color)
     {
-                std::cout<<"VertexColr"<<std::endl;
-        std::cout<<"VertexColr"<<std::endl;
-        std::cout<<"VertexColr"<<std::endl;
-
         vf.bindings.push_back(makeVtxInputBinding(bindingIndex, sizeof(glm::vec3)));
         vf.attributes.push_back(makeVtxInputAttr(LOCATION_COLOR, bindingIndex, VK_FORMAT_R32G32B32_SFLOAT, 0));
         ++bindingIndex;
@@ -188,12 +159,10 @@ VertexFormat VertexFormatRegistry::generateInterleavedVertexFormat(VertexFlags f
         vf.attributes.push_back(makeVtxInputAttr(LOCATION_COLOR, 0, VK_FORMAT_R32G32B32_SFLOAT, offset));
         offset += sizeof(glm::vec3);
     }
-
     return vf;
 }
 
 // Vertex Buffer Manipulation
-// Finally learned that reinterpred cast are cool
 template <typename T>
 void VertexBufferData::appendToBuffer(size_t bufferIndex, const T &value)
 {
@@ -260,6 +229,8 @@ VertexBufferData buildInterleavedVertexBuffer(const Mesh &mesh, const VertexForm
     const glm::vec3 defaultVec3(0.0f);
     const glm::vec2 defaultVec2(0.0f);
 
+    
+
     for (size_t i = 0; i < vertexCount; ++i)
     {
 
@@ -289,67 +260,6 @@ VertexBufferData buildInterleavedVertexBuffer(const Mesh &mesh, const VertexForm
         {
             const glm::vec3 &color = (i < mesh.colors.size()) ? mesh.colors[i] : defaultVec3;
             vbd.appendToBuffer(0, color);
-        }
-
-        // Todo: This may be limited if i ever want my Buffer to be more than just this
-    }
-
-    return vbd;
-}
-
-VertexBufferData buildInterleavedVertexBuffer(const std::vector<Mesh> &meshes, const VertexFormat &format)
-{
-    VertexBufferData vbd;
-
-    // Calculate total vertex count across all meshes
-    size_t totalVertexCount = 0;
-    for (const auto &mesh : meshes)
-    {
-        totalVertexCount += mesh.vertexCount();
-    }
-    size_t stride = format.bindings[0].stride;
-
-    vbd.mBuffers.resize(format.bindings.size());
-    vbd.mBuffers[0].resize(totalVertexCount * stride);
-    uint8_t *buffer = vbd.mBuffers[0].data();
-
-    const glm::vec3 defaultVec3(0.0f);
-    const glm::vec2 defaultVec2(0.0f);
-
-    // Keep track of the running vertex index across all meshes
-    size_t vertexIndex = 0;
-    // Todo: This was not fully coded
-    // Interleave vertex attributes into a single buffer
-    // Couldalso use submeshes if they become a  thing at  some poitn
-    for (const auto &mesh : meshes)
-    {
-        size_t meshVertexCount = mesh.vertexCount();
-
-        for (size_t i = 0; i < meshVertexCount; ++i)
-        {
-            if (format.mVertexFlags & Vertex_Pos)
-            {
-                const glm::vec3 &pos = (i < mesh.positions.size()) ? mesh.positions[i] : defaultVec3;
-                vbd.appendToBuffer(0, pos);
-            }
-
-            if (format.mVertexFlags & Vertex_Normal)
-            {
-                const glm::vec3 &normal = (i < mesh.normals.size()) ? mesh.normals[i] : defaultVec3;
-                vbd.appendToBuffer(0, normal);
-            }
-
-            if (format.mVertexFlags & Vertex_UV)
-            {
-                const glm::vec2 &uv = (i < mesh.uvs.size()) ? mesh.uvs[i] : defaultVec2;
-                vbd.appendToBuffer(0, uv);
-            }
-
-            if (format.mVertexFlags & Vertex_Color)
-            {
-                const glm::vec3 &color = (i < mesh.colors.size()) ? mesh.colors[i] : defaultVec3;
-                vbd.appendToBuffer(0, color);
-            }
         }
     }
 

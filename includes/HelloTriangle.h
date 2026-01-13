@@ -24,18 +24,15 @@ class HelloTriangleApplication
 public:
     void run()
     {
-        //Tood: Take a look on other pattern
+        //Tood: Take a look on other's pattern
         //Tood: Create an interface for application
 
         cico::filesystem::setRoot(fs::current_path());
-
-
         cico::filesystem::setShaders(cico::filesystem::shaders() / "ressources/shaders");
         cico::filesystem::setTextures(cico::filesystem::textures() / "ressources/textures");
         cico::filesystem::setMeshes(cico::filesystem::meshes() / "ressources/models");
-      
-        cico::logging::initialize( "logs.txt");
 
+        cico::logging::initialize( "logs.txt");
     
         initWindow();
         _CINFO("Window initialized");
@@ -68,13 +65,11 @@ private:
 
     // Window abstraction for close, cleaner resize, pollingEvents too
     VulkanWindow window;
-    // Window* window;
 
     // Application State
     cico::Clock clock;
     float appLastTime;
     bool vkInitialized = false;
-    bool wdwInitialized = false;
     bool framebufferResized = false;
 };
 

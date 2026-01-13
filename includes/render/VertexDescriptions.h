@@ -40,7 +40,14 @@ inline constexpr VertexFlags STANDARD_STATIC_FLAG = static_cast<VertexFlags>(Ver
 inline VkVertexInputBindingDescription makeVtxInputBinding(
     uint32_t binding, //"Opaque Index of a Buffer More or less"
     uint32_t stride,  // In binded vertex, after how many data we reach next object
-    VkVertexInputRate inputRate = VK_VERTEX_INPUT_RATE_VERTEX);
+    VkVertexInputRate inputRate = VK_VERTEX_INPUT_RATE_VERTEX){
+    VkVertexInputBindingDescription desc{};
+    desc.binding = binding;
+    desc.stride = stride;
+    desc.inputRate = inputRate;
+    return desc;
+}
+
 
 // Attribute descriptions: type of the attributes passed to the vertex shader,
 // which binding ("buffer") to load them from and at which offset
@@ -48,7 +55,15 @@ inline VkVertexInputAttributeDescription makeVtxInputAttr(
     uint32_t location,
     uint32_t binding, // Design the buffer the Attributes is bound to
     VkFormat format,
-    uint32_t offset);
+    uint32_t offset)
+{
+    VkVertexInputAttributeDescription desc{};
+    desc.location = location;
+    desc.binding = binding;
+    desc.format = format;
+    desc.offset = offset;
+    return desc;
+}
 
 struct Mesh;
 
@@ -58,7 +73,7 @@ struct VertexFormat
     std::vector<VkVertexInputBindingDescription> bindings;
     std::vector<VkVertexInputAttributeDescription> attributes;
     bool mInterleaved = true;
-    VertexFlags mVertexFlags = Vertex_None;
+    VertexFlags mVertexFlags = STANDARD_STATIC_FLAG;
 
     VkPipelineVertexInputStateCreateInfo toCreateInfo() const;
 };
@@ -115,12 +130,11 @@ struct VertexHash
 struct VertexBufferData
 {
     std::vector<std::vector<uint8_t>> mBuffers;
-    // Finally learned that reinterpred cast are cool
+
     template <typename T>
     void appendToBuffer(size_t bufferIndex, const T &value);
 };
 
-VertexBufferData buildInterleavedVertexBuffer(const std::vector<Mesh> &meshes, const VertexFormat &format);
 VertexBufferData buildSeparatedVertexBuffers(const Mesh &mesh, const VertexFormat &format);
 VertexBufferData buildInterleavedVertexBuffer(const Mesh &mesh, const VertexFormat &format);
 
@@ -163,3 +177,36 @@ Attributes for the shader
 
 
 */
+
+
+//Todo: I should take cue from this to readapt VertexFormat
+//Perhaps merge the two classes
+enum class InstanceFieldType {
+    Float,
+    Vec3,
+    Vec4,
+    Mat4,
+    Uint32
+};
+
+//Todo: Array or mapping for type -> size or for standard Attributes or even for InstanceFieldDesc -> VK
+//We should generate descriptor from this 
+
+struct InstanceFieldDesc {
+    std::string       name;
+    InstanceFieldType type;
+    uint32_t          offset;
+    uint32_t          size;
+};
+
+struct InstanceLayout {
+    uint32_t stride;
+    std::vector<InstanceFieldDesc> fields;
+};
+
+struct InstanceFieldHandle {
+    uint32_t offset;
+    InstanceFieldType type;
+};
+
+

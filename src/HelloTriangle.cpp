@@ -29,7 +29,7 @@ void HelloTriangleApplication::initVulkan()
     info.getSwapChainConfig() = swapChain;
     // RenderStuff Info
 
-    // Todo: Shouldn't be here but eh
+    // Todo: Shouldn't be here or anywhere but eh
     VertexFlags sceneflag = STANDARD_STATIC_FLAG;
     VertexFormatRegistry::addFormat(sceneflag);
 
@@ -59,11 +59,13 @@ void HelloTriangleApplication::initVulkan()
         renderer.addPass(RenderPassType::Forward, defConfigRenderPass);
     }
 
-    initScene();
+    std::cout<<"InitScene" <<std::endl;
 
+    initScene();
+    std::cout<<"InitRenderRe" <<std::endl;
     renderer.initRenderingRessources(logicScene, assetSystem.registry());
 
-     vkInitialized = true;
+    vkInitialized = true;
 }
 
 void HelloTriangleApplication::initScene()
@@ -74,19 +76,31 @@ void HelloTriangleApplication::initScene()
 
     // const auto &materialIds = meshAsset->materialIds;
 
-    // for (uint32_t i = 0; i < meshAsset->submeshes.size(); ++i)
-    // {
-    //   const auto &sub = meshAsset->submeshes[i];
-
     SceneNode node{
         .mesh = assetMesh,
         //.material = materialIds[sub.materialId],
-        // .submeshIndex = i
     };
 
+    
+    InstanceLayout meshLayout;
+    meshLayout.fields.push_back({"transform", InstanceFieldType::Mat4, 0, sizeof(glm::mat4)});
+    meshLayout.fields.push_back({"id", InstanceFieldType::Uint32, sizeof(glm::mat4), sizeof(uint32_t)});
+    meshLayout.stride = sizeof(glm::mat4) + sizeof(uint32_t);
+    node.layout = meshLayout;
+
+    uint32_t i = node.addInstance();
+    glm::mat4 world = glm::translate(glm::mat4(1.0f), glm::vec3(1, 0, 0));
+    setFieldU32(node, i, "transform", world);
+    setFieldM4(node, i, "id", 0);
+
+    i = node.addInstance();
+    world = glm::translate(glm::mat4(1.0f), glm::vec3(-1, 0, 0));
+    setFieldU32(node, i, "transform", world);
+    setFieldM4(node, i, "id", 1);
+   
     logicScene.addNode(node);
-    std::cout<<"Logic Scene" << logicScene.nodes.size() << std::endl;
-    //}
+
+    std::cout << "Logic Scene" << logicScene.nodes.size() << std::endl;
 }
 
 // Revise the separation between event dispatching and inputing
@@ -214,7 +228,12 @@ void HelloTriangleApplication::cleanup()
     // Due to asset Registry still holding texture GPU data Textures fail to be freed,
     // Only apply to DummyTexture now
     cico::logging::shutdown();
+    std::cout<<"Sgfaute" <<std::endl;
     renderer.deinitSceneRessources(logicScene);
+    std::cout<<"Sgfaute" <<std::endl;
+
     context.destroyAll();
+    std::cout<<"Sgfaute" <<std::endl;
+
     window.close();
 }

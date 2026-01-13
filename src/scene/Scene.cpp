@@ -12,7 +12,7 @@ Scene::Scene()
     lights.addPointLight({glm::vec4(0.5, 0.5, 0.5, 0.0), glm::vec4(1.0, 0.0, 0.0, 0.0), 0.5, 0.5});
 };
 
-explicit Scene::Scene(int compute)
+Scene::Scene(int compute)
 {
     sceneLayout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
     sceneLayout.addDescriptor(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
@@ -70,21 +70,31 @@ void RenderScene::syncFromScene(const Scene &cpuScene,
         const auto &meshHandle = node.mesh;
         const auto &mesh = cpuRegistry.get(meshHandle);
 
+        auto meshGPU = registry.add(meshHandle, std::function<MeshGPU()>([&]()
+                                                                         { return builder.uploadMeshGPU(node.mesh); }));
         for (auto &submesh : mesh->submeshes)
         {
             Drawable d;
             d.indexOffset = submesh.indexOffset;
             d.indexCount = submesh.indexCount;
 
-            d.meshGPU = registry.add(meshHandle, std::function<MeshGPU()>([&]()
-                                                                          { return builder.uploadMeshGPU(node.mesh); }));
+            d.meshGPU = meshGPU;
+
             // Todo:
-            // In practice, i could create a GpuHandle using the id but that's not a behavior i am clear on
+            // In practice, i could create a GpuHandle using the id but that's not a behavior i am clear on using
             d.materialGPU = registry.add(mesh->materialIds[submesh.materialId],
                                          std::function<MaterialGPU()>([&]()
                                                                       { return MaterialGPU(); }));
 
-            // d.instanceGPU = builder.buildInstanceGPU(d.inst);
+            uint32_t MAX_FRAMES_IN_FLIGHT = 3;
+
+
+            //Todo:
+            //Notes: Instance is pretty much mesh only dependant so it don't need to be nested here
+            d.instanceGPU = registry.addMultiFrame(meshHandle, mesh->materialIds[submesh.materialId], MAX_FRAMES_IN_FLIGHT,
+                                                   std::function<InstanceGPU()>([&]()
+                                                                                { return builder.uploadInstanceGPU(node.instanceData, node.layout, node.instanceCount, true); }));
+
             drawables.push_back(std::move(d));
         }
     }

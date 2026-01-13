@@ -2,6 +2,10 @@
 // #include "AssetTypes.h"
 #include "VertexDescriptions.h"
 #include "Material.h"
+#include "geometry/Extents.h"
+
+//Helper for plane geometry,
+//Geometry config concept to abstract away tinyloader
 
 struct Mesh : AssetBase
 {
@@ -14,7 +18,7 @@ struct Mesh : AssetBase
     std::vector<glm::vec2> uvs;
     std::vector<glm::vec3> colors; //Remove
     std::vector<uint32_t> indices;
-
+    Extents bndbox;
     // Todo: Alignment is slightly off but not bothering right now
     VertexFlags inputFlag;
 
@@ -57,13 +61,5 @@ struct Mesh : AssetBase
     std::vector<Submesh> submeshes;
 
     std::vector<AssetID<Material>> materialIds;
-};
-
-// Frame dependant too
-//  Not sure about more complex data nor where  to put them
-struct InstanceData
-{
-    glm::mat4 transform = glm::mat4(1.0f);
-    glm::vec4 color;
 };
 

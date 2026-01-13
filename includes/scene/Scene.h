@@ -39,6 +39,11 @@ public:
     ~Scene() = default;
 
     void addNode(SceneNode node);
+    const SceneNode& getNode(uint32_t index){
+        return nodes[index];
+    };
+
+  
     void clearScene();
 
     Camera &getCamera();

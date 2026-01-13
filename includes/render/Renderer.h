@@ -100,7 +100,8 @@ private:
     DescriptorManager mMaterialDescriptors;
     RenderPassManager mRenderPassM;
     GPUResourceRegistry mGpuRegistry;
-    // Todo: Dynamic pass manager
+
+    // Todo: Dynamic pass manager + Merge it with RenderPassManager
     //  Dynamic Rendering Path
     std::array<DynamicPassInfo, (size_t)RenderPassType::Count> mDynamicPassesInfo{};
     std::array<RenderTargetConfig, (size_t)RenderPassType::Count> mDynamicPassesConfig{};

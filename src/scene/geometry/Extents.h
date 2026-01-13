@@ -4,12 +4,13 @@
 //Todo:
 //I need to reconsider properly this and other functions need to have member functions
 //Main reason for the current state was to not "litter" namespace...
-struct AABB
+
+struct Extents
 {
     glm::vec3 min;
     glm::vec3 max;
 
-    AABB() : min(glm::vec3(std::numeric_limits<float>::max())),
+    Extents() : min(glm::vec3(std::numeric_limits<float>::max())),
              max(glm::vec3(std::numeric_limits<float>::max()))
     {
     }
@@ -30,7 +31,7 @@ struct AABB
         max = glm::max(max, p);
     }
 
-    bool intersects(const AABB &other) const
+    bool intersects(const Extents &other) const
     {
         return (min.x <= other.max.x && max.x >= other.min.x) &&
                (min.y <= other.max.y && max.y >= other.min.y) &&

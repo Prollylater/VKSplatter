@@ -179,6 +179,7 @@ void FrameHandler::updateUniformBuffers(VkExtent2D swapChainExtent) {
         memcpy(getCurrentFrameData().mCameraMapping, &ubo, sizeof(ubo));*/
 };
 
+//Todo: Notharcoded
 void FrameHandler::writeFramesDescriptors(VkDevice device, int setIndex)
 {
     for (auto &frame : mFramesData)

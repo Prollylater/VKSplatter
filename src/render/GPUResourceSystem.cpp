@@ -9,6 +9,7 @@
 #include "Descriptor.h"
 #include "AssetRegistry.h"
 #include "ContextController.h"
+#include "VertexDescriptions.h"
 
 /////////////////////////////////////////////////////////////////
 
@@ -24,8 +25,8 @@ MeshGPU GpuResourceUploader::uploadMeshGPU(const AssetID<Mesh> meshId, bool useS
     const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
     // Todo: There's no guarantee  id exist so i should usse pointer
     auto &mesh = *assetRegistry.get(meshId);
-    //gpu.vertexCount = static_cast<uint32_t>(mesh.positions.size());
-    //gpu.indexCount = static_cast<uint32_t>(mesh.indices.size());
+    // gpu.vertexCount = static_cast<uint32_t>(mesh.positions.size());
+    // gpu.indexCount = static_cast<uint32_t>(mesh.indices.size());
 
     // Create buffers via Buffer helper
     Buffer vertexBuffer;
@@ -53,7 +54,44 @@ MeshGPU GpuResourceUploader::uploadMeshGPU(const AssetID<Mesh> meshId, bool useS
     return gpu;
 };
 
-// Todo: Rewrite this method 
+InstanceGPU GpuResourceUploader::uploadInstanceGPU(
+    const std::vector<uint8_t>& data, const InstanceLayout& layout,
+    uint32_t capacity, bool useSSBO, bool map) const
+{
+    InstanceGPU gpu;
+
+    gpu.stride = layout.stride;
+    gpu.capacity = capacity;
+    gpu.count = data.size() / layout.stride;
+
+    const auto device = context.getLogicalDeviceManager().getLogicalDevice();
+    const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
+    const auto indice = context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
+    const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
+
+    Buffer vertexBuffer;
+
+    if (useSSBO)
+    {
+        vertexBuffer.createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
+    }
+    else
+    {
+        vertexBuffer.createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
+    }
+
+    vertexBuffer.uploadBuffer(data.data(), data.size(), 0, physDevice, context.getLogicalDeviceManager(), indice, allocator);
+
+    gpu.instanceBuffer = vertexBuffer.getBuffer();
+    gpu.instanceAlloc = vertexBuffer.getVMAMemory();
+    gpu.instanceMem = vertexBuffer.getMemory();
+    gpu.mapped = map ? vertexBuffer.map(allocator) : nullptr;
+    return gpu;
+}
+
+// Todo: Rewrite this method
 // Descriptor writing is too much responsibility here
 MaterialGPU GpuResourceUploader::uploadMaterialGPU(const AssetID<Material> matID, GPUResourceRegistry &gpuRegistry, int descriptorIdx, int pipelineIndex) const
 {
@@ -115,7 +153,6 @@ MaterialGPU GpuResourceUploader::uploadMaterialGPU(const AssetID<Material> matID
     VkDescriptorImageInfo roughnessDescInfo = roughness->getImage().getDescriptor();
     VkDescriptorImageInfo emissiveDesc = emissive->getImage().getDescriptor();
 
-
     gpuMat.descriptorIndex = materialDescriptors.allocateDescriptorSet(deviceM.getLogicalDevice(), info.descriptorLayoutIdx);
     auto &materialSet = materialDescriptors.getSet(gpuMat.descriptorIndex);
     std::vector<VkWriteDescriptorSet> writes = {
@@ -124,37 +161,10 @@ MaterialGPU GpuResourceUploader::uploadMaterialGPU(const AssetID<Material> matID
         vkUtils::Descriptor::makeWriteDescriptor(materialSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &normalDescInfo),
         vkUtils::Descriptor::makeWriteDescriptor(materialSet, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &metallicDescInfo),
         vkUtils::Descriptor::makeWriteDescriptor(materialSet, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &roughnessDescInfo),
-        vkUtils::Descriptor::makeWriteDescriptor(materialSet, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &emissiveDesc)
-    };
+        vkUtils::Descriptor::makeWriteDescriptor(materialSet, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &emissiveDesc)};
     materialDescriptors.updateDescriptorSet(deviceM.getLogicalDevice(), writes);
 
     return gpuMat;
-}
-
-InstanceGPU GpuResourceUploader::uploadInstanceGPU(const std::vector<InstanceData> &instance) const
-{
-
-    auto &deviceM = context.getLogicalDeviceManager();
-    const auto device = context.getLogicalDeviceManager().getLogicalDevice();
-    const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
-    const auto indice = context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
-    const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
-
-    InstanceGPU gpu;
-    gpu.instanceCount = static_cast<uint32_t>(instance.size());
-    gpu.instanceStride = sizeof(InstanceData);
-
-    // Create buffers via Buffer helper
-    Buffer buffer;
-    buffer.createBuffer(device, physDevice, instance.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
-
-    gpu.instanceBuffer = buffer.getBuffer();
-    gpu.instanceAlloc = buffer.getVMAMemory();
-    gpu.instanceMem = buffer.getMemory();
-    // gpu.instanceAddr = buffer.getDeviceAdress(devicebuffer
-
-    return gpu;
 }
 
 Texture GpuResourceUploader::uploadTexture(const AssetID<TextureCPU> textureId) const
@@ -247,10 +257,16 @@ void GPUResourceRegistry::clearAll(VkDevice device, VmaAllocator allocator)
 
     for (auto &pair : instances)
     {
-        if (pair.second.resource)
+         std::cout<<pair.second.resources.size() <<std::endl;
+
+        for (auto &resource : pair.second.resources)
         {
-            pair.second.resource->destroy(device, allocator);
+            if (resource)
+            {
+                resource->destroy(device, allocator);
+            }
         }
     }
     instances.clear();
+
 }

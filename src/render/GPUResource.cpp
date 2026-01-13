@@ -39,7 +39,6 @@ void MeshGPU::destroy(VkDevice device, VmaAllocator allocator)
     indexAlloc = VK_NULL_HANDLE;
 }
 
-
 // The who is allowed to destroy Mesh GPU Ressources is still a pending question
 // Deletion QUEUE neeeded ?
 void InstanceGPU::destroy(VkDevice device, VmaAllocator allocator)
@@ -56,4 +55,5 @@ void InstanceGPU::destroy(VkDevice device, VmaAllocator allocator)
     instanceBuffer = VK_NULL_HANDLE;
     instanceAlloc = VK_NULL_HANDLE;
     instanceMem = VK_NULL_HANDLE;
+    mapped = nullptr;
 }

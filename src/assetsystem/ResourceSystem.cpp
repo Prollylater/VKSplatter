@@ -168,6 +168,7 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
                         mesh->positions.emplace_back(pos);
                         mesh->normals.emplace_back(norm);
                         mesh->uvs.emplace_back(uv);
+                        mesh->bndbox.expand(pos);
                     }
                     mesh->indices.emplace_back(uniqueVertices[vertex]);
                 }

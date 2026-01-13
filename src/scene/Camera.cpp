@@ -3,6 +3,7 @@
 // Todo: Remove
 #include <iostream>
 
+//Todo: Use proper value
 Camera::Camera()
     : mPosition(0.0f, 0.0f, 1.0f),
       mWorldUp(0.0f, 1.0f, 0.0f),
