@@ -1,6 +1,10 @@
 
 #pragma once
-#include "BaseVk.h"
+#include <iostream>
+#include <stdexcept>
+#include <vulkan/vulkan.h>
+
+
 class FrameSyncObjects
 {
 public:

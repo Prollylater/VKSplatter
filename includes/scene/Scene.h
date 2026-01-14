@@ -39,24 +39,25 @@ public:
     ~Scene() = default;
 
     void addNode(SceneNode node);
-    const SceneNode& getNode(uint32_t index){
-        return nodes[index];
-    };
+    const SceneNode& getNode(uint32_t index);
 
   
     void clearScene();
-
     Camera &getCamera();
     SceneData getSceneData();
     LightPacket getLightPacket();
 
     // Todo: Something about rebuild when an Asset become invalid
     std::vector<SceneNode> nodes;
+    Extents sceneBB;
     // Camera object
     Camera camera;
     LightSystem lights;
     PipelineSetLayoutBuilder sceneLayout; // This should either become Api agnostic or be removed
 };
+
+
+void fitCameraToBoundingBox(Camera &camera, const Extents &box);
 
 class RenderScene
 {
@@ -92,3 +93,4 @@ enum RenderBits {
 };
 */
 };
+

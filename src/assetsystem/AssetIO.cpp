@@ -1,8 +1,7 @@
 #include "AssetIO.h"
 
 #include <tiny_obj_loader.h>
-
-
+#include <unordered_map>
 // Todo: Proper handling  of cpu destruction
 
 Material loadMaterial(const tinyobj::material_t &objMaterial)

@@ -1,7 +1,6 @@
 
 #include "utils/RessourceHelper.h"
 #include "LogicalDevice.h"
-#include "BaseVk.h"
 #include "CommandPool.h"
 
 #include <deque>

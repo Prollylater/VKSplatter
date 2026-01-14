@@ -1,5 +1,5 @@
 #include "CommandPool.h"
-
+#include <stdexcept>
 void CommandPoolManager::createCommandPool(VkDevice device, CommandPoolType type, uint32_t familyIndex)
 {
     mDevice = device;

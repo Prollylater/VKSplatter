@@ -3,7 +3,7 @@
 // Todo: Remove
 #include <iostream>
 
-//Todo: Use proper value
+// Todo: Use proper value
 Camera::Camera()
     : mPosition(0.0f, 0.0f, 1.0f),
       mWorldUp(0.0f, 1.0f, 0.0f),
@@ -40,7 +40,20 @@ glm::vec4 Camera::getEye() const
     return glm::vec4(mPosition, 0.0);
 }
 
+float Camera::getFov() const
+{
+    return fov;
+}
 
+float Camera::getAspect() const
+{
+    return aspect;
+}
+
+glm::vec3 Camera::getFront() const
+{
+    return mFront;
+}
 
 void Camera::processKeyboardMovement(float deltaTime, bool forward, bool backward, bool left, bool right, bool up, bool down)
 {

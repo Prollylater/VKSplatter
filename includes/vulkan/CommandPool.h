@@ -1,5 +1,7 @@
 #pragma once
-#include "BaseVk.h"
+#include <vulkan/vulkan.h>
+#include <vector>
+
 
 // Todo: Capacity to combine multiple buffer into one.
 // Todo: Error checking

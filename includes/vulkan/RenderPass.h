@@ -1,7 +1,6 @@
 
 
 #pragma once
-#include "BaseVk.h"
 #include "config/PipelineConfigs.h"
 
 class RenderPassManager

@@ -6,13 +6,13 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_raii.hpp> // RAII C++ bindings
 #include <GLFW/glfw3.h>           // window + vk surface helpers
-#include  "vk_mem_alloc.h"
 
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
 #include <cstring>
 #include <vector>
+
 #include <vk_mem_alloc.h>
 /*
 #include <memory>

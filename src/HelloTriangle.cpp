@@ -59,10 +59,10 @@ void HelloTriangleApplication::initVulkan()
         renderer.addPass(RenderPassType::Forward, defConfigRenderPass);
     }
 
-    std::cout<<"InitScene" <<std::endl;
+    std::cout << "InitScene" << std::endl;
 
     initScene();
-    std::cout<<"InitRenderRe" <<std::endl;
+    std::cout << "InitRenderRe" << std::endl;
     renderer.initRenderingRessources(logicScene, assetSystem.registry());
 
     vkInitialized = true;
@@ -78,10 +78,10 @@ void HelloTriangleApplication::initScene()
 
     SceneNode node{
         .mesh = assetMesh,
+        .nodeExtents = meshAsset->bndbox
         //.material = materialIds[sub.materialId],
     };
 
-    
     InstanceLayout meshLayout;
     meshLayout.fields.push_back({"transform", InstanceFieldType::Mat4, 0, sizeof(glm::mat4)});
     meshLayout.fields.push_back({"id", InstanceFieldType::Uint32, sizeof(glm::mat4), sizeof(uint32_t)});
@@ -90,14 +90,14 @@ void HelloTriangleApplication::initScene()
 
     uint32_t i = node.addInstance();
     glm::mat4 world = glm::translate(glm::mat4(1.0f), glm::vec3(1, 0, 0));
-    setFieldU32(node, i, "transform", world);
-    setFieldM4(node, i, "id", 0);
+    setFieldM4(node, i, "transform", world);
+    setFieldU32(node, i, "id", 0);
 
     i = node.addInstance();
     world = glm::translate(glm::mat4(1.0f), glm::vec3(-1, 0, 0));
-    setFieldU32(node, i, "transform", world);
-    setFieldM4(node, i, "id", 1);
-   
+    setFieldM4(node, i, "transform", world);
+    setFieldU32(node, i, "id", 1);
+
     logicScene.addNode(node);
 
     std::cout << "Logic Scene" << logicScene.nodes.size() << std::endl;
@@ -119,6 +119,9 @@ void HelloTriangleApplication::mainLoop()
     float targetFps = 0;
     MouseStateTemp mainLoopMouseState;
 
+    Camera &cam = logicScene.getCamera();
+    fitCameraToBoundingBox(cam, logicScene.sceneBB);
+
     while (window.isOpen()) // Stand in for app is running for now
     {
         // Bit barbaric profiling
@@ -128,7 +131,6 @@ void HelloTriangleApplication::mainLoop()
 
         glfwPollEvents();
         // Temp
-        Camera &cam = logicScene.getCamera();
         cam.processKeyboardMovement(delta,
                                     cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::W),
                                     cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::S),
@@ -228,12 +230,8 @@ void HelloTriangleApplication::cleanup()
     // Due to asset Registry still holding texture GPU data Textures fail to be freed,
     // Only apply to DummyTexture now
     cico::logging::shutdown();
-    std::cout<<"Sgfaute" <<std::endl;
     renderer.deinitSceneRessources(logicScene);
-    std::cout<<"Sgfaute" <<std::endl;
-
     context.destroyAll();
-    std::cout<<"Sgfaute" <<std::endl;
 
     window.close();
 }

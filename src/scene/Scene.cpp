@@ -23,8 +23,30 @@ Scene::Scene(int compute)
 
 void Scene::addNode(SceneNode node)
 {
+    InstanceFieldHandle transformField = node.getField("transform");
+    if (transformField.valid == true)
+    {
+        for (uint32_t i = 0; i < node.instanceCount; i++)
+        {
+            Extents worldExtents = node.nodeExtents;
+
+            glm::mat4 *transformPtr = node.getFieldPtr<glm::mat4>(i, "transform");
+            glm::mat4 worldMatrix = *transformPtr;
+
+            worldExtents.translate(worldMatrix[3]);
+
+            sceneBB.expand(worldExtents);
+        }
+    }
+
     nodes.push_back(node);
 }
+
+const SceneNode &Scene::getNode(uint32_t index)
+{
+    return nodes[index];
+};
+
 void Scene::clearScene()
 {
     nodes.clear();
@@ -88,9 +110,8 @@ void RenderScene::syncFromScene(const Scene &cpuScene,
 
             uint32_t MAX_FRAMES_IN_FLIGHT = 3;
 
-
-            //Todo:
-            //Notes: Instance is pretty much mesh only dependant so it don't need to be nested here
+            // Todo:
+            // Notes: Instance is pretty much mesh only dependant so it don't need to be nested here
             d.instanceGPU = registry.addMultiFrame(meshHandle, mesh->materialIds[submesh.materialId], MAX_FRAMES_IN_FLIGHT,
                                                    std::function<InstanceGPU()>([&]()
                                                                                 { return builder.uploadInstanceGPU(node.instanceData, node.layout, node.instanceCount, true); }));
@@ -98,4 +119,20 @@ void RenderScene::syncFromScene(const Scene &cpuScene,
             drawables.push_back(std::move(d));
         }
     }
+}
+
+//Should only use on a valid scene
+void fitCameraToBoundingBox(Camera &camera, const Extents &box)
+{
+    glm::vec3 center = box.center();
+    float radius = box.radius();
+
+    float distance = radius / tan(camera.getFov() * 0.5f);
+    distance *= 1.1f;
+
+    glm::vec3 viewDir = glm::normalize(camera.getFront());
+
+    glm::vec3 newPosition = center - viewDir * distance;
+
+    camera.setPosition(newPosition);
 }

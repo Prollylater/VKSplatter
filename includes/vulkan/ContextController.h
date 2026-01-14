@@ -2,7 +2,6 @@
 #pragma once
 
 // SOme need stuff is removable
-#include "VertexDescriptions.h"
 
 #include "VulkanInstance.h"
 #include "LogicalDevice.h"

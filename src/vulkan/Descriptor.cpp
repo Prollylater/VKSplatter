@@ -1,5 +1,6 @@
 
 #include "Descriptor.h"
+#include <array>
 
 ///////////////////////////////////
 // Descriptor

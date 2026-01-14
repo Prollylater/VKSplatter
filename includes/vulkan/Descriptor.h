@@ -1,6 +1,9 @@
 #pragma once
 
-#include "BaseVk.h"
+#include <vulkan/vulkan.h>
+#include <stdexcept>
+#include <vector>
+
 #include <unordered_map>
 
 size_t hashBindings(const std::vector<VkDescriptorSetLayoutBinding> &bindings);

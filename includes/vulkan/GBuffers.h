@@ -1,7 +1,7 @@
 #pragma once
 
-#include "BaseVk.h"
 #include "Texture.h"
+#include <vector>
 
 class PhysicalDeviceManager;
 

@@ -1,6 +1,8 @@
 #pragma once
-#include "BaseVk.h"
+#include <vulkan/vulkan.h>
 #include "VertexDescriptions.h"
+#include <vector>
+#include <unordered_map>
 
 class PipelineBuilder;
 

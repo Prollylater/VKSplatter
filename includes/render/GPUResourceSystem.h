@@ -4,6 +4,7 @@
 #include "Texture.h"
 #include <functional>
 #include <unordered_map>
+#include  <memory>
 
 template <typename T>
 class GPUHandle

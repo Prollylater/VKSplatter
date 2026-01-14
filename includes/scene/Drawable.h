@@ -3,6 +3,8 @@
 #include "AssetTypes.h"
 #include "Transform.h"
 #include "VertexDescriptions.h"
+#include "geometry/Extents.h"
+
 struct Mesh;
 struct Material;
 
@@ -11,12 +13,14 @@ struct Material;
 struct SceneNode
 {
     AssetID<Mesh> mesh;
-    Transform transform;
+    // Transform transform;
+    Extents nodeExtents;
 
     // Notes that despite Instance being generic, shader definition is not
     InstanceLayout layout;
     std::vector<uint8_t> instanceData;
     uint32_t instanceCount = 0;
+    bool visible = true;
 
     uint32_t addInstance()
     {
@@ -43,10 +47,19 @@ struct SceneNode
         {
             if (f.name == name)
             {
-                return {f.offset, f.type};
+                return {f.offset, f.type, true};
             }
         }
-        return {0, InstanceFieldType::Float};
+        return {0, InstanceFieldType::Float, false};
+    }
+
+    template <typename T>
+    T *getFieldPtr(uint32_t instanceIndex, const std::string &name)
+    {
+        auto h = getField(name);
+        if (!h.valid)
+            return nullptr;
+        return reinterpret_cast<T *>(instancePtr(instanceIndex) + h.offset);
     }
 };
 
@@ -56,7 +69,7 @@ inline void setFieldF(SceneNode &node, uint32_t idx, std::string name, float val
     memcpy(node.instancePtr(idx) + node.getField(name).offset, &val, sizeof(float));
 }
 
-inline void setFieldM4(SceneNode &node, uint32_t idx, std::string name, uint32_t val)
+inline void setFieldU32(SceneNode &node, uint32_t idx, std::string name, uint32_t val)
 {
     memcpy(node.instancePtr(idx) + node.getField(name).offset, &val, sizeof(uint32_t));
 }
@@ -71,7 +84,7 @@ inline void setFieldV4(SceneNode &node, uint32_t idx, std::string name, const gl
     memcpy(node.instancePtr(idx) + node.getField(name).offset, &val, sizeof(glm::vec4));
 }
 
-inline void setFieldU32(SceneNode &node, uint32_t idx, std::string name, const glm::mat4 &val)
+inline void setFieldM4(SceneNode &node, uint32_t idx, std::string name, const glm::mat4 &val)
 {
     memcpy(node.instancePtr(idx) + node.getField(name).offset, &val, sizeof(glm::mat4));
 }
@@ -86,8 +99,8 @@ struct Drawable
     GPUHandle<MaterialGPU> materialGPU;
     GPUHandle<InstanceGPU> instanceGPU;
 
-    // Todo: Implement 
-    bool visible = true; //If drawable are visible the isntance make less sense
+    // Todo: Implement
+    // bool visible = true; //If drawable are visible the isntance make less sense
     uint32_t indexOffset = 0;
     uint32_t indexCount = 0;
 

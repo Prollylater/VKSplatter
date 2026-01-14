@@ -189,6 +189,15 @@ enum class InstanceFieldType {
     Uint32
 };
 
+
+enum class InstanceFieldUsage : uint8_t {
+    CPU_ONLY      = 1 << 0,
+    GPU_RENDER    = 1 << 1,
+    //GPU_COMPUTE   = 1 << 2,
+    CPU_GPU_RENDER  = CPU_ONLY | GPU_RENDER,
+    //CPU_GPU_COMPUTE = CPU_ONLY | GPU_COMPUTE,
+};
+
 //Todo: Array or mapping for type -> size or for standard Attributes or even for InstanceFieldDesc -> VK
 //We should generate descriptor from this 
 
@@ -197,8 +206,12 @@ struct InstanceFieldDesc {
     InstanceFieldType type;
     uint32_t          offset;
     uint32_t          size;
+    //InstanceFieldUsage  
 };
 
+
+//Notes: Given how unintuitive this class is for genericity sake
+//We should add more helper or consider removing it
 struct InstanceLayout {
     uint32_t stride;
     std::vector<InstanceFieldDesc> fields;
@@ -207,6 +220,38 @@ struct InstanceLayout {
 struct InstanceFieldHandle {
     uint32_t offset;
     InstanceFieldType type;
+    bool valid = false; 
 };
+
+
+static constexpr std::array<uint32_t, 5> sizeOfInstTypeArr = {
+    sizeof(float),          // InstanceFieldType::Float
+    sizeof(glm::vec3),      // InstanceFieldType::Vec3
+    sizeof(glm::vec4),      // InstanceFieldType::Vec4
+    sizeof(glm::mat4),      // InstanceFieldType::Mat4
+    sizeof(uint32_t)        // InstanceFieldType::Uint32
+};
+
+inline uint32_t sizeOfInstType(InstanceFieldType type)
+{
+    return sizeOfInstTypeArr[static_cast<int>(type)];
+}
+
+static constexpr std::array<VkFormat, 5> formatsOfInstTypeArr = {
+    VK_FORMAT_R32_SFLOAT,           // InstanceFieldType::Float
+    VK_FORMAT_R32G32B32_SFLOAT,     // InstanceFieldType::Vec3
+    VK_FORMAT_R32G32B32A32_SFLOAT,  // InstanceFieldType::Vec4
+    VK_FORMAT_R32G32B32A32_SFLOAT,  // InstanceFieldType::Mat4
+    VK_FORMAT_R32_UINT              // InstanceFieldType::Uint32
+};
+
+
+inline VkFormat formatsOfInstType(InstanceFieldType type)
+{
+    if (type < InstanceFieldType::Float || type > InstanceFieldType::Uint32) {
+        return VK_FORMAT_UNDEFINED;
+    }
+    return formatsOfInstTypeArr[static_cast<int>(type)];
+}
 
 

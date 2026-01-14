@@ -1,8 +1,7 @@
 
 #include "QueueFam.h"
 #include "ContextController.h"
-#include "Descriptor.h"
-
+ 
 void VulkanContext::initVulkanBase(GLFWwindow *window, ContextCreateInfo &createInfo)
 {
     mInstanceM.createInstance(createInfo.getVersionMajor(), createInfo.getVersionMinor(),
