@@ -46,6 +46,7 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
 
         material->mConstants.metallic = mtl.metallic;
         material->mConstants.roughness = mtl.roughness;
+        material->mConstants.specular = mtl.shininess;
 
         if (!mtl.diffuse_texname.empty())
         {

@@ -8,8 +8,11 @@ Scene::Scene()
 
     sceneLayout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SceneData));
 
-    lights.addDirLight({glm::vec4(0.5, 1.0, 0.0, 0.0), glm::vec4(0.0, 0.0, 1.0, 0.0), 1.0});
-    lights.addPointLight({glm::vec4(0.5, 0.5, 0.5, 0.0), glm::vec4(1.0, 0.0, 0.0, 0.0), 0.5, 0.5});
+    lights.addDirLight({glm::vec4(0.5, 1.0, 0.0, 0.0), glm::vec4(1.0, 1.0, 1.0, 0.0), 1.0});
+    lights.addDirLight({glm::vec4(0.5, -1.0, 0.5,0.0), glm::vec4(0.2, 0.0, 1.0, 0.0), 1.0});
+    lights.addPointLight({glm::vec4(0.5, 1.0, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 0.5, 0.5});
+    lights.addPointLight({glm::vec4(-0.5, 0.0, 0.5, 0.0), glm::vec4(0.0, 1.0, 1.0, 0.0), 0.5, 0.5});
+
 };
 
 Scene::Scene(int compute)
@@ -59,7 +62,7 @@ SceneData Scene::getSceneData()
     glm::mat4 proj = camera.getProjectionMatrix();
     proj[1][1] *= -1;
 
-    return {proj * camera.getViewMatrix(), camera.getEye()};
+    return {proj * camera.getViewMatrix(), camera.getEye(), glm::vec4(0.3,0.1,0.4, 0.0)};
 };
 
 LightPacket Scene::getLightPacket()

@@ -93,11 +93,12 @@ void HelloTriangleApplication::initScene()
     setFieldM4(node, i, "transform", world);
     setFieldU32(node, i, "id", 0);
 
+    /*
     i = node.addInstance();
     world = glm::translate(glm::mat4(1.0f), glm::vec3(-1, 0, 0));
     setFieldM4(node, i, "transform", world);
     setFieldU32(node, i, "id", 1);
-
+    */
     logicScene.addNode(node);
 
     std::cout << "Logic Scene" << logicScene.nodes.size() << std::endl;
@@ -131,6 +132,17 @@ void HelloTriangleApplication::mainLoop()
 
         glfwPollEvents();
         // Temp
+
+        if (cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::P))
+        {
+            cam.setMvmtSpd(cam.getMvmtSpd()*1.1f);
+        }
+
+        if (cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::M))
+        {
+            cam.setMvmtSpd(cam.getMvmtSpd()*0.9);
+        }
+
         cam.processKeyboardMovement(delta,
                                     cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::W),
                                     cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::S),

@@ -23,9 +23,9 @@ layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec2 fragTexCoord;
 
 ///////////////////////////////////////
-void main() {
-    gl_Position = uboB.viewproj *worldMat* vec4(inPosition, 1.0);
-    
+void main() {// worldMat*
+    gl_Position =(uboB.viewproj * vec4(inPosition, 1.0));
+
     fragPos = inPosition;
     fragNormal =  inNormal; ;
     fragTexCoord = inTexCoord;

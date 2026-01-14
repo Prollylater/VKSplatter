@@ -73,7 +73,7 @@ vec3 computePointLight(vec3 fragPos, vec3 N, PointLight light) {
     float diff = max(dot(N, L), 0.0);
     vec3 diffuse = diff * light.color.xyz * light.intensity * attenuation;
 
-    float spec = pow(max(dot(N, H), 0.0), 16.0); 
+	float spec = pow(max(dot(N, H), 0.0), 16.0) * materialUBO.specular;
     vec3 specular = spec * light.color.xyz * light.intensity * attenuation;
 
     return diffuse + specular;
@@ -85,7 +85,7 @@ vec3 computeDirectionalLight(vec3 N, vec3 V, DirectionalLight light) {
     float diff = max(dot(N, L), 0.0);
     vec3 diffuse = diff * light.color.xyz * light.intensity;
 
-    float spec = pow(max(dot(N, H), 0.0), 16.0);
+	float spec = pow(max(dot(N, H), 0.0), 16.0) * materialUBO.specular;
     vec3 specular = spec * light.color.xyz * light.intensity;
     return diffuse + specular;
 }
@@ -99,7 +99,7 @@ void main() {
         albedoColor = texture( albedoSampler, fragTexCoord );
     }
     
- vec3 finalColor = vec3(0.0);
+vec3 finalColor = sceneUBO.ambientColor.rgb * albedoColor.rgb;
 
     for (int i = 0; i < dirLightsUBO.count; ++i) {
         DirectionalLight dirLight = dirLightsUBO.lights[i];
@@ -110,7 +110,5 @@ void main() {
           PointLight ptLight = ptLightsBuffer.lights[i];
           finalColor += computePointLight(fragPos, N, ptLight)* albedoColor.xyz;
   }
-   // outColor = vec4(finalColor, albedoColor.a);
-
-    outColor = vec4(albedoColor);
+   outColor = vec4(finalColor, albedoColor.a);
 }

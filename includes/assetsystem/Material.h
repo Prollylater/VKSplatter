@@ -34,7 +34,7 @@ LightingPath mLightingPath = LightingPath::Forward;
     glm::vec4 emissive = glm::vec4(0.0f);
     float metallic = 0.0f;  
     float roughness = 0.0f; 
-    float specular = 0.0f;
+    float specular = 0.5f;
     uint32_t flags;
 
     //Specularityt

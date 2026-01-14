@@ -14,14 +14,7 @@
 #include <vector>
 
 #include <vk_mem_alloc.h>
-/*
-#include <memory>
-#include <optional>
-#include <string>
-#include <vector>
-#include <span> // Todo: FUlly move to C++20 ?
-#include <array>
-*/
+
 
 //Todo:Book https://vkguide.dev/docs/extra-chapter/intro_to_simd/ + https://vkguide.dev/docs/new_chapter_5/faster_draw/ + https://vkguide.dev/docs/gpudriven
 //Todo: Clean the includes in general

@@ -28,7 +28,14 @@ public:
         updateCameraVectors();
     }
 
+    float getMvmtSpd() {
+        return movementSpeed;
+    };
     void setMvmtSpd(float newSpeed);
+    float getMouseSns() {
+                return mouseSensitivity;
+
+    };
     void setMouseSensitivity(float newSensitivity);
 
 private:
@@ -55,8 +62,8 @@ private:
     float roll; // Not now
     glm::mat4 projection;
 
-    float movementSpeed = 1.f;
-    float mouseSensitivity = 0.1f;
+    float movementSpeed = 5.f;
+    float mouseSensitivity = 0.5f;
 
     void updateCameraVectors();
 };

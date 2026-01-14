@@ -93,7 +93,7 @@ void Camera::processMouseMovement(float xoffset, float yoffset)
     yoffset *= mouseSensitivity;
 
     yaw += xoffset;
-    pitch += yoffset;
+    pitch -= yoffset;
 
     if (pitch > 89.0f)
         pitch = 89.0f;
