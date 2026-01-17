@@ -8,6 +8,7 @@
 #include "Light.h"
 #include "Camera.h"
 #include "config/PipelineConfigs.h"
+#include "geometry/Frustum.h"
 
 // Todo: Move it somewhere else close to Vertex maybe in a common Tpes
 struct SceneData
@@ -44,8 +45,8 @@ public:
   
     void clearScene();
     Camera &getCamera();
-    SceneData getSceneData();
-    LightPacket getLightPacket();
+    SceneData getSceneData() const;
+    LightPacket getLightPacket() const;
 
     // Todo: Something about rebuild when an Asset become invalid
     std::vector<SceneNode> nodes;
@@ -68,10 +69,25 @@ public:
 
     std::vector<Drawable> drawables;
 
-    void syncFromScene(const Scene &cpuScene,
-                       const AssetRegistry &cpuRegistry,
-                       GPUResourceRegistry &registry,
-                       const GpuResourceUploader &builder);
+
+
+    void initFromScene(
+        const Scene& cpuScene,
+        const AssetRegistry& cpuRegistry,
+        GPUResourceRegistry& registry,
+        const GpuResourceUploader& builder);
+ 
+    void addDrawable(
+        const SceneNode& node,
+        const AssetRegistry& cpuRegistry,
+        GPUResourceRegistry& registry,
+        const GpuResourceUploader& builder);
+
+    void syncFromScene(
+        const Scene& cpuScene,
+        const AssetRegistry& cpuRegistry,
+        GPUResourceRegistry &registry,
+        const GpuResourceUploader& uploader, uint32_t currFrame);
 
     struct PassRequirements
     {

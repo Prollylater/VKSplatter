@@ -26,8 +26,6 @@ const uint32_t HEIGHT = 600;
 // TODO: Important
 const std::string vertPath = "./ressources/shaders/vert.spv";
 const std::string fragPath = "./ressources/shaders/frag.spv";
-const std::string MODEL_PATH = "./ressources/models/hearthspring.obj";
-const std::string TEXTURE_PATH = "./ressources/models/hearthspring.png";
 
 //const std::string MODEL_PATH = "./ressources/models/bmw.obj";
 //const std::string TEXTURE_PATH = "./ressources/models/bmw.png";

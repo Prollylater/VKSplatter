@@ -12,6 +12,7 @@ Pointer to custom allocator callbacks, always nullptr in this tutorial
 Pointer to the variable that stores the handle to the new object
 */
 
+
 // GLFW Functions
 void HelloTriangleApplication::initWindow()
 {
@@ -68,10 +69,10 @@ void HelloTriangleApplication::initVulkan()
     vkInitialized = true;
 }
 
+const std::string MODEL_PATH = "hearthspring.obj";
 void HelloTriangleApplication::initScene()
 {
-
-    auto assetMesh = assetSystem.loadMeshWithMaterials(MODEL_PATH);
+    auto assetMesh = assetSystem.loadMeshWithMaterials(cico::fs::meshes() / MODEL_PATH);
     const Mesh *meshAsset = assetSystem.registry().get(assetMesh);
 
     // const auto &materialIds = meshAsset->materialIds;
@@ -83,22 +84,18 @@ void HelloTriangleApplication::initScene()
     };
 
     InstanceLayout meshLayout;
-    meshLayout.fields.push_back({"transform", InstanceFieldType::Mat4, 0, sizeof(glm::mat4)});
-    meshLayout.fields.push_back({"id", InstanceFieldType::Uint32, sizeof(glm::mat4), sizeof(uint32_t)});
-    meshLayout.stride = sizeof(glm::mat4) + sizeof(uint32_t);
+    meshLayout.fields.push_back({"id", InstanceFieldType::Uint32, 0, sizeof(uint32_t)});
+    meshLayout.stride = sizeof(uint32_t);
     node.layout = meshLayout;
 
     uint32_t i = node.addInstance();
-    glm::mat4 world = glm::translate(glm::mat4(1.0f), glm::vec3(1, 0, 0));
-    setFieldM4(node, i, "transform", world);
+    node.getTransform(i).setPosition(glm::vec3(1, 0, 0));
     setFieldU32(node, i, "id", 0);
 
-    /*
     i = node.addInstance();
-    world = glm::translate(glm::mat4(1.0f), glm::vec3(-1, 0, 0));
-    setFieldM4(node, i, "transform", world);
+    node.getTransform(i).setPosition(glm::vec3(-5, 0, 0));
     setFieldU32(node, i, "id", 1);
-    */
+
     logicScene.addNode(node);
 
     std::cout << "Logic Scene" << logicScene.nodes.size() << std::endl;
@@ -135,12 +132,12 @@ void HelloTriangleApplication::mainLoop()
 
         if (cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::P))
         {
-            cam.setMvmtSpd(cam.getMvmtSpd()*1.1f);
+            cam.setMvmtSpd(cam.getMvmtSpd() * 1.1f);
         }
 
         if (cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::M))
         {
-            cam.setMvmtSpd(cam.getMvmtSpd()*0.9);
+            cam.setMvmtSpd(cam.getMvmtSpd() * 0.9);
         }
 
         cam.processKeyboardMovement(delta,
@@ -175,19 +172,18 @@ void HelloTriangleApplication::mainLoop()
             mainLoopMouseState.prevXY = mainLoopMouseState.XY;
         }
 
-        // Todo: Camera Mouse Movement definitly feel off
-        // std::cout << "Curr" << mainLoopMouseState.XY[0] << " " << mainLoopMouseState.XY[1] << " Prev "
-        //          << mainLoopMouseState.prevXY[0] << " " << mainLoopMouseState.prevXY[1] << "Bool " << mainLoopMouseState.dragging << std::endl;
 
-        // Input and stuff
-        // I want this pattern
-
+        //Rendering
+        renderer.updateRenderingScene(logicScene,assetSystem.registry());
+        
         auto sceneData = logicScene.getSceneData();
         renderer.beginFrame(sceneData, window.getGLFWWindow());
         renderer.beginPass(RenderPassType::Forward);
         renderer.drawFrame(sceneData);
         renderer.endPass(RenderPassType::Forward);
         renderer.endFrame(framebufferResized);
+
+
 
         // Todo:
         // Point of this in #13 was to use a Frame Target and not hog ressources once it is reached

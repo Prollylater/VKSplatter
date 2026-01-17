@@ -19,7 +19,7 @@ public:
 
     void destroyBuffer(VkDevice device, VmaAllocator allocator = VK_NULL_HANDLE);
 
-    void uploadBuffer(const void *data, VkDeviceSize dataSize,
+    void uploadStaged(const void *data, VkDeviceSize dataSize,
                       VkDeviceSize dstOffset,
                       VkPhysicalDevice physDevice,
                       const LogicalDeviceManager &physDev,
@@ -27,13 +27,13 @@ public:
 
     void copyToBuffer(VkBuffer dstBuffer,
                       VkDeviceSize size, const LogicalDeviceManager &deviceM,
-                      uint32_t indice,
+                      uint32_t queuIndice,
                       VkDeviceSize srcOffset = 0,
                       VkDeviceSize dstOffset = 0);
 
     void copyFromBuffer(VkBuffer srcBuffer,
                         VkDeviceSize size, const LogicalDeviceManager &deviceM,
-                        uint32_t indice,
+                        uint32_t queuIndice,
                         VkDeviceSize srcOffset = 0,
                         VkDeviceSize dstOffset = 0);
 

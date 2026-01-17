@@ -20,6 +20,8 @@ Transform::Transform(const glm::vec3 &p)
     : Transform()
 {
     position = p;
+    worldDirty = true;
+    localDirty = true;
 }
 
 Transform::Transform(const glm::vec3 &p, const glm::quat &r, const glm::vec3 &s)

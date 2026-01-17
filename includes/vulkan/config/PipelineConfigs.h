@@ -74,6 +74,8 @@ struct PipelineLayoutConfig
 struct PipelineRasterConfig
 {
     VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
+    //Todo: https://johannesugb.github.io/gpu-programming/why-do-opengl-proj-matrices-fail-in-vulkan/
+    //This subject CLOCKWISE should be used
     VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     // Lines and Point with fillModeNonSolid available with gpu features
     VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL;

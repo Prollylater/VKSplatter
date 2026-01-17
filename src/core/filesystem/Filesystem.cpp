@@ -2,42 +2,42 @@
 #include <fstream>
 
 namespace {
-    cico::filesystem::Paths paths;
+    cico::fs::Paths paths;
 }
 
 namespace cico {
 
-namespace filesystem {
+namespace fs {
 
-void setRoot(const fs::path& root) {
-    paths.root = fs::absolute(root);
+void setRoot(const stdfs::path& root) {
+    paths.root = stdfs::absolute(root);
 }
 
-const fs::path& root() {
+const stdfs::path& root() {
     return paths.root;
 }
 
-void setShaders(const fs::path& shaders) {
-    paths.shaders = fs::absolute(shaders);
+void setShaders(const stdfs::path& shaders) {
+    paths.shaders = stdfs::absolute(shaders);
 }
 
-const fs::path& shaders() {
+const stdfs::path& shaders() {
     return paths.shaders;
 }
 
-void setTextures(const fs::path& textures) {
-    paths.textures = fs::absolute(textures);
+void setTextures(const stdfs::path& textures) {
+    paths.textures = stdfs::absolute(textures);
 }
 
-const fs::path& textures() {
+const stdfs::path& textures() {
     return paths.textures;
 }
 
-void setMeshes(const fs::path& meshes) {
-    paths.meshes = fs::absolute(meshes);
+void setMeshes(const stdfs::path& meshes) {
+    paths.meshes = stdfs::absolute(meshes);
 }
 
-const fs::path& meshes() {
+const stdfs::path& meshes() {
     return paths.meshes;
 }
 
@@ -45,11 +45,11 @@ const fs::path& meshes() {
 
 namespace filesystem {
 
-bool exists(const fs::path& path) {
-    return fs::exists(path);
+bool exists(const stdfs::path& path) {
+    return stdfs::exists(path);
 }
 
-std::vector<uint8_t> readBinary(const fs::path& path) {
+std::vector<uint8_t> readBinary(const stdfs::path& path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file)
         throw std::runtime_error("Failed to open file: " + path.string());
@@ -62,7 +62,7 @@ std::vector<uint8_t> readBinary(const fs::path& path) {
     return buffer;
 }
 
-std::string readText(const fs::path& path) {
+std::string readText(const stdfs::path& path) {
     std::ifstream file(path);
     if (!file)
         throw std::runtime_error("Failed to open file: " + path.string());
@@ -71,14 +71,14 @@ std::string readText(const fs::path& path) {
              std::istreambuf_iterator<char>() };
 }
 
-bool writeBinary(const fs::path& path, const void* data, size_t size) {
+bool writeBinary(const stdfs::path& path, const void* data, size_t size) {
     std::ofstream file(path, std::ios::binary);
     if (!file) return false;
     file.write(reinterpret_cast<const char*>(data), size);
     return true;
 }
 
-bool writeText(const fs::path& path, const std::string& text) {
+bool writeText(const stdfs::path& path, const std::string& text) {
     std::ofstream file(path);
     if (!file) return false;
     file << text;

@@ -27,10 +27,10 @@ public:
         //Tood: Take a look on other's pattern
         //Tood: Create an interface for application
 
-        cico::filesystem::setRoot(fs::current_path());
-        cico::filesystem::setShaders(cico::filesystem::shaders() / "ressources/shaders");
-        cico::filesystem::setTextures(cico::filesystem::textures() / "ressources/textures");
-        cico::filesystem::setMeshes(cico::filesystem::meshes() / "ressources/models");
+        cico::fs::setRoot(std::filesystem::current_path());
+        cico::fs::setShaders(cico::fs::root() / "ressources/shaders");
+        cico::fs::setTextures(cico::fs::root() / "ressources/textures");
+        cico::fs::setMeshes(cico::fs::root() / "ressources/models");
 
         cico::logging::initialize( "logs.txt");
     

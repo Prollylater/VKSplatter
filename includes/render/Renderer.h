@@ -68,6 +68,7 @@ public:
     //SetUp Function
     void initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth);
     void initRenderingRessources(Scene &scene, const AssetRegistry &registry);
+    void updateRenderingScene(Scene &scene, const AssetRegistry &registry);
     void deinitSceneRessources(Scene &scene);
     void createFramesData(uint32_t framesInFlightCount, const std::vector<VkDescriptorSetLayoutBinding> &bindings);
 

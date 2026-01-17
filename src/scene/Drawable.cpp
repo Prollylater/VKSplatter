@@ -5,7 +5,7 @@
 
     bool Drawable::bindInstanceBuffer(VkCommandBuffer cmd, const Drawable &drawable, uint32_t bindingIndex)
     {
-        if (drawable.instanceGPU.getID() != INVALID_ASSET_ID)
+        if (drawable.hotInstanceGPU.getID() != INVALID_ASSET_ID)
         {
             //VkDescriptorBufferInfo bufferInfo{};
             //bufferInfo.buffer = drawable.instanceGPU.instanceBuffer;

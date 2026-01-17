@@ -111,10 +111,22 @@ void Buffer::destroyBuffer(VkDevice device, VmaAllocator allocator)
         mBufferAllocation = VK_NULL_HANDLE;
     }
 }
+/*
+    if (useVma && allocator && mBufferAllocation)
+    {
 
+        vkUtils::BufferHelper::uploadBufferVMA(allocator, stagingBuffer.getVMAMemory(), data, dataSize, dstOffset);
+    }
+    else
+    {
+        vkUtils::BufferHelper::uploadBufferDirect(device, stagingBuffer.getMemory(), data, dataSize, dstOffset);
+    }
+*/
+//Todo:
 // Separateing staging mapping and copying maybe ?
 // This function create a staging buffer a command buffer and upload the buffer
-void Buffer::uploadBuffer(const void *data, VkDeviceSize dataSize, VkDeviceSize dstOffset,
+//Hence it only upload Bit created with Transfer Src
+void Buffer::uploadStaged(const void *data, VkDeviceSize dataSize, VkDeviceSize dstOffset,
                           VkPhysicalDevice physDevice,
                           const LogicalDeviceManager &logDev,
                           uint32_t queueIndice, VmaAllocator allocator)
@@ -143,22 +155,22 @@ void Buffer::uploadBuffer(const void *data, VkDeviceSize dataSize, VkDeviceSize 
 void Buffer::copyToBuffer(VkBuffer dstBuffer,
                           VkDeviceSize size,
                           const LogicalDeviceManager &deviceM,
-                          uint32_t indice,
+                          uint32_t queuIndice,
                           VkDeviceSize srcOffset,
                           VkDeviceSize dstOffset)
 {
-    vkUtils::BufferHelper::copyBufferTransient(mBuffer, dstBuffer, size, deviceM, indice, 0, 0);
+    vkUtils::BufferHelper::copyBufferTransient(mBuffer, dstBuffer, size, deviceM, queuIndice, 0, 0);
 }
 
 void Buffer::copyFromBuffer(VkBuffer srcBuffer,
                             VkDeviceSize size,
                             const LogicalDeviceManager &deviceM,
-                            uint32_t indice,
+                            uint32_t queuIndice,
                             VkDeviceSize srcOffset,
                             VkDeviceSize dstOffset)
 {
 
-    vkUtils::BufferHelper::copyBufferTransient(srcBuffer, mBuffer, size, deviceM, indice, 0, 0);
+    vkUtils::BufferHelper::copyBufferTransient(srcBuffer, mBuffer, size, deviceM, queuIndice, 0, 0);
 }
 
 
@@ -233,7 +245,7 @@ void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice 
                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
     }
 
-    uploadBuffer(data.data(), data.size(), 0, physDevice, deviceM, indice, allocator);
+    uploadStaged(data.data(), data.size(), 0, physDevice, deviceM, indice, allocator);
 }
 
 void Buffer::createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
@@ -247,6 +259,6 @@ void Buffer::createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &
     VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
     createBuffer(device, physDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
-    uploadBuffer(indices.data(), bufferSize, 0, physDevice, deviceM, indice, allocator);
+    uploadStaged(indices.data(), bufferSize, 0, physDevice, deviceM, indice, allocator);
 }
 

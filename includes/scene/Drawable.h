@@ -10,13 +10,23 @@ struct Material;
 
 // Instance Data structure created on the fly
 // Instance buffer read only assume to not change
+
+struct InstanceTransform
+{
+    glm::vec4 position_scale;
+    glm::quat rotation;
+};
+
 struct SceneNode
 {
     AssetID<Mesh> mesh;
-    // Transform transform;
     Extents nodeExtents;
 
-    // Notes that despite Instance being generic, shader definition is not
+    // Hot field: transforms
+    // This could also be an instance Data equivalent
+    // for element that are often changed
+    std::vector<Transform> transforms;
+    // Generic instance data (cold)
     InstanceLayout layout;
     std::vector<uint8_t> instanceData;
     uint32_t instanceCount = 0;
@@ -28,10 +38,12 @@ struct SceneNode
         // Replace by other allocator + introduce instance deletion
         instanceData.resize(instanceData.size() + layout.stride);
         memset(&instanceData[index * layout.stride], 0, layout.stride);
+
+        transforms.push_back(Transform{});
         return index;
     }
 
-    uint32_t instanceNb()
+    uint32_t instanceNb() const
     {
         return instanceCount;
     }
@@ -60,6 +72,35 @@ struct SceneNode
         if (!h.valid)
             return nullptr;
         return reinterpret_cast<T *>(instancePtr(instanceIndex) + h.offset);
+    }
+
+    // Transform accessors
+    Transform &getTransform(uint32_t instanceIndex)
+    {
+        return transforms[instanceIndex];
+    }
+
+    const Transform &getTransform(uint32_t instanceIndex) const
+    {
+        return transforms[instanceIndex];
+    }
+
+    void setTransform(uint32_t instanceIndex, const Transform &t)
+    {
+        transforms[instanceIndex] = t;
+    }
+
+    InstanceTransform buildGPUTransform(uint32_t instanceIndex) const
+    {
+        InstanceTransform t{};
+        
+        const Transform &tr = transforms[instanceIndex];
+
+        const auto pos = tr.getPosition();
+        t.position_scale = glm::vec4(pos[0], pos[1],pos[2] ,tr.getScale()[0]);
+        t.rotation = tr.getRotation();
+
+        return t;
     }
 };
 
@@ -93,22 +134,36 @@ inline void setFieldM4(SceneNode &node, uint32_t idx, std::string name, const gl
 
 #include "GPUResourceSystem.h"
 
+struct DrawableKey
+{
+    uint32_t nodeIndex;
+    uint32_t submeshIndex;
+
+    bool operator==(const DrawableKey &other) const
+    {
+        return nodeIndex == other.nodeIndex &&
+               submeshIndex == other.submeshIndex;
+    }
+};
+
+// Todo:
+// Take the time to compare
 struct Drawable
 {
     GPUHandle<MeshGPU> meshGPU;
     GPUHandle<MaterialGPU> materialGPU;
-    GPUHandle<InstanceGPU> instanceGPU;
+    GPUHandle<InstanceGPU> coldInstanceGPU;
+    GPUHandle<InstanceGPU> hotInstanceGPU;
+
+    // Extents worldExtent;
 
     // Todo: Implement
     // bool visible = true; //If drawable are visible the isntance make less sense
     uint32_t indexOffset = 0;
     uint32_t indexCount = 0;
-
-    // uint32_t renderMask;
-    //  for filtering by pass directly here
-    //  BoundingBox worldBounds; and transform here
-
-    // Binding
+    uint32_t instanceCount = 0;
+    int pipelineEntryIndex;
+    // RenderFlags flags;   // shadow, transparency, etc.
 
     bool bindInstanceBuffer(VkCommandBuffer cmd, const Drawable &drawable, uint32_t bindingIndex);
 };

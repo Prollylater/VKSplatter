@@ -1,6 +1,7 @@
 #include "ResourceSystem.h"
 #include <functional>
 #include <tiny_obj_loader.h>
+#include "filesystem/Filesystem.h"
 
 // Todo: Asset System should not be owning that logic or not in that way
 // FileSystem
@@ -50,9 +51,8 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
 
         if (!mtl.diffuse_texname.empty())
         {
-            // Todo: TexturePath
             auto texture = std::make_unique<TextureCPU>(
-                LoadImageTemplate<stbi_uc>(TEXTURE_PATH, STBI_rgb_alpha));
+                LoadImageTemplate<stbi_uc>(cico::fs::textures() / mtl.diffuse_texname, STBI_rgb_alpha));
             texture->hashedKey = hasher(mtl.diffuse_texname);
             texture->name = mtl.diffuse_texname;
             AssetID textureID = mRegistry.add<TextureCPU>(std::move(texture));
@@ -64,7 +64,7 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
         if (!mtl.normal_texname.empty())
         {
             auto texture = std::make_unique<TextureCPU>(
-                LoadImageTemplate<stbi_uc>(TEXTURE_PATH, STBI_rgb_alpha));
+                LoadImageTemplate<stbi_uc>(cico::fs::textures() / mtl.normal_texname, STBI_rgb_alpha));
             texture->hashedKey = hasher(mtl.normal_texname);
             texture->name = mtl.normal_texname;
             AssetID textureID = mRegistry.add<TextureCPU>(std::move(texture));
@@ -73,7 +73,7 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
         if (!mtl.metallic_texname.empty())
         {
             auto texture = std::make_unique<TextureCPU>(
-                LoadImageTemplate<stbi_uc>(TEXTURE_PATH, STBI_rgb_alpha));
+                LoadImageTemplate<stbi_uc>(cico::fs::textures() / mtl.metallic_texname, STBI_rgb_alpha));
             texture->hashedKey = hasher(mtl.metallic_texname);
             texture->name = mtl.metallic_texname;
             AssetID textureID = mRegistry.add<TextureCPU>(std::move(texture));
@@ -84,7 +84,7 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
         if (!mtl.roughness_texname.empty())
         {
             auto texture = std::make_unique<TextureCPU>(
-                LoadImageTemplate<stbi_uc>(TEXTURE_PATH, STBI_rgb_alpha));
+                LoadImageTemplate<stbi_uc>(cico::fs::textures() / mtl.roughness_texname, STBI_rgb_alpha));
             texture->hashedKey = hasher(mtl.roughness_texname);
             texture->name = mtl.roughness_texname;
             AssetID textureID = mRegistry.add<TextureCPU>(std::move(texture));
@@ -95,7 +95,7 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
         if (!mtl.emissive_texname.empty())
         {
             auto texture = std::make_unique<TextureCPU>(
-                LoadImageTemplate<stbi_uc>(TEXTURE_PATH, STBI_rgb_alpha));
+                LoadImageTemplate<stbi_uc>(cico::fs::textures() / mtl.emissive_texname, STBI_rgb_alpha));
             texture->hashedKey = hasher(mtl.emissive_texname);
             texture->name = mtl.emissive_texname;
             AssetID textureID = mRegistry.add<TextureCPU>(std::move(texture));
@@ -133,7 +133,7 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
             submesh.materialId = (matId >= 0)
                                      ? static_cast<uint32_t>(matId)
                                      : INVALID_ASSET_ID;
-                                     
+
             for (const uint32_t face : faces)
             {
                 for (uint32_t v = 0; v < 3; ++v)

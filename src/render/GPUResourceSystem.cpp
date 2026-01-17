@@ -10,9 +10,13 @@
 #include "AssetRegistry.h"
 #include "ContextController.h"
 #include "VertexDescriptions.h"
+#include "utils/RessourceHelper.h"
 
 /////////////////////////////////////////////////////////////////
 
+// Todo:
+// Using MeshId purpose here is very limited
+// This could also remove the need of coupling with assetRegistry
 MeshGPU GpuResourceUploader::uploadMeshGPU(const AssetID<Mesh> meshId, bool useSSBO) const
 {
 
@@ -55,7 +59,7 @@ MeshGPU GpuResourceUploader::uploadMeshGPU(const AssetID<Mesh> meshId, bool useS
 };
 
 InstanceGPU GpuResourceUploader::uploadInstanceGPU(
-    const std::vector<uint8_t>& data, const InstanceLayout& layout,
+    const std::vector<uint8_t> &data, const InstanceLayout &layout,
     uint32_t capacity, bool useSSBO, bool map) const
 {
     InstanceGPU gpu;
@@ -82,13 +86,55 @@ InstanceGPU GpuResourceUploader::uploadInstanceGPU(
                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
     }
 
-    vertexBuffer.uploadBuffer(data.data(), data.size(), 0, physDevice, context.getLogicalDeviceManager(), indice, allocator);
+    vertexBuffer.uploadStaged(data.data(), data.size(), 0, physDevice, context.getLogicalDeviceManager(), indice, allocator);
 
     gpu.instanceBuffer = vertexBuffer.getBuffer();
     gpu.instanceAlloc = vertexBuffer.getVMAMemory();
     gpu.instanceMem = vertexBuffer.getMemory();
     gpu.mapped = map ? vertexBuffer.map(allocator) : nullptr;
     return gpu;
+}
+
+void GpuResourceUploader::updateInstanceGPU(
+    const InstanceGPU &gpu,
+    const void *srcData, uint32_t instanceCount) const
+{
+    VkDeviceSize size = instanceCount * gpu.stride;
+    if (instanceCount > gpu.capacity || instanceCount == 0)
+    {
+        // Todo: Recreate
+        return;
+    }
+    if (gpu.mapped)
+    {
+        memcpy(gpu.mapped, srcData, size);
+    }
+    else
+    {
+        const auto device = context.getLogicalDeviceManager().getLogicalDevice();
+        const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
+        const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
+        const auto queueIndice = context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
+
+        Buffer staging;
+        staging.createBuffer(device, physDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, allocator);
+
+        if (allocator)
+        {
+
+            vkUtils::BufferHelper::uploadBufferVMA(allocator, staging.getVMAMemory(), srcData, size, 0);
+        }
+        else
+        {
+            vkUtils::BufferHelper::uploadBufferDirect(device, staging.getMemory(), srcData, size, 0);
+        }
+
+        // Copy to device buffer
+        staging.copyToBuffer(gpu.instanceBuffer, size, context.getLogicalDeviceManager(), queueIndice);
+
+        staging.destroyBuffer(device, allocator);
+    }
 }
 
 // Todo: Rewrite this method
@@ -110,7 +156,7 @@ MaterialGPU GpuResourceUploader::uploadMaterialGPU(const AssetID<Material> matID
 
     Buffer materialUniformBuffer;
     materialUniformBuffer.createBuffer(deviceM.getLogicalDevice(), physDevice, sizeof(Material::MaterialConstants), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
-    materialUniformBuffer.uploadBuffer(&material.mConstants, sizeof(Material::MaterialConstants), 0, physDevice, deviceM, indice, allocator);
+    materialUniformBuffer.uploadStaged(&material.mConstants, sizeof(Material::MaterialConstants), 0, physDevice, deviceM, indice, allocator);
     // Better way to create this ?
 
     auto getOrDummy = [&](AssetID<TextureCPU> id, Texture *(*getter)(VkPhysicalDevice, const LogicalDeviceManager &, uint32_t, VmaAllocator)) -> Texture *
@@ -257,7 +303,7 @@ void GPUResourceRegistry::clearAll(VkDevice device, VmaAllocator allocator)
 
     for (auto &pair : instances)
     {
-         std::cout<<pair.second.resources.size() <<std::endl;
+        std::cout << pair.second.resources.size() << std::endl;
 
         for (auto &resource : pair.second.resources)
         {
@@ -268,5 +314,4 @@ void GPUResourceRegistry::clearAll(VkDevice device, VmaAllocator allocator)
         }
     }
     instances.clear();
-
 }

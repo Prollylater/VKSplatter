@@ -4,7 +4,7 @@
 #include "Texture.h"
 #include <functional>
 #include <unordered_map>
-#include  <memory>
+#include <memory>
 
 template <typename T>
 class GPUHandle
@@ -40,10 +40,12 @@ public:
 
     MeshGPU uploadMeshGPU(const AssetID<Mesh>, bool useSSBO = false) const;
     MaterialGPU uploadMaterialGPU(const AssetID<Material> matID, GPUResourceRegistry &gpuRegistry, int descriptorIdx, int pipelineIndex) const;
-    InstanceGPU uploadInstanceGPU(const std::vector<uint8_t>& data, const InstanceLayout& layout, uint32_t capacity, bool useSSBO = false, bool map = false) const;
+    InstanceGPU uploadInstanceGPU(const std::vector<uint8_t> &data, const InstanceLayout &layout, uint32_t capacity, bool useSSBO = false, bool map = false) const;
+
+    void updateInstanceGPU(const InstanceGPU &gpu, const void *srcData, uint32_t instanceCount) const;
+
     Texture uploadTexture(const AssetID<TextureCPU>) const;
 
-    
 private:
     const VulkanContext &context;
     const AssetRegistry &assetRegistry;
@@ -53,10 +55,19 @@ private:
 
 // Todo: This class and the workflow it promotes is not currently satisfying in regard to the need some user might have
 
-inline uint64_t makeInstanceKey(AssetID<Mesh> meshID, AssetID<Material> materialID)
+using InstanceBatchID = uint64_t;
+
+inline uint64_t makeInstanceKey(
+    AssetID<Mesh> meshID,
+    AssetID<Material> materialID,
+    uint32_t instanceBatchID
+)
 {
-    return (static_cast<uint64_t>(meshID.getID()) << 32) | materialID.getID();
+    return  (static_cast<uint64_t>(meshID.getID())      << 32) |
+            (static_cast<uint64_t>(materialID.getID()) << 16) |
+            static_cast<uint64_t>(instanceBatchID);
 }
+
 
 class GPUResourceRegistry
 {
@@ -86,10 +97,10 @@ public:
     }
 
     template <typename GpuT>
-    GPUHandle<GpuT> addMultiFrame(AssetID<Mesh> meshID, AssetID<Material> materialID, uint32_t maxFramesInFlight, std::function<GpuT()> uploader)
+    GPUHandle<GpuT> addMultiFrame(AssetID<Mesh> meshID, AssetID<Material> materialID, InstanceBatchID batchId, uint32_t maxFramesInFlight, std::function<GpuT()> uploader)
     {
         auto &map = instances;
-        uint64_t key = makeInstanceKey(meshID, materialID);
+        uint64_t key = makeInstanceKey(meshID, materialID, batchId);
 
         auto it = map.find(key);
         if (it != map.end())
@@ -132,6 +143,11 @@ public:
 
         if (it != instances.end())
         {
+            // Todo: Better method
+            if (it->second.resources.size() <= frame)
+            {
+                return it->second.resources[0].get();
+            }
             return it->second.resources[frame].get();
         }
         return nullptr;

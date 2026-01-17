@@ -3,12 +3,13 @@
 #include <vector>
 #include <string>
 
-namespace fs = std::filesystem;
+namespace stdfs = std::filesystem;
 
-// Todo: Read on why people don't like filesystem
+// Todo: Read on why people don't like std::filesystem
+// Todo: Introduce some sort of fallback
 namespace cico {
 
-namespace filesystem
+namespace fs
 {
 
     struct Paths
@@ -19,22 +20,22 @@ namespace filesystem
         std::filesystem::path meshes;
     };
 
-    void setRoot(const fs::path &root);
-    const fs::path &root();
-    void setShaders(const fs::path &root);
-    const fs::path &shaders();
-    void setTextures(const fs::path &root);
-    const fs::path &textures();
-    void setMeshes(const fs::path &root);
-    const fs::path &meshes();
+    void setRoot(const stdfs::path &root);
+    const stdfs::path &root();
+    void setShaders(const stdfs::path &root);
+    const stdfs::path &shaders();
+    void setTextures(const stdfs::path &root);
+    const stdfs::path &textures();
+    void setMeshes(const stdfs::path &root);
+    const stdfs::path &meshes();
 
-    bool exists(const fs::path &path);
+    bool exists(const stdfs::path &path);
 
-    std::vector<uint8_t> readBinary(const fs::path &path);
-    std::string readText(const fs::path &path);
+    std::vector<uint8_t> readBinary(const stdfs::path &path);
+    std::string readText(const stdfs::path &path);
 
-    bool writeBinary(const fs::path &path, const void *data, size_t size);
-    bool writeText(const fs::path &path, const std::string &text);
+    bool writeBinary(const stdfs::path &path, const void *data, size_t size);
+    bool writeText(const stdfs::path &path, const std::string &text);
 
 };
 };

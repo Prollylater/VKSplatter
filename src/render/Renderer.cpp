@@ -111,15 +111,16 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
 
   GpuResourceUploader uploader(*mContext, registry, mMaterialDescriptors, mPipelineM);
 
-  //Todo: Temp
+  // Todo: automatically resolve this kind of stuff
   auto vf = VertexFormatRegistry::getStandardFormat();
   const auto layoutInst = scene.getNode(0).layout;
-  vf.bindings.push_back(makeVtxInputBinding(1, layoutInst.stride, VK_VERTEX_INPUT_RATE_INSTANCE));
+  vf.bindings.push_back(makeVtxInputBinding(1, sizeof(InstanceTransform), VK_VERTEX_INPUT_RATE_INSTANCE));
   vf.attributes.push_back(makeVtxInputAttr(3, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0));
   vf.attributes.push_back(makeVtxInputAttr(4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)));
-  vf.attributes.push_back(makeVtxInputAttr(5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)*2));
-  vf.attributes.push_back(makeVtxInputAttr(6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)*3));
-  vf.attributes.push_back(makeVtxInputAttr(7, 1, VK_FORMAT_R32_UINT, sizeof(glm::mat4)));
+
+  vf.bindings.push_back(makeVtxInputBinding(2, layoutInst.stride, VK_VERTEX_INPUT_RATE_INSTANCE));
+  vf.attributes.push_back(makeVtxInputAttr(5, 2, VK_FORMAT_R32_UINT, 0));
+
   VertexFormatRegistry::registerFormat(vf.mVertexFlags, vf);
 
   for (auto &node : scene.nodes)
@@ -151,8 +152,7 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   // TODO:
   // Important:
   // This can't stay longterm
-
-  mRScene.syncFromScene(scene, registry, mGpuRegistry, uploader);
+  mRScene.initFromScene(scene, registry, mGpuRegistry, uploader);
 
   // Get the light packet from the scene
   // Todo: Result of Frames tied light
@@ -183,6 +183,13 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   std::cout << "Ressourcess uploaded" << std::endl;
   std::cout << "Scene Ressources Initialized" << std::endl;
 };
+
+void Renderer::updateRenderingScene(Scene &scene, const AssetRegistry &registry)
+{
+
+  GpuResourceUploader uploader(*mContext, registry, mMaterialDescriptors, mPipelineM);
+  mRScene.syncFromScene(scene, registry, mGpuRegistry, uploader, mFrameHandler.getCurrentFrameIndex());
+}
 
 void Renderer::deinitSceneRessources(Scene &scene)
 {
@@ -483,7 +490,8 @@ for each shader {
 
     auto *meshGpu = mGpuRegistry.get(draw->meshGPU);
     auto *materialGpu = mGpuRegistry.get(draw->materialGPU);
-    auto *instanceGPU = mGpuRegistry.getInstances(draw->instanceGPU, mFrameHandler.getCurrentFrameIndex());
+    auto *hotInstanceGPU = mGpuRegistry.getInstances(draw->hotInstanceGPU, mFrameHandler.getCurrentFrameIndex());
+    auto *coldInstanceGPU = mGpuRegistry.getInstances(draw->coldInstanceGPU, mFrameHandler.getCurrentFrameIndex());
 
     // Bind descriptors
     std::vector<VkDescriptorSet> sets = {
@@ -498,7 +506,8 @@ for each shader {
     // Bind vertex
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(cmd, 0, 1, &meshGpu->vertexBuffer, offsets);
-    vkCmdBindVertexBuffers(cmd, 1, 1, &instanceGPU->instanceBuffer, offsets);
+    vkCmdBindVertexBuffers(cmd, 1, 1, &hotInstanceGPU->instanceBuffer, offsets);
+    vkCmdBindVertexBuffers(cmd, 2, 1, &coldInstanceGPU->instanceBuffer, offsets);
 
     vkCmdBindIndexBuffer(cmd, meshGpu->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -507,7 +516,7 @@ for each shader {
                        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &sceneData.viewproj);
 
     // Draw
-    vkCmdDrawIndexed(cmd, draw->indexCount, instanceGPU->count, draw->indexOffset, 0, 0);
+    vkCmdDrawIndexed(cmd, draw->indexCount, draw->instanceCount, draw->indexOffset, 0, 0);
 
     // Fake multi Viewport is basically this
     /*

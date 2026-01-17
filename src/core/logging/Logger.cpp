@@ -6,8 +6,8 @@
 namespace
 {
     // Could be a struct if we end up making more
-    fs::path logDir;
-    fs::path logFilePath;
+    stdfs::path logDir;
+    stdfs::path logFilePath;
     std::chrono::milliseconds PeriodicFlush = std::chrono::milliseconds(1);
     std::ofstream logFile;
 
@@ -22,11 +22,11 @@ namespace cico
         bool initialize(const std::string &filename)
         {
             // Todo: Not really a good idea
-            logDir = cico::filesystem::root() / "logs";
+            logDir = cico::fs::root() / "logs";
 
-            if (!filesystem::exists(logDir))
+            if (!stdfs::exists(logDir))
             {
-                fs::create_directories(logDir);
+                stdfs::create_directories(logDir);
             }
             logFilePath = logDir / filename;
             return true;

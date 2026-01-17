@@ -15,7 +15,11 @@ Camera::Camera()
       farPlane(1000.0f)
 {
     updateCameraVectors();
+    //Read more on this convention
+    //perspectiveRH_ZO
+  //  projection = glm::perspective(glm::radians(fov), aspect, nearPlane, farPlane);
     projection = glm::perspective(glm::radians(fov), aspect, nearPlane, farPlane);
+
 }
 
 Camera::Camera(glm::vec3 position, glm::vec3 worldUp, float yaw, float pitch, float fov, float aspect, float nearPlane, float farPlane)

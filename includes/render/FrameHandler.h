@@ -61,7 +61,6 @@ public:
     void completeFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, RenderPassType type, const std::vector<VkImageView> swapChainViews, const VkExtent2D swapChainExtent);
 
     void updateUniformBuffers(glm::mat4 data);
-    void updateUniformBuffers(VkExtent2D swapChainExtent);
     void writeFramesDescriptors(VkDevice device, int setIndex);
 
     void destroyFramesData(VkDevice device);

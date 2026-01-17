@@ -9,10 +9,9 @@ Scene::Scene()
     sceneLayout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SceneData));
 
     lights.addDirLight({glm::vec4(0.5, 1.0, 0.0, 0.0), glm::vec4(1.0, 1.0, 1.0, 0.0), 1.0});
-    lights.addDirLight({glm::vec4(0.5, -1.0, 0.5,0.0), glm::vec4(0.2, 0.0, 1.0, 0.0), 1.0});
+    lights.addDirLight({glm::vec4(0.5, -1.0, 0.5, 0.0), glm::vec4(0.2, 0.0, 1.0, 0.0), 1.0});
     lights.addPointLight({glm::vec4(0.5, 1.0, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 0.5, 0.5});
     lights.addPointLight({glm::vec4(-0.5, 0.0, 0.5, 0.0), glm::vec4(0.0, 1.0, 1.0, 0.0), 0.5, 0.5});
-
 };
 
 Scene::Scene(int compute)
@@ -24,8 +23,10 @@ Scene::Scene(int compute)
     sceneLayout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SceneData));
 };
 
+//Todo: &&
 void Scene::addNode(SceneNode node)
 {
+    /*
     InstanceFieldHandle transformField = node.getField("transform");
     if (transformField.valid == true)
     {
@@ -41,7 +42,15 @@ void Scene::addNode(SceneNode node)
             sceneBB.expand(worldExtents);
         }
     }
+    */
 
+    for (uint32_t i = 0; i < node.instanceCount; i++)
+    {
+        Extents worldExtents = node.nodeExtents;
+        glm::mat4 worldMatrix = node.getTransform(i).getWorldMatrix();
+        worldExtents.translate(worldMatrix[3]);
+        sceneBB.expand(worldExtents);
+    }
     nodes.push_back(node);
 }
 
@@ -57,15 +66,15 @@ void Scene::clearScene()
 
 // Temporary
 Camera &Scene::getCamera() { return camera; };
-SceneData Scene::getSceneData()
+SceneData Scene::getSceneData() const
 {
     glm::mat4 proj = camera.getProjectionMatrix();
     proj[1][1] *= -1;
 
-    return {proj * camera.getViewMatrix(), camera.getEye(), glm::vec4(0.3,0.1,0.4, 0.0)};
+    return {proj * camera.getViewMatrix(), camera.getEye(), glm::vec4(0.3, 0.1, 0.4, 0.0)};
 };
 
-LightPacket Scene::getLightPacket()
+LightPacket Scene::getLightPacket() const
 {
 
     return {lights.getDirLights(), lights.dirLightCount(), lights.getPointLights(), lights.pointLightCount()};
@@ -80,51 +89,138 @@ void RenderScene::destroy(VkDevice device, VmaAllocator alloc)
     };
 };
 
-void RenderScene::syncFromScene(const Scene &cpuScene,
+void RenderScene::initFromScene(const Scene &cpuScene,
                                 const AssetRegistry &cpuRegistry,
                                 GPUResourceRegistry &registry,
                                 const GpuResourceUploader &builder)
 {
     drawables.clear();
     drawables.reserve(cpuScene.nodes.size());
-    int index = 0;
 
     for (auto &node : cpuScene.nodes)
     {
-        // Is there a way to not add more add registry more than once
-        const auto &meshHandle = node.mesh;
-        const auto &mesh = cpuRegistry.get(meshHandle);
+        addDrawable(node, cpuRegistry, registry, builder);
+    }
+}
 
-        auto meshGPU = registry.add(meshHandle, std::function<MeshGPU()>([&]()
-                                                                         { return builder.uploadMeshGPU(node.mesh); }));
-        for (auto &submesh : mesh->submeshes)
-        {
-            Drawable d;
-            d.indexOffset = submesh.indexOffset;
-            d.indexCount = submesh.indexCount;
+// What is it that identify the instances ?
+void RenderScene::addDrawable(
+    const SceneNode &node,
+    const AssetRegistry &cpuRegistry,
+    GPUResourceRegistry &registry,
+    const GpuResourceUploader &builder)
+{
+    const auto &mesh = cpuRegistry.get(node.mesh);
 
-            d.meshGPU = meshGPU;
+    const uint32_t firstDrawable = static_cast<uint32_t>(drawables.size());
+    uint32_t drawableCount = 0;
 
-            // Todo:
-            // In practice, i could create a GpuHandle using the id but that's not a behavior i am clear on using
-            d.materialGPU = registry.add(mesh->materialIds[submesh.materialId],
-                                         std::function<MaterialGPU()>([&]()
-                                                                      { return MaterialGPU(); }));
+    GPUHandle<MeshGPU> meshGPU = registry.add(node.mesh, std::function<MeshGPU()>([&]()
+                                                                                  { return builder.uploadMeshGPU(node.mesh); }));
+    constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
 
-            uint32_t MAX_FRAMES_IN_FLIGHT = 3;
+    std::vector<InstanceTransform> transforms(node.instanceNb());
+    for (uint32_t i = 0; i < node.instanceNb(); ++i)
+    {
+        transforms[i] = node.buildGPUTransform(i);
+    }
+    InstanceLayout layout{};
+    layout.stride = sizeof(InstanceTransform);
 
-            // Todo:
-            // Notes: Instance is pretty much mesh only dependant so it don't need to be nested here
-            d.instanceGPU = registry.addMultiFrame(meshHandle, mesh->materialIds[submesh.materialId], MAX_FRAMES_IN_FLIGHT,
+    for (const auto &submesh : mesh->submeshes)
+    {
+        Drawable d{};
+        d.meshGPU = meshGPU;
+        d.indexOffset = submesh.indexOffset;
+        d.indexCount = submesh.indexCount;
+
+        // Todo:
+        // No upload here because Material are uploaded separately currently
+        // Hence the lambda is never used
+        // In practice, i could create a GpuHandle using the id but that's not a behavior i am clear on using.
+
+        d.materialGPU = registry.add(mesh->materialIds[submesh.materialId],
+                                     std::function<MaterialGPU()>([&]()
+                                                                  { return MaterialGPU(); }));
+
+        // Todo:
+        // Notes: Instance is pretty much mesh only dependant so it don't need to be nested here
+        d.hotInstanceGPU = registry.addMultiFrame(node.mesh, mesh->materialIds[submesh.materialId], 0, MAX_FRAMES_IN_FLIGHT,
+                                                  std::function<InstanceGPU()>([&]()
+                                                                               { return builder.uploadInstanceGPU(reinterpret_cast<const std::vector<uint8_t> &>(transforms), layout, node.instanceNb(), true); }));
+
+        // Todo: this don't need three Frame in flight
+        d.coldInstanceGPU = registry.addMultiFrame(node.mesh, mesh->materialIds[submesh.materialId], 1, 1,
                                                    std::function<InstanceGPU()>([&]()
-                                                                                { return builder.uploadInstanceGPU(node.instanceData, node.layout, node.instanceCount, true); }));
+                                                                                { return builder.uploadInstanceGPU(node.instanceData, node.layout, node.instanceNb(), true); }));
 
-            drawables.push_back(std::move(d));
+        d.instanceCount = node.instanceCount;
+
+        drawables.push_back(std::move(d));
+        ++drawableCount;
+    }
+}
+
+void RenderScene::syncFromScene(
+    const Scene &cpuScene,
+    const AssetRegistry &cpuRegistry,
+    GPUResourceRegistry &registry,
+    const GpuResourceUploader &uploader, uint32_t currFrame)
+{
+    size_t drawableIndex = 0;
+
+    const auto sceneData = cpuScene.getSceneData();
+    // Todo: Update Transform + Bounding box
+    for (const SceneNode &node : cpuScene.nodes)
+    {
+        if (!node.visible)
+        {
+            // Skip all drawables belonging to this node
+            // This does not remove the drawable however
+            const auto &mesh = cpuRegistry.get(node.mesh);
+            drawableIndex += mesh->submeshes.size();
+            continue;
+        }
+
+        const auto &mesh = cpuRegistry.get(node.mesh);
+
+        // CPU cull & compact transforms
+        std::vector<InstanceTransform> visibleTransforms;
+        visibleTransforms.reserve(node.instanceNb());
+
+        for (uint32_t i = 0; i < node.instanceNb(); ++i)
+        {
+
+              if (!testAgainstFrustum(sceneData.viewproj, node.nodeExtents))
+              {
+                  continue;
+              }
+  
+            visibleTransforms.push_back(
+                node.buildGPUTransform(i));
+        }
+        
+        int visible =   visibleTransforms.size() ;
+        for (size_t submesh = 0; submesh < mesh->submeshes.size(); ++submesh)
+        {
+            // Notes:
+            // Rely heavily on the scenenodes matchign the drawable
+            Drawable &d = drawables[drawableIndex++];
+
+            const auto &instanceGPU = registry.getInstances(d.hotInstanceGPU, currFrame);
+
+            // Only upload hot instance
+            uploader.updateInstanceGPU(
+                *instanceGPU,
+                visibleTransforms.data(),
+                visibleTransforms.size());
+
+            d.instanceCount = static_cast<uint32_t>(visibleTransforms.size());
         }
     }
 }
 
-//Should only use on a valid scene
+// Should only use on a valid scene
 void fitCameraToBoundingBox(Camera &camera, const Extents &box)
 {
     glm::vec3 center = box.center();
