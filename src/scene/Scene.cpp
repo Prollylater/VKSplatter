@@ -9,9 +9,11 @@ Scene::Scene()
     sceneLayout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SceneData));
 
     lights.addDirLight({glm::vec4(0.5, 1.0, 0.0, 0.0), glm::vec4(1.0, 1.0, 1.0, 0.0), 1.0});
-    lights.addDirLight({glm::vec4(0.5, -1.0, 0.5, 0.0), glm::vec4(0.2, 0.0, 1.0, 0.0), 1.0});
-    lights.addPointLight({glm::vec4(0.5, 1.0, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 0.5, 0.5});
-    lights.addPointLight({glm::vec4(-0.5, 0.0, 0.5, 0.0), glm::vec4(0.0, 1.0, 1.0, 0.0), 0.5, 0.5});
+    //lights.addDirLight({glm::vec4(0.5, -1.0, 0.0, 0.0), glm::vec4(0.2, 0.0, 1.0, 0.0), 1.0});
+    lights.addPointLight({glm::vec4(0.0, 1.0, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 1.5, 1.5});
+    lights.addPointLight({glm::vec4(-0.0, 0.0, 0.5, 0.0), glm::vec4(0.0, 1.0, 1.0, 0.0), 0.5, 0.5});
+    lights.addPointLight({glm::vec4(-9.5, -14, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 2.5, 5.5});
+    lights.addPointLight({glm::vec4(-5.5, -13.0, 0.5, -0.5), glm::vec4(0.0, 1.0, 1.0, 0.0), 5.5, 1.5});
 };
 
 Scene::Scene(int compute)
@@ -80,146 +82,6 @@ LightPacket Scene::getLightPacket() const
     return {lights.getDirLights(), lights.dirLightCount(), lights.getPointLights(), lights.pointLightCount()};
 }
 
-void RenderScene::destroy(VkDevice device, VmaAllocator alloc)
-{
-    for (auto &drawable : drawables)
-    {
-        // draw gable.materialGPU.destroy(device, alloc);
-        // drawable.meshGPU.destroy(device, alloc);
-    };
-};
-
-void RenderScene::initFromScene(const Scene &cpuScene,
-                                const AssetRegistry &cpuRegistry,
-                                GPUResourceRegistry &registry,
-                                const GpuResourceUploader &builder)
-{
-    drawables.clear();
-    drawables.reserve(cpuScene.nodes.size());
-
-    for (auto &node : cpuScene.nodes)
-    {
-        addDrawable(node, cpuRegistry, registry, builder);
-    }
-}
-
-// What is it that identify the instances ?
-void RenderScene::addDrawable(
-    const SceneNode &node,
-    const AssetRegistry &cpuRegistry,
-    GPUResourceRegistry &registry,
-    const GpuResourceUploader &builder)
-{
-    const auto &mesh = cpuRegistry.get(node.mesh);
-
-    const uint32_t firstDrawable = static_cast<uint32_t>(drawables.size());
-    uint32_t drawableCount = 0;
-
-    GPUHandle<MeshGPU> meshGPU = registry.add(node.mesh, std::function<MeshGPU()>([&]()
-                                                                                  { return builder.uploadMeshGPU(node.mesh); }));
-    constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
-
-    std::vector<InstanceTransform> transforms(node.instanceNb());
-    for (uint32_t i = 0; i < node.instanceNb(); ++i)
-    {
-        transforms[i] = node.buildGPUTransform(i);
-    }
-    InstanceLayout layout{};
-    layout.stride = sizeof(InstanceTransform);
-
-    for (const auto &submesh : mesh->submeshes)
-    {
-        Drawable d{};
-        d.meshGPU = meshGPU;
-        d.indexOffset = submesh.indexOffset;
-        d.indexCount = submesh.indexCount;
-
-        // Todo:
-        // No upload here because Material are uploaded separately currently
-        // Hence the lambda is never used
-        // In practice, i could create a GpuHandle using the id but that's not a behavior i am clear on using.
-
-        d.materialGPU = registry.add(mesh->materialIds[submesh.materialId],
-                                     std::function<MaterialGPU()>([&]()
-                                                                  { return MaterialGPU(); }));
-
-        // Todo:
-        // Notes: Instance is pretty much mesh only dependant so it don't need to be nested here
-        d.hotInstanceGPU = registry.addMultiFrame(node.mesh, mesh->materialIds[submesh.materialId], 0, MAX_FRAMES_IN_FLIGHT,
-                                                  std::function<InstanceGPU()>([&]()
-                                                                               { return builder.uploadInstanceGPU(reinterpret_cast<const std::vector<uint8_t> &>(transforms), layout, node.instanceNb(), true); }));
-
-        // Todo: this don't need three Frame in flight
-        d.coldInstanceGPU = registry.addMultiFrame(node.mesh, mesh->materialIds[submesh.materialId], 1, 1,
-                                                   std::function<InstanceGPU()>([&]()
-                                                                                { return builder.uploadInstanceGPU(node.instanceData, node.layout, node.instanceNb(), true); }));
-
-        d.instanceCount = node.instanceCount;
-
-        drawables.push_back(std::move(d));
-        ++drawableCount;
-    }
-}
-
-void RenderScene::syncFromScene(
-    const Scene &cpuScene,
-    const AssetRegistry &cpuRegistry,
-    GPUResourceRegistry &registry,
-    const GpuResourceUploader &uploader, uint32_t currFrame)
-{
-    size_t drawableIndex = 0;
-
-    const auto sceneData = cpuScene.getSceneData();
-    // Todo: Update Transform + Bounding box
-    for (const SceneNode &node : cpuScene.nodes)
-    {
-        if (!node.visible)
-        {
-            // Skip all drawables belonging to this node
-            // This does not remove the drawable however
-            const auto &mesh = cpuRegistry.get(node.mesh);
-            drawableIndex += mesh->submeshes.size();
-            continue;
-        }
-
-        const auto &mesh = cpuRegistry.get(node.mesh);
-
-        // CPU cull & compact transforms
-        std::vector<InstanceTransform> visibleTransforms;
-        visibleTransforms.reserve(node.instanceNb());
-
-        for (uint32_t i = 0; i < node.instanceNb(); ++i)
-        {
-
-              if (!testAgainstFrustum(sceneData.viewproj, node.nodeExtents))
-              {
-                  continue;
-              }
-  
-            visibleTransforms.push_back(
-                node.buildGPUTransform(i));
-        }
-        
-        int visible =   visibleTransforms.size() ;
-        for (size_t submesh = 0; submesh < mesh->submeshes.size(); ++submesh)
-        {
-            // Notes:
-            // Rely heavily on the scenenodes matchign the drawable
-            Drawable &d = drawables[drawableIndex++];
-
-            const auto &instanceGPU = registry.getInstances(d.hotInstanceGPU, currFrame);
-
-            // Only upload hot instance
-            uploader.updateInstanceGPU(
-                *instanceGPU,
-                visibleTransforms.data(),
-                visibleTransforms.size());
-
-            d.instanceCount = static_cast<uint32_t>(visibleTransforms.size());
-        }
-    }
-}
-
 // Should only use on a valid scene
 void fitCameraToBoundingBox(Camera &camera, const Extents &box)
 {
@@ -235,3 +97,167 @@ void fitCameraToBoundingBox(Camera &camera, const Extents &box)
 
     camera.setPosition(newPosition);
 }
+
+
+RenderScene* updateFrameSync(
+    const RenderFrame &frame,
+    GPUResourceRegistry &registry,
+    const AssetRegistry &cpuRegistry,
+    const GpuResourceUploader &uploader,
+    uint32_t currFrame)
+{
+    RenderScene* scenePtr = new RenderScene();
+    RenderScene& scene = *scenePtr;
+    constexpr uint32_t MAX_INSTANCES = 10;
+
+    for (const RenderObjectFrame &rof : frame.objects)
+    {
+        const auto &mesh = cpuRegistry.get(rof.mesh);
+
+        // Mesh: lazy, once
+        auto meshGPU = registry.add(
+            rof.mesh,
+            std::function<MeshGPU()>([&]
+                                     { return uploader.uploadMeshGPU(rof.mesh); }));
+
+        constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
+        InstanceLayout layout{};
+        layout.stride = sizeof(InstanceTransform);
+
+        for (const auto &submesh : mesh->submeshes)
+        {
+            Drawable d{};
+            d.meshGPU = meshGPU;
+            d.indexOffset = submesh.indexOffset;
+            d.indexCount = submesh.indexCount;
+
+            // Todo:
+            // No upload here because Material are uploaded separately currently
+            // Hence the lambda is never used
+            d.materialGPU = registry.add(mesh->materialIds[submesh.materialId],
+                                         std::function<MaterialGPU()>([&]()
+                                                                      { return MaterialGPU(); }));
+
+            // Instance: lazy creation
+            d.hotInstanceGPU = registry.addMultiFrame(
+                rof.mesh,
+                mesh->materialIds[submesh.materialId],
+                0,
+                MAX_FRAMES_IN_FLIGHT,
+                std::function<InstanceGPU()>([&]
+                                             { return InstanceGPU{}; }));
+
+            d.coldInstanceGPU = registry.addMultiFrame(rof.mesh, mesh->materialIds[submesh.materialId], 1, MAX_INSTANCES,
+                                                       std::function<InstanceGPU()>([&]()
+                                                                                    { return uploader.uploadInstanceGPU(rof.instanceData, rof.layout, 10, true); }));
+
+            // Per-frame buffer
+            InstanceGPU *gpu = registry.getInstances(d.hotInstanceGPU, currFrame);
+
+            if (!gpu)
+            {
+                //Failure state for now
+                //We should always have an instance
+                return nullptr;
+            };
+            // Unified sync (allocate / reallocate / update)
+            uploader.syncInstanceGPU(
+                *gpu,
+                rof.transforms.data(),
+                static_cast<uint32_t>(rof.transforms.size()),
+                rof.layout,
+                MAX_INSTANCES);
+
+            d.instanceCount = gpu->count;
+
+            scene.drawables.push_back(std::move(d));
+        }
+    }
+
+    return scenePtr;
+}
+
+
+RenderFrame extractRenderFrame(const Scene &scene,
+                                      const AssetRegistry &registry)
+{
+    RenderFrame frame;
+    frame.sceneData = scene.getSceneData();
+    frame.lightData = scene.getLightPacket();
+
+    // Notes: We woudl flatten SceneNodes into RenderObjectFrames if we had hierarchy
+    for (size_t nodeIdx = 0; nodeIdx < scene.nodes.size(); ++nodeIdx)
+    {
+        const SceneNode &node = scene.nodes[nodeIdx];
+        if (!node.visible || node.instanceNb() == 0)
+        {
+            continue;
+        }
+
+        const auto &mesh = registry.get(node.mesh);
+
+        for (uint32_t submeshIdx = 0; submeshIdx < mesh->submeshes.size(); ++submeshIdx)
+        {
+            RenderObjectFrame rof{};
+            const auto &submesh = mesh->submeshes[submeshIdx];
+            rof.mesh = node.mesh;
+            rof.material = mesh->materialIds[submesh.materialId];
+
+            rof.indexOffset = submesh.indexOffset;
+            rof.indexCount = submesh.indexCount;
+
+            rof.transforms.reserve(node.instanceNb());
+            rof.instanceData.reserve(node.instanceNb());
+
+            for (uint32_t instIdx = 0; instIdx < node.instanceNb(); ++instIdx)
+            {
+
+                if (!testAgainstFrustum(frame.sceneData.viewproj, node.nodeExtents))
+                {
+                    continue;
+                }
+                rof.transforms.push_back(node.buildGPUTransform(instIdx));
+                rof.instanceData = node.getGenericData(instIdx);
+            }
+
+            // rof.worldExtents = node.nodeExtents;
+            rof.layout = node.layout;
+            frame.objects.push_back(std::move(rof));
+        }
+    }
+
+    // Handle passes
+    //  Note:
+    //   Currently only Forward pass exists, but expandable
+    RenderPassFrame forwardPass{};
+    forwardPass.type = RenderPassType::Forward;
+    forwardPass.sortedObjectIndices.reserve(frame.objects.size());
+    for (size_t i = 0; i < frame.objects.size(); ++i)
+    {
+        forwardPass.sortedObjectIndices.push_back(i);
+    }
+
+    /*
+    // Sort by pipeline first, then material if we separate material and piepline
+    std::sort(frame.sortedIndices.begin(), frame.sortedIndices.end(),
+    [&](size_t a, size_t b)
+    {
+        const auto &ra = frame.objects[a];
+        const auto &rb = frame.objects[b];
+        if (ra.pipelineIndex != rb.pipelineIndex)
+            return ra.pipelineIndex < rb.pipelineIndex;
+        return ra.materialHash < rb.materialHash;
+    });
+    */
+    std::sort(forwardPass.sortedObjectIndices.begin(), forwardPass.sortedObjectIndices.end(),
+              [&](size_t a, size_t b)
+              {
+                  const auto &rofa = frame.objects[a];
+                  const auto &rofb = frame.objects[b];
+                  return rofa.material.getID() < rofb.material.getID();
+              });
+
+    frame.passes.push_back(std::move(forwardPass));
+
+    return frame;
+};

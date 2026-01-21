@@ -19,6 +19,15 @@ struct alignas(16) PointLight
     float radius;
 };
 
+
+struct alignas(16) AreaLight
+{
+    glm::vec4 position;
+    glm::vec4 color;
+    float intensity;
+    float radius;
+};
+
 class  LightSystem
 {
 public:

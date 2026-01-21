@@ -12,7 +12,6 @@ Pointer to custom allocator callbacks, always nullptr in this tutorial
 Pointer to the variable that stores the handle to the new object
 */
 
-
 // GLFW Functions
 void HelloTriangleApplication::initWindow()
 {
@@ -69,18 +68,16 @@ void HelloTriangleApplication::initVulkan()
     vkInitialized = true;
 }
 
-const std::string MODEL_PATH = "hearthspring.obj";
+// const std::string MODEL_PATH = "hearthspring.obj";
+const std::string MODEL_PATH = "sibenik.obj";
 void HelloTriangleApplication::initScene()
 {
     auto assetMesh = assetSystem.loadMeshWithMaterials(cico::fs::meshes() / MODEL_PATH);
     const Mesh *meshAsset = assetSystem.registry().get(assetMesh);
 
-    // const auto &materialIds = meshAsset->materialIds;
-
     SceneNode node{
         .mesh = assetMesh,
         .nodeExtents = meshAsset->bndbox
-        //.material = materialIds[sub.materialId],
     };
 
     InstanceLayout meshLayout;
@@ -92,9 +89,10 @@ void HelloTriangleApplication::initScene()
     node.getTransform(i).setPosition(glm::vec3(1, 0, 0));
     setFieldU32(node, i, "id", 0);
 
+    /*
     i = node.addInstance();
-    node.getTransform(i).setPosition(glm::vec3(-5, 0, 0));
-    setFieldU32(node, i, "id", 1);
+    node.getTransform(i).setPosition(glm::vec3(-1, 0, 0));
+    setFieldU32(node, i, "id", 1);*/
 
     logicScene.addNode(node);
 
@@ -172,18 +170,20 @@ void HelloTriangleApplication::mainLoop()
             mainLoopMouseState.prevXY = mainLoopMouseState.XY;
         }
 
+        // Rendering
 
-        //Rendering
-        renderer.updateRenderingScene(logicScene,assetSystem.registry());
-        
-        auto sceneData = logicScene.getSceneData();
-        renderer.beginFrame(sceneData, window.getGLFWWindow());
+        RenderFrame frameData = extractRenderFrame(logicScene, assetSystem.registry());
+        renderer.updateRenderingScene(frameData, assetSystem.registry());
+
+        std::cout << "Camera Position" << frameData.sceneData.eye[0] << " "
+                  << frameData.sceneData.eye[1] << " "
+                  << frameData.sceneData.eye[2] << " "
+                  << std::endl;
+        renderer.beginFrame(frameData.sceneData, window.getGLFWWindow());
         renderer.beginPass(RenderPassType::Forward);
-        renderer.drawFrame(sceneData);
+        renderer.drawFrame(frameData.sceneData);
         renderer.endPass(RenderPassType::Forward);
         renderer.endFrame(framebufferResized);
-
-
 
         // Todo:
         // Point of this in #13 was to use a Frame Target and not hog ressources once it is reached
@@ -238,7 +238,7 @@ void HelloTriangleApplication::cleanup()
     // Due to asset Registry still holding texture GPU data Textures fail to be freed,
     // Only apply to DummyTexture now
     cico::logging::shutdown();
-    renderer.deinitSceneRessources(logicScene);
+    renderer.deinitSceneRessources();
     context.destroyAll();
 
     window.close();

@@ -74,17 +74,18 @@ InstanceGPU GpuResourceUploader::uploadInstanceGPU(
     const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
 
     Buffer vertexBuffer;
+    // Todo: pattern
+    VkBufferUsageFlags usage =
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
     if (useSSBO)
     {
-        vertexBuffer.createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
+        usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     }
-    else
-    {
-        vertexBuffer.createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
-    }
+    vertexBuffer.createBuffer(device, physDevice, data.size(), usage,
+                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
 
     vertexBuffer.uploadStaged(data.data(), data.size(), 0, physDevice, context.getLogicalDeviceManager(), indice, allocator);
 
@@ -102,7 +103,7 @@ void GpuResourceUploader::updateInstanceGPU(
     VkDeviceSize size = instanceCount * gpu.stride;
     if (instanceCount > gpu.capacity || instanceCount == 0)
     {
-        // Todo: Recreate
+        // Todo: reallocate
         return;
     }
     if (gpu.mapped)
@@ -132,6 +133,120 @@ void GpuResourceUploader::updateInstanceGPU(
 
         // Copy to device buffer
         staging.copyToBuffer(gpu.instanceBuffer, size, context.getLogicalDeviceManager(), queueIndice);
+
+        staging.destroyBuffer(device, allocator);
+    }
+}
+
+void GpuResourceUploader::syncInstanceGPU(
+    InstanceGPU &gpu,
+    const void *srcData,
+    uint32_t instanceCount,
+    const InstanceLayout &layout,
+    uint32_t minCapacity,
+    bool useSSBO,
+    bool map) const
+{
+    gpu.stride = layout.stride;
+
+    uint32_t requiredCapacity =
+        std::max(instanceCount, minCapacity);
+
+    const auto device = context.getLogicalDeviceManager().getLogicalDevice();
+    const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
+
+    if (gpu.capacity < requiredCapacity)
+    {
+        // Destroy old buffer if it exists
+        if (gpu.instanceBuffer != VK_NULL_HANDLE)
+        {
+            const auto device = context.getLogicalDeviceManager().getLogicalDevice();
+            const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
+            gpu.destroy(device, allocator);
+        }
+
+        VkDeviceSize bufferSize =
+            requiredCapacity * gpu.stride;
+
+        const auto device = context.getLogicalDeviceManager().getLogicalDevice();
+        const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
+        const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
+
+        Buffer buffer;
+
+        VkBufferUsageFlags usage =
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        VkMemoryPropertyFlags memProp = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+        if (useSSBO)
+        {
+            usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                     VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+        }
+
+        if (map)
+        {
+            memProp |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        }
+
+        buffer.createBuffer(
+            device,
+            physDevice,
+            bufferSize,
+            usage,
+            memProp,
+            allocator);
+
+        gpu.instanceBuffer = buffer.getBuffer();
+        gpu.instanceAlloc = buffer.getVMAMemory();
+        gpu.instanceMem = buffer.getMemory();
+        gpu.capacity = requiredCapacity;
+        gpu.mapped = map ? buffer.map(allocator) : nullptr;
+    }
+
+    gpu.count = instanceCount;
+
+    if (instanceCount == 0 || srcData == nullptr)
+    {
+        return;
+    }
+
+    VkDeviceSize size = instanceCount * gpu.stride;
+
+    if (gpu.mapped)
+    {
+        memcpy(gpu.mapped, srcData, size);
+    }
+    else
+    {
+        const auto device = context.getLogicalDeviceManager().getLogicalDevice();
+        const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
+        const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
+        const auto queueIndex = context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
+
+        Buffer staging;
+        staging.createBuffer(
+            device,
+            physDevice,
+            size,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            allocator);
+
+        vkUtils::BufferHelper::uploadBufferVMA(
+            allocator,
+            staging.getVMAMemory(),
+            srcData,
+            size,
+            0);
+
+        staging.copyToBuffer(
+            gpu.instanceBuffer,
+            size,
+            context.getLogicalDeviceManager(),
+            queueIndex);
 
         staging.destroyBuffer(device, allocator);
     }
@@ -303,8 +418,6 @@ void GPUResourceRegistry::clearAll(VkDevice device, VmaAllocator allocator)
 
     for (auto &pair : instances)
     {
-        std::cout << pair.second.resources.size() << std::endl;
-
         for (auto &resource : pair.second.resources)
         {
             if (resource)

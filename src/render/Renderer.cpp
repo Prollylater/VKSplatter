@@ -152,7 +152,6 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   // TODO:
   // Important:
   // This can't stay longterm
-  mRScene.initFromScene(scene, registry, mGpuRegistry, uploader);
 
   // Get the light packet from the scene
   // Todo: Result of Frames tied light
@@ -163,20 +162,32 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
     uint8_t *ptLightMapping = static_cast<uint8_t *>(mFrameHandler.getCurrentFrameData().mPtLightMapping);
     // lights.directionalCount
     int count = 10;
-    memcpy(dirLightMapping,
-           lights.directionalLights.data(),
-           lights.dirLigthSize * count);
+    if (lights.directionalCount > 0)
+    {
+      memcpy(
+          dirLightMapping,
+          lights.directionalLights.data(),
+          lights.directionalCount * lights.dirLigthSize);
+          //lights.dirLigthSize * count);
+    }
 
     memcpy(dirLightMapping + (lights.dirLigthSize * count),
            &lights.directionalCount,
            sizeof(lights.directionalCount));
 
-    memcpy(ptLightMapping,
-           lights.pointLights.data(),
-           lights.pointLightSize * count);
+    if (lights.pointLightSize > 0)
+    {
+      memcpy(
+          ptLightMapping,
+          lights.pointLights.data(),
+          lights.pointCount * lights.pointLightSize);
+          //lights.pointLightSize * count);
+    }
+
     memcpy(ptLightMapping + (lights.pointLightSize * count),
            &lights.pointCount,
            sizeof(lights.pointCount));
+    
     mFrameHandler.advanceFrame();
   }
 
@@ -184,19 +195,17 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   std::cout << "Scene Ressources Initialized" << std::endl;
 };
 
-void Renderer::updateRenderingScene(Scene &scene, const AssetRegistry &registry)
+void Renderer::updateRenderingScene(const RenderFrame &scene, const AssetRegistry &registry)
 {
-
+  // Todo:
   GpuResourceUploader uploader(*mContext, registry, mMaterialDescriptors, mPipelineM);
-  mRScene.syncFromScene(scene, registry, mGpuRegistry, uploader, mFrameHandler.getCurrentFrameIndex());
+  mRScene = updateFrameSync(scene, mGpuRegistry, registry, uploader, mFrameHandler.getCurrentFrameIndex());
 }
 
-void Renderer::deinitSceneRessources(Scene &scene)
+void Renderer::deinitSceneRessources()
 {
   const auto allocator = mContext->getLogicalDeviceManager().getVmaAllocator();
   const auto device = mContext->getLogicalDeviceManager().getLogicalDevice();
-
-  mRScene.destroy(mContext->getLogicalDeviceManager().getLogicalDevice(), allocator);
 
   // Below is more destroy Renderer than anything else
   mGBuffers.destroy(device, allocator);
@@ -340,8 +349,6 @@ void Renderer::beginFrame(const SceneData &sceneData, GLFWwindow *window)
   // mFrameHandler.updateUniformBuffers(sceneData.viewproj);
   memcpy(mFrameHandler.getCurrentFrameData().mCameraMapping, &sceneData, sizeof(SceneData));
 
-  renderQueue.build(mRScene);
-
   // Handle fetching
   // Todo: Not sure about exposing this
   // Create shorthand from frame to record
@@ -483,15 +490,16 @@ for each shader {
   FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
   VkCommandBuffer cmd = frameRess.mCommandPool.get();
 
-  for (const Drawable *draw : renderQueue.getDrawables())
+  for (const Drawable &draw : mRScene->drawables)
   {
-    // Todo: Sorting drawables to minimize binding
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineM.getPipeline());
 
-    auto *meshGpu = mGpuRegistry.get(draw->meshGPU);
-    auto *materialGpu = mGpuRegistry.get(draw->materialGPU);
-    auto *hotInstanceGPU = mGpuRegistry.getInstances(draw->hotInstanceGPU, mFrameHandler.getCurrentFrameIndex());
-    auto *coldInstanceGPU = mGpuRegistry.getInstances(draw->coldInstanceGPU, mFrameHandler.getCurrentFrameIndex());
+    auto *meshGpu = mGpuRegistry.get(draw.meshGPU);
+    auto *materialGpu = mGpuRegistry.get(draw.materialGPU);
+    auto *hotInstanceGPU = mGpuRegistry.getInstances(draw.hotInstanceGPU, mFrameHandler.getCurrentFrameIndex());
+    auto *coldInstanceGPU = mGpuRegistry.getInstances(draw.coldInstanceGPU, mFrameHandler.getCurrentFrameIndex());
+
+    // Todo: Sorting drawables to minimize binding
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineM.getPipeline(materialGpu->descriptorIndex));
 
     // Bind descriptors
     std::vector<VkDescriptorSet> sets = {
@@ -499,7 +507,7 @@ for each shader {
         mMaterialDescriptors.getSet(materialGpu->descriptorIndex)};
 
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            mPipelineM.getPipelineLayout(), 0,
+                            mPipelineM.getPipelineLayout(materialGpu->descriptorIndex), 0,
                             sets.size(), sets.data(),
                             0, nullptr);
 
@@ -512,11 +520,11 @@ for each shader {
     vkCmdBindIndexBuffer(cmd, meshGpu->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     // Push constants
-    vkCmdPushConstants(cmd, mPipelineM.getPipelineLayout(),
+    vkCmdPushConstants(cmd, mPipelineM.getPipelineLayout(materialGpu->descriptorIndex),
                        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &sceneData.viewproj);
 
     // Draw
-    vkCmdDrawIndexed(cmd, draw->indexCount, draw->instanceCount, draw->indexOffset, 0, 0);
+    vkCmdDrawIndexed(cmd, draw.indexCount, draw.instanceCount, draw.indexOffset, 0, 0);
 
     // Fake multi Viewport is basically this
     /*

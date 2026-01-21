@@ -17,6 +17,9 @@ struct InstanceTransform
     glm::quat rotation;
 };
 
+//Notes: The generic interface is very messy and not that much useful
+//currently nor might ever be
+//A simpler approach might be better
 struct SceneNode
 {
     AssetID<Mesh> mesh;
@@ -48,9 +51,9 @@ struct SceneNode
         return instanceCount;
     }
 
-    uint8_t *instancePtr(uint32_t index)
+    uint8_t *instancePtr(uint32_t instanceIndex)
     {
-        return &instanceData[index * layout.stride];
+        return &instanceData[instanceIndex * layout.stride];
     }
 
     InstanceFieldHandle getField(std::string name) const
@@ -74,6 +77,21 @@ struct SceneNode
         return reinterpret_cast<T *>(instancePtr(instanceIndex) + h.offset);
     }
 
+    std::vector<uint8_t> getGenericData(uint32_t instanceIndex)  const
+    {
+        std::vector<uint8_t> data;
+
+        if (instanceIndex * layout.stride >= instanceData.size()){
+            return data;}
+
+        const uint8_t *src = &instanceData[instanceIndex * layout.stride];
+
+        data.resize(layout.stride);
+        std::memcpy(data.data(), src, layout.stride);
+
+        return data;
+    }
+
     // Transform accessors
     Transform &getTransform(uint32_t instanceIndex)
     {
@@ -93,11 +111,11 @@ struct SceneNode
     InstanceTransform buildGPUTransform(uint32_t instanceIndex) const
     {
         InstanceTransform t{};
-        
+
         const Transform &tr = transforms[instanceIndex];
 
         const auto pos = tr.getPosition();
-        t.position_scale = glm::vec4(pos[0], pos[1],pos[2] ,tr.getScale()[0]);
+        t.position_scale = glm::vec4(pos[0], pos[1], pos[2], tr.getScale()[0]);
         t.rotation = tr.getRotation();
 
         return t;

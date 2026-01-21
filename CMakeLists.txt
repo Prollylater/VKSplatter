@@ -16,6 +16,13 @@ set(SOURCE_DIR src)
 set(INCLUDE_DIR includes)
 set(THIRD_PARTY thirdparty)
 
+
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+
 # I need to move all files to have both .cpp and .h together
 # Source files
 set(SOURCES
@@ -54,7 +61,6 @@ set(SOURCES
     ${SOURCE_DIR}/vulkan/Descriptor.cpp   
     ${SOURCE_DIR}/vulkan/VulkanInstance.cpp
 
-    ${SOURCE_DIR}/render/RenderQueue.cpp  
     ${SOURCE_DIR}/render/FrameHandler.cpp  
     ${SOURCE_DIR}/render/GPUResourceSystem.cpp   
     ${SOURCE_DIR}/render/GPUResource.cpp   
@@ -126,12 +132,3 @@ target_link_libraries(container_tests PRIVATE test_common)
 #add_executable(custom-main-tests test.cpp test-main.cpp)
 #target_link_libraries(custom-main-tests PRIVATE Catch2::Catch2)
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_options(allocator_tests container_tests PRIVATE
-        -Wall -Wextra -Wpedantic
-        -fsanitize=address,undefined
-    )
-    target_link_options(allocator_tests container_tests PRIVATE
-        -fsanitize=address,undefined
-    )
-endif()

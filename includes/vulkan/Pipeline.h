@@ -13,8 +13,9 @@ public:
     void destroy(VkDevice device);
     void destroyPipeline(VkDevice device, uint32_t index);
 
-    VkPipeline getPipeline(size_t index = 0) const { return mPipelines[index].pipeline; }
-    VkPipelineLayout getPipelineLayout(size_t index = 0) const { return mPipelines[index].layout; }
+    //Default is bad here
+    VkPipeline getPipeline(size_t index ) const { return mPipelines[index].pipeline; }
+    VkPipelineLayout getPipelineLayout(size_t index) const { return mPipelines[index].layout; }
     size_t getPipelineSize() { return mPipelines.size(); }
 
     std::vector<unsigned char> getCacheData(VkDevice device);

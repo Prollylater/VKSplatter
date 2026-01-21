@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Scene.h"
-#include "RenderQueue.h"
 #include "SwapChain.h"
 #include "FrameHandler.h"
 #include "GBuffers.h"
@@ -68,8 +67,8 @@ public:
     //SetUp Function
     void initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth);
     void initRenderingRessources(Scene &scene, const AssetRegistry &registry);
-    void updateRenderingScene(Scene &scene, const AssetRegistry &registry);
-    void deinitSceneRessources(Scene &scene);
+    void updateRenderingScene(const RenderFrame &scene, const AssetRegistry &registry);
+    void deinitSceneRessources();
     void createFramesData(uint32_t framesInFlightCount, const std::vector<VkDescriptorSetLayoutBinding> &bindings);
 
     const GBuffers &getDepthResources() const { return mGBuffers; }
@@ -91,9 +90,8 @@ private:
     VulkanContext *mContext;
     AssetRegistry *mRegistry;
     
-
-    RenderScene mRScene;
-    RenderQueue renderQueue;
+    //Temp
+    RenderScene* mRScene = nullptr;
     FrameHandler mFrameHandler;
     GBuffers mGBuffers;
 

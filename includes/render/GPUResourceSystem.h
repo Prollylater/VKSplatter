@@ -43,6 +43,14 @@ public:
     InstanceGPU uploadInstanceGPU(const std::vector<uint8_t> &data, const InstanceLayout &layout, uint32_t capacity, bool useSSBO = false, bool map = false) const;
 
     void updateInstanceGPU(const InstanceGPU &gpu, const void *srcData, uint32_t instanceCount) const;
+    void syncInstanceGPU(
+        InstanceGPU &gpu,
+        const void *srcData,
+        uint32_t instanceCount,
+        const InstanceLayout &layout,
+        uint32_t minCapacity,
+        bool useSSBO = false,
+        bool map = false) const;
 
     Texture uploadTexture(const AssetID<TextureCPU>) const;
 
@@ -60,14 +68,12 @@ using InstanceBatchID = uint64_t;
 inline uint64_t makeInstanceKey(
     AssetID<Mesh> meshID,
     AssetID<Material> materialID,
-    uint32_t instanceBatchID
-)
+    uint32_t instanceBatchID)
 {
-    return  (static_cast<uint64_t>(meshID.getID())      << 32) |
-            (static_cast<uint64_t>(materialID.getID()) << 16) |
-            static_cast<uint64_t>(instanceBatchID);
+    return (static_cast<uint64_t>(meshID.getID()) << 32) |
+           (static_cast<uint64_t>(materialID.getID()) << 16) |
+           static_cast<uint64_t>(instanceBatchID);
 }
-
 
 class GPUResourceRegistry
 {

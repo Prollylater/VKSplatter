@@ -6,6 +6,15 @@
 // Todo: Asset System should not be owning that logic or not in that way
 // FileSystem
 
+// Use realt
+glm::vec3 getVertex(const std::vector<tinyobj::real_t> &attrib, uint32_t index)
+{
+    return glm::vec3(
+        attrib[3 * index + 0],
+        attrib[3 * index + 1],
+        attrib[3 * index + 2]);
+}
+
 AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
 {
     tinyobj::attrib_t attrib;
@@ -33,6 +42,48 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
 
     bool hasNormals = !attrib.normals.empty();
     bool hasTexcoords = !attrib.texcoords.empty();
+    bool genNormal = true;
+
+    // Notes: Current method result are really lackluster
+    if (!hasNormals && genNormal)
+    {
+        std::vector<glm::vec3> normals(attrib.vertices.size(), glm::vec3(0.0f));
+
+        for (const auto &shape : shapes)
+        {
+            for (size_t face = 0; face < shape.mesh.num_face_vertices.size(); face++)
+            {
+                const auto &idx = shape.mesh.indices[face * 3];
+
+                uint32_t i0 = shape.mesh.indices[face * 3 + 0].vertex_index;
+                uint32_t i1 = shape.mesh.indices[face * 3 + 1].vertex_index;
+                uint32_t i2 = shape.mesh.indices[face * 3 + 2].vertex_index;
+
+                glm::vec3 pos0 = getVertex(attrib.vertices, i0);
+                glm::vec3 pos1 = getVertex(attrib.vertices, i1);
+                glm::vec3 pos2 = getVertex(attrib.vertices, i2);
+
+                glm::vec3 faceNormal = (glm::cross(pos1 - pos0, pos2 - pos0));
+
+                normals[i0] += faceNormal;
+                normals[i1] += faceNormal;
+                normals[i2] += faceNormal;
+            }
+        }
+
+        for (auto &n : normals)
+        {
+            n = glm::normalize(n);
+        }
+
+        attrib.normals.resize(normals.size() * 3);
+
+        hasNormals = true;
+        std::memcpy(
+            attrib.normals.data(),
+            normals.data(),
+            normals.size() * sizeof(glm::vec3));
+    }
 
     for (const auto &mtl : materials)
     {
@@ -139,18 +190,12 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
                 for (uint32_t v = 0; v < 3; ++v)
                 {
                     const auto &idx = shape.mesh.indices[face * 3 + v];
-                    glm::vec3 pos = {
-                        attrib.vertices[3 * idx.vertex_index],
-                        attrib.vertices[3 * idx.vertex_index + 1],
-                        attrib.vertices[3 * idx.vertex_index + 2]};
-
+                    glm::vec3 pos = getVertex(attrib.vertices, idx.vertex_index);
                     glm::vec3 norm = glm::vec3(0.0f);
-                    if (hasNormals && idx.normal_index >= 0)
+                    if (hasNormals && genNormal)
                     {
-                        norm = {
-                            attrib.normals[3 * idx.normal_index],
-                            attrib.normals[3 * idx.normal_index + 1],
-                            attrib.normals[3 * idx.normal_index + 2]};
+                        auto normalIndx = idx.normal_index >= 0 ? idx.normal_index : idx.vertex_index;
+                        norm = getVertex(attrib.normals, normalIndx);
                     }
 
                     glm::vec2 uv = glm::vec2(0.0f);

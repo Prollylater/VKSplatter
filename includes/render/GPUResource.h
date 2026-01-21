@@ -52,9 +52,10 @@ struct InstanceGPU
     // VkDeviceAddress indexAddress = 0;
 
     //data used to update InstanceGPU
-    uint32_t stride;
-    uint32_t capacity;      
-    uint32_t count;
+    uint32_t stride = 0;
+    //Maximum number of element of size defined by stride
+    uint32_t capacity = 0;      
+    uint32_t count = 0;
     
     void* mapped; //Mainly for test purpose
     
