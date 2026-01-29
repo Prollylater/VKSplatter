@@ -116,8 +116,6 @@ public:
                                       uint32_t queuIndice,
                                       VmaAllocator allocator);
 
-
-    
 private:
     Image mImage;
     VkDevice mDevice = VK_NULL_HANDLE;

@@ -11,9 +11,9 @@ Cleaning Image/Depth Stencil/Manually clean attachements
 
 void Renderer::createFramesData(uint32_t framesInFlightCount, const std::vector<VkDescriptorSetLayoutBinding> &bindings)
 {
-  auto logicalDevice = mContext->getLogicalDeviceManager().getLogicalDevice();
-  auto physicalDevice = mContext->getPhysicalDeviceManager().getPhysicalDevice();
-  auto graphicsFamilyIndex = mContext->getPhysicalDeviceManager().getIndices().graphicsFamily.value();
+  auto logicalDevice = mContext->getLDevice().getLogicalDevice();
+  auto physicalDevice = mContext->getPDeviceM().getPhysicalDevice();
+  auto graphicsFamilyIndex = mContext->getPDeviceM().getIndices().graphicsFamily.value();
 
   mFrameHandler.createFramesData(logicalDevice, physicalDevice, graphicsFamilyIndex, framesInFlightCount);
 
@@ -28,8 +28,8 @@ void Renderer::createFramesData(uint32_t framesInFlightCount, const std::vector<
 
 void Renderer::initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth)
 {
-  const auto &mLogDeviceM = mContext->getLogicalDeviceManager();
-  const auto &mPhysDeviceM = mContext->getPhysicalDeviceManager();
+  const auto &mLogDeviceM = mContext->getLDevice();
+  const auto &mPhysDeviceM = mContext->getPDeviceM();
   const auto &mSwapChainM = mContext->getSwapChainManager();
 
   const VkFormat depthFormat = mPhysDeviceM.findDepthFormat();
@@ -49,8 +49,8 @@ void Renderer::initRenderInfrastructure(RenderPassType type, const RenderTargetC
 {
   std::cout << "Init Render Infrastructure" << std::endl;
 
-  const auto &mLogDeviceM = mContext->getLogicalDeviceManager();
-  const auto &mPhysDeviceM = mContext->getPhysicalDeviceManager();
+  const auto &mLogDeviceM = mContext->getLDevice();
+  const auto &mPhysDeviceM = mContext->getPDeviceM();
   const auto &mSwapChainM = mContext->getSwapChainManager();
 
   const VkFormat depthFormat = mPhysDeviceM.findDepthFormat();
@@ -72,8 +72,8 @@ void Renderer::initRenderInfrastructure(RenderPassType type, const RenderPassCon
 {
   std::cout << "Init Render Infrastructure" << std::endl;
 
-  const auto &mLogDeviceM = mContext->getLogicalDeviceManager();
-  const auto &mPhysDeviceM = mContext->getPhysicalDeviceManager();
+  const auto &mLogDeviceM = mContext->getLDevice();
+  const auto &mPhysDeviceM = mContext->getPDeviceM();
   const auto &mSwapChainM = mContext->getSwapChainManager();
 
   const VkDevice &device = mLogDeviceM.getLogicalDevice();
@@ -101,27 +101,16 @@ void Renderer::initRenderInfrastructure(RenderPassType type, const RenderPassCon
 // Todo: This iss uploading which should be reworked once scene managment is redone
 void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &registry)
 {
-  const VkDevice &device = mContext->getLogicalDeviceManager().getLogicalDevice();
-  const VkPhysicalDevice &physDevice = mContext->getPhysicalDeviceManager().getPhysicalDevice();
-  const uint32_t indice = mContext->getPhysicalDeviceManager().getIndices().graphicsFamily.value();
+  const VkDevice &device = mContext->getLDevice().getLogicalDevice();
+  const VkPhysicalDevice &physDevice = mContext->getPDeviceM().getPhysicalDevice();
+  const uint32_t indice = mContext->getPDeviceM().getIndices().graphicsFamily.value();
 
   // NOT CONFIDENt
   // Descriptor from Scene
   // Create pipeline
 
-  GpuResourceUploader uploader(*mContext, registry, mMaterialDescriptors, mPipelineM);
-
   // Todo: automatically resolve this kind of stuff
   auto vf = VertexFormatRegistry::getStandardFormat();
-  const auto layoutInst = scene.getNode(0).layout;
-  vf.bindings.push_back(makeVtxInputBinding(1, sizeof(InstanceTransform), VK_VERTEX_INPUT_RATE_INSTANCE));
-  vf.attributes.push_back(makeVtxInputAttr(3, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0));
-  vf.attributes.push_back(makeVtxInputAttr(4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4)));
-
-  vf.bindings.push_back(makeVtxInputBinding(2, layoutInst.stride, VK_VERTEX_INPUT_RATE_INSTANCE));
-  vf.attributes.push_back(makeVtxInputAttr(5, 2, VK_FORMAT_R32_UINT, 0));
-
-  VertexFormatRegistry::registerFormat(vf.mVertexFlags, vf);
 
   for (auto &node : scene.nodes)
   {
@@ -142,12 +131,14 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
       int matLayoutIdx = mMaterialDescriptors.getOrCreateSetLayout(device, layout.descriptorSetLayoutsBindings);
 
       sceneConfig.descriptorSetLayouts.push_back(mMaterialDescriptors.getDescriptorLat(matLayoutIdx));
+
       int pipelineEntryIndex = requestPipeline(sceneConfig, vertPath, fragPath);
 
-      mGpuRegistry.add(matId, std::function<MaterialGPU()>([&]()
-                                                           { return uploader.uploadMaterialGPU(matId, mGpuRegistry, matLayoutIdx, pipelineEntryIndex); }));
+      // mGpuRegistry.add(matId, std::function<MaterialGPU()>([&]()
+      //                                                    { return uploader.uploadMaterialGPU(matId, mGpuRegistry, matLayoutIdx, pipelineEntryIndex); }));
     }
   }
+
   // NOT CONFIDENt
   // TODO:
   // Important:
@@ -168,7 +159,7 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
           dirLightMapping,
           lights.directionalLights.data(),
           lights.directionalCount * lights.dirLigthSize);
-          //lights.dirLigthSize * count);
+      // lights.dirLigthSize * count);
     }
 
     memcpy(dirLightMapping + (lights.dirLigthSize * count),
@@ -181,13 +172,13 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
           ptLightMapping,
           lights.pointLights.data(),
           lights.pointCount * lights.pointLightSize);
-          //lights.pointLightSize * count);
+      // lights.pointLightSize * count);
     }
 
     memcpy(ptLightMapping + (lights.pointLightSize * count),
            &lights.pointCount,
            sizeof(lights.pointCount));
-    
+
     mFrameHandler.advanceFrame();
   }
 
@@ -195,21 +186,33 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   std::cout << "Scene Ressources Initialized" << std::endl;
 };
 
-void Renderer::updateRenderingScene(const RenderFrame &scene, const AssetRegistry &registry)
+void Renderer::updateRenderingScene(const VisibilityFrame &vFrame, const AssetRegistry &registry, MaterialSystem &matSystem)
 {
   // Todo:
-  GpuResourceUploader uploader(*mContext, registry, mMaterialDescriptors, mPipelineM);
-  mRScene = updateFrameSync(scene, mGpuRegistry, registry, uploader, mFrameHandler.getCurrentFrameIndex());
+  updateFrameSync(*mContext, mRScene, vFrame, mGpuRegistry, registry, matSystem, mFrameHandler.getCurrentFrameIndex());
+
+  // Shadow pass
+  {
+    // RenderPassFrame &shadow = frameGraph.shadowPass;
+    // shadow.type = RenderPassType::Shadow;
+    // buildPassFrame(shadow, scene, pipelineCache);
+  }
+  // Forward pass
+  {
+    // RenderPassFrame &forward = frameGraph.forwardPass;
+    forward.type = RenderPassType::Forward;
+    buildPassFrame(forward, mRScene, mPipelineM, 0);
+  }
 }
 
 void Renderer::deinitSceneRessources()
 {
-  const auto allocator = mContext->getLogicalDeviceManager().getVmaAllocator();
-  const auto device = mContext->getLogicalDeviceManager().getLogicalDevice();
+  const auto allocator = mContext->getLDevice().getVmaAllocator();
+  const auto device = mContext->getLDevice().getLogicalDevice();
 
   // Below is more destroy Renderer than anything else
   mGBuffers.destroy(device, allocator);
-  mGpuRegistry.clearAll(device, allocator);
+  mGpuRegistry.clearAll();
   for (int i = 0; i < mContext->mSwapChainM.GetSwapChainImageViews().size(); i++)
   {
     auto &frameData = mFrameHandler.getCurrentFrameData();
@@ -230,7 +233,7 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config,
                               const std::string &fragmentPath)
 {
 
-  const VkDevice &device = mContext->getLogicalDeviceManager().getLogicalDevice();
+  const VkDevice &device = mContext->getLDevice().getLogicalDevice();
 
   // For dynamic rendering
   // slice = std::vector<VkFormat>();
@@ -461,7 +464,7 @@ void Renderer::endPass(RenderPassType type)
 };
 
 // Handle non Material object
-void Renderer::drawFrame(const SceneData &sceneData)
+void Renderer::drawFrame(const SceneData &sceneData, const RenderPassFrame &pass)
 {
   /*
   vertexCount: Even though we don't have a vertex buffer, we technically still have 3 vertices to draw.
@@ -490,16 +493,13 @@ for each shader {
   FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
   VkCommandBuffer cmd = frameRess.mCommandPool.get();
 
-  for (const Drawable &draw : mRScene->drawables)
+  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineM.getPipeline(0));
+  for (auto draw : pass.queue.drawCalls)
   {
 
-    auto *meshGpu = mGpuRegistry.get(draw.meshGPU);
-    auto *materialGpu = mGpuRegistry.get(draw.materialGPU);
-    auto *hotInstanceGPU = mGpuRegistry.getInstances(draw.hotInstanceGPU, mFrameHandler.getCurrentFrameIndex());
-    auto *coldInstanceGPU = mGpuRegistry.getInstances(draw.coldInstanceGPU, mFrameHandler.getCurrentFrameIndex());
-
-    // Todo: Sorting drawables to minimize binding
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineM.getPipeline(materialGpu->descriptorIndex));
+    GPUBufferRef vtxGpu = mGpuRegistry.getBuffer(draw->vtxBuffer);
+    GPUBufferRef idxGPU = mGpuRegistry.getBuffer(draw->idxBuffer);
+    auto *materialGpu = mGpuRegistry.getMaterial(draw->materialGPU);
 
     // Bind descriptors
     std::vector<VkDescriptorSet> sets = {
@@ -513,19 +513,21 @@ for each shader {
 
     // Bind vertex
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(cmd, 0, 1, &meshGpu->vertexBuffer, offsets);
-    vkCmdBindVertexBuffers(cmd, 1, 1, &hotInstanceGPU->instanceBuffer, offsets);
-    vkCmdBindVertexBuffers(cmd, 2, 1, &coldInstanceGPU->instanceBuffer, offsets);
+    auto vtxBuffer = vtxGpu.buffer->getBuffer();
+    auto idxBuffer = idxGPU.buffer->getBuffer();
 
-    vkCmdBindIndexBuffer(cmd, meshGpu->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(cmd, 0, 1, &vtxBuffer, offsets);
+    vkCmdBindIndexBuffer(cmd, idxBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     // Push constants
     vkCmdPushConstants(cmd, mPipelineM.getPipelineLayout(materialGpu->descriptorIndex),
                        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &sceneData.viewproj);
 
     // Draw
-    vkCmdDrawIndexed(cmd, draw.indexCount, draw.instanceCount, draw.indexOffset, 0, 0);
-
+    for (auto &instRange : draw->instanceRanges)
+    {
+      vkCmdDrawIndexed(cmd, draw->indexCount, instRange.count, draw->indexOffset, 0, instRange.first);
+    }
     // Fake multi Viewport is basically this
     /*
     viewport.width = static_cast<float>(frameExtent.width);

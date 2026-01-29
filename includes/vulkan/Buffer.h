@@ -3,7 +3,28 @@
 #include "LogicalDevice.h"
 
 struct Mesh;
-// A class for holding a buffer (principally for Mesh)
+// A class for holding a buffer
+//Notes: This class is fine to use to create a Buffer
+//But so far it was dropped either for being not specific enough or too heavy
+//Turn this into helper only
+
+
+enum class BufferUpdatePolicy {
+    Immutable,      // device-local, uploaded once via staging then reject Update
+    Dynamic,        // persistently mapped  
+    StagingOnly     // Not CPU-visible, rarely bound directly
+};
+
+//Memory flag should be guaranteed by Immutable, Dynamic and Staging only to some degree
+struct BufferDesc {
+    VkDeviceSize size;
+    VkBufferUsageFlags usage;
+    BufferUpdatePolicy updatePolicy;
+    VkMemoryPropertyFlags memoryFlags;  
+    bool ssbo = false;
+    VkDeviceSize stride = 0;
+};
+
 class Buffer
 {
 public:
@@ -14,8 +35,9 @@ public:
                       VkPhysicalDevice physDevice,
                       VkDeviceSize data,
                       VkBufferUsageFlags usage,
-                      VkMemoryPropertyFlags properties,
-                      VmaAllocator alloc = VK_NULL_HANDLE);
+                      VkMemoryPropertyFlags properties,VmaAllocator alloc = VK_NULL_HANDLE,
+                      BufferUpdatePolicy updatePolicy
+                      );
 
     void destroyBuffer(VkDevice device, VmaAllocator allocator = VK_NULL_HANDLE);
 
@@ -60,8 +82,11 @@ public:
     VkDeviceAddress getDeviceAdress(VkDevice device) const
     {
         VkBufferDeviceAddressInfo deviceAdressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = mBuffer};
+        //Would need to keep the usage flags which is arguably very useful
         return vkGetBufferDeviceAddress(device, &deviceAdressInfo);
     }
+
+    BufferUpdatePolicy getUpdatePolicy() const { return mUpdatePolicy; }
 
 private:
     // Todo: remove mDevice
@@ -69,12 +94,13 @@ private:
     VkBuffer mBuffer = VK_NULL_HANDLE;
     VkDeviceMemory mMemory = VK_NULL_HANDLE;
     VmaAllocation mBufferAllocation = VK_NULL_HANDLE;
-    bool useVma = false;
     // Find a better way to set it
     VkDeviceSize mSize = 0;
     // Stride + NB element ?
     void *mMapped = nullptr;
 
+    //Wrapper above this ?
+    BufferUpdatePolicy mUpdatePolicy = BufferUpdatePolicy::Immutable;
 public:
     // Todo: Helper to move out
     //Should be in an helper namespace or just free non member

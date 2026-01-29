@@ -1,7 +1,7 @@
 
 #include "QueueFam.h"
 #include "ContextController.h"
- 
+
 void VulkanContext::initVulkanBase(GLFWwindow *window, ContextCreateInfo &createInfo)
 {
     mInstanceM.createInstance(createInfo.getVersionMajor(), createInfo.getVersionMinor(),
@@ -12,7 +12,7 @@ void VulkanContext::initVulkanBase(GLFWwindow *window, ContextCreateInfo &create
     mInstanceM.setupDebugMessenger();
 
     // Surface
-    //Todo: window abstraction
+    // Todo: window abstraction
     mSwapChainM.createSurface(mInstanceM.getInstance(), window);
 
     // TOdo: Create info being non const criteria used in phisycal device, coudl chande in logical device
@@ -37,10 +37,8 @@ void VulkanContext::destroyAll()
     VkDevice device = mLogDeviceM.getLogicalDevice();
     VmaAllocator allocator = mLogDeviceM.getVmaAllocator();
 
-
     // Important
     // Todo: Better deletion of frames data
- 
 
     mSwapChainM.destroySwapChain(device);
     mLogDeviceM.destroyVmaAllocator();
@@ -49,14 +47,14 @@ void VulkanContext::destroyAll()
     mInstanceM.destroyInstance();
 };
 
-//This might be tied to an event
-//This can more or less be activated already
+// This might be tied to an event
+// This can more or less be activated already
 void VulkanContext::recreateSwapchain(GLFWwindow *window)
 {
-    //Todo:
-    //Indtroduce a way to upsacel actual gbuffers to swapcahin resolution
-    // Pause while Minimized
-    //Todo remove
+    // Todo:
+    // Indtroduce a way to upsacel actual gbuffers to swapcahin resolution
+    //  Pause while Minimized
+    // Todo remove
     int width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
     while (width == 0 || height == 0)
@@ -79,3 +77,77 @@ void VulkanContext::recreateSwapchain(GLFWwindow *window)
 #else
 // vkCreateImage(...)
 #endif
+
+Buffer VulkanContext::createBuffer(const BufferDesc &desc)
+{
+    Buffer buffer;
+
+    VkBufferUsageFlags usageFlags = desc.usage;
+    VkMemoryPropertyFlags memFlags = desc.memoryFlags;
+
+    switch (desc.updatePolicy)
+    {
+    case BufferUpdatePolicy::Dynamic:
+        memFlags |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        break;
+    case BufferUpdatePolicy::StagingOnly:
+    case BufferUpdatePolicy::Immutable:
+        // Device local only
+        memFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        break;
+    }
+
+    buffer.createBuffer(
+        mLogDeviceM.getLogicalDevice(),
+        mPhysDeviceM.getPhysicalDevice(),
+        desc.size,
+        usageFlags,
+        memFlags,
+        mLogDeviceM.getVmaAllocator(),
+        desc.updatePolicy);
+
+    return buffer;
+}
+
+void VulkanContext::updateBuffer(Buffer &buffer, const void *data, VkDeviceSize size, VkDeviceSize offset)
+{
+    switch (buffer.getUpdatePolicy())
+    {
+    case BufferUpdatePolicy::Dynamic:
+    {
+        void *mapped = buffer.map();
+        std::memcpy(static_cast<uint8_t *>(mapped) + offset, data, size);
+        buffer.unmap(); // if memory is coherent this may be a no-op
+    }
+    break;
+
+    case BufferUpdatePolicy::StagingOnly:
+        const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
+
+        buffer.uploadStaged(data, size, offset, mPhysDeviceM.getPhysicalDevice(),
+                            mLogDeviceM, indicesFamily.graphicsFamily.value(), mLogDeviceM.getVmaAllocator());
+        break;
+
+    case BufferUpdatePolicy::Immutable:
+        // Do nothing: immutable buffers cannot be updated after creation
+        break;
+    }
+}
+
+Texture VulkanContext::createTexture(ImageData<stbi_uc> &cpuTexture)
+{
+    Texture tex;
+    auto &deviceM = getLDevice();
+    auto &physDevice = getPDeviceM();
+
+    tex.createTextureImage(
+        physDevice.getPhysicalDevice(),
+        deviceM,
+        cpuTexture,
+        physDevice.getIndices().graphicsFamily.value(),
+        deviceM.getVmaAllocator());
+    tex.createTextureImageView(deviceM.getLogicalDevice());
+    tex.createTextureSampler(deviceM.getLogicalDevice(), physDevice.getPhysicalDevice());
+
+    return tex;
+}

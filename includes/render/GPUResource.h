@@ -1,22 +1,122 @@
 #pragma once
 #include "AssetTypes.h"
-
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
-
+#include "Texture.h"
 struct Material;
+
+inline uint64_t makeInstanceKey(
+    AssetID<Mesh> meshID,
+    AssetID<Material> materialID,
+    uint32_t instanceBatchID)
+{
+    return (static_cast<uint64_t>(meshID.getID()) << 32) |
+           (static_cast<uint64_t>(materialID.getID()) << 16) |
+           static_cast<uint64_t>(instanceBatchID);
+}
+
+template <typename T>
+class GPUHandle
+{
+public:
+    uint64_t id = INVALID_ASSET_ID;
+    GPUHandle() = default;
+    explicit GPUHandle(uint64_t _id) : id(_id) {};
+
+    template <typename T2>
+    GPUHandle(AssetID<T2> _id) : id(_id.getID()){};
+
+    uint64_t getID() const { return id; }
+    bool valid() const { return id != 0; }
+
+    bool operator==(const GPUHandle &other) const { return id == other.id; }
+};
+
+struct GPUBufferRef
+{
+
+    VkDescriptorBufferInfo getDescriptor() const
+    {
+        return {buffer->getBuffer(), offset, size};
+    }
+
+    VkDeviceAddress getDeviceAddress(VkDevice device) const
+    {
+        return 0;
+    }
+
+    //Range upload from the first element of the allocation
+    void uploadData(VulkanContext &context, const void *src, VkDeviceSize dataSize)
+    {
+        if (!buffer || offset + dataSize > size)
+        {
+            return;
+        }
+        context.updateBuffer(*buffer, src, dataSize, offset);
+    }
+
+    //Single element update
+    //Assume the object correspon to stride
+    void updateElement(VulkanContext &ctx, const void *data, uint32_t index, VkDeviceSize dataSize)
+    {
+        //Notes: "Experimental"
+        if (!buffer || offset + stride > size || stride == 0 || stride != dataSize)
+        {
+            return;
+        }
+
+        VkDeviceSize dstOffset = offset + index * stride;
+
+        ctx.updateBuffer(*buffer, data, stride, dstOffset);
+    }
+
+
+    // Should be private
+    Buffer *buffer = nullptr;
+    VkDeviceSize offset = 0;
+    VkDeviceSize size = 0;
+    VkDeviceSize stride = 0;
+
+};
+
+struct BufferKey
+{
+    uint64_t assetId = 0;         // AssetID of CPU object or anything else
+    VkBufferUsageFlags usage = 0; // Optional further disambiguation
+
+    bool operator==(const BufferKey &other) const
+    {
+        return assetId == other.assetId &&
+               usage == other.usage;
+    }
+};
+
+namespace std
+{
+    template <>
+    struct hash<BufferKey>
+    {
+        std::size_t operator()(const BufferKey &k) const noexcept
+        {
+            size_t h1 = std::hash<uint64_t>{}(k.assetId);
+            size_t h2 = std::hash<uint64_t>{}(static_cast<uint64_t>(k.usage));
+            return h1 ^ (h2 << 1);
+        }
+    };
+} //
 
 struct MaterialGPU
 {
-    int pipelineEntryIndex = -1;
+
+    // int pipelineEntryIndex = -1;
     int descriptorIndex = -1;
 
-    // Not allocated
-    VkBuffer uniformBuffer = VK_NULL_HANDLE;
-    VmaAllocation uniformBufferAlloc = VK_NULL_HANDLE; // Memory handle
-    VkDeviceMemory uniformBufferMem = VK_NULL_HANDLE;
-
-    void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
+    BufferKey uniformBuffer;
+    GPUHandle<Texture> albedo;
+    GPUHandle<Texture> normal;
+    GPUHandle<Texture> metallic;
+    GPUHandle<Texture> roughness;
+    GPUHandle<Texture> emissive;
 
     struct MaterialGPUCreateInfo
     {
@@ -24,48 +124,4 @@ struct MaterialGPU
         int descriptorLayoutIdx;
         int pipelineIndex;
     };
-};
-
-struct MeshGPU
-{
-    // Todo: GPUBufferView or BUffer itself would simplify this
-    //  Cleanup object in case the mesh buffer is not kept
-    VkBuffer vertexBuffer = VK_NULL_HANDLE;
-    VkBuffer indexBuffer = VK_NULL_HANDLE;
-    VmaAllocation vertexAlloc = VK_NULL_HANDLE;
-    VmaAllocation indexAlloc = VK_NULL_HANDLE;
-    VkDeviceMemory vertexMem = VK_NULL_HANDLE;
-    VkDeviceMemory indexMem = VK_NULL_HANDLE;
-
-    VkDeviceAddress vertexAddress = 0;
-
-    uint32_t indexBufferOffset = 0;
-    uint32_t vertexBufferOffset = 0;
-    void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
-};
-
-struct InstanceGPU
-{
-    VkBuffer instanceBuffer = VK_NULL_HANDLE;
-    VmaAllocation instanceAlloc = VK_NULL_HANDLE;
-    VkDeviceMemory instanceMem = VK_NULL_HANDLE;
-    // VkDeviceAddress indexAddress = 0;
-
-    //data used to update InstanceGPU
-    uint32_t stride = 0;
-    //Maximum number of element of size defined by stride
-    uint32_t capacity = 0;      
-    uint32_t count = 0;
-    
-    void* mapped; //Mainly for test purpose
-    
-    void destroy(VkDevice device, VmaAllocator alloc = VK_NULL_HANDLE);
-};
-
-struct GPUBufferView
-{
-    VkBuffer buffer = VK_NULL_HANDLE;
-    VmaAllocation allocation = VK_NULL_HANDLE;
-    VkDeviceMemory memory = VK_NULL_HANDLE;
-    VkDeviceAddress mVertexBufferAddress = 0;
 };

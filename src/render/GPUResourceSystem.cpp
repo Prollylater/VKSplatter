@@ -14,209 +14,103 @@
 
 /////////////////////////////////////////////////////////////////
 
-// Todo:
-// Using MeshId purpose here is very limited
-// This could also remove the need of coupling with assetRegistry
-MeshGPU GpuResourceUploader::uploadMeshGPU(const AssetID<Mesh> meshId, bool useSSBO) const
+// Todo: Rewrite this method
+// Descriptor writing is too much responsibility here
+/*
+GenericGPUBuffer GpuResourceUploader::createGPUBuffer(
+    uint32_t stride, uint32_t capacity, bool map, bool ssbo) const
 {
-
-    MeshGPU gpu;
-    auto &deviceM = context.getLogicalDeviceManager();
+    GenericGPUBuffer buf{};
+    buf.stride = stride;
+    buf.capacity = capacity;
+    buf.useSSBO = ssbo;
+    buf.count = 0;
 
     const auto device = context.getLogicalDeviceManager().getLogicalDevice();
-    const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
-    const auto indice = context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
     const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
-    // Todo: There's no guarantee  id exist so i should usse pointer
-    auto &mesh = *assetRegistry.get(meshId);
-    // gpu.vertexCount = static_cast<uint32_t>(mesh.positions.size());
-    // gpu.indexCount = static_cast<uint32_t>(mesh.indices.size());
+    const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
 
-    // Create buffers via Buffer helper
-    Buffer vertexBuffer;
-    // TODO: TEst SSBO Shade
+    VkDeviceSize bufferSize = stride * capacity;
 
-    vertexBuffer.createVertexBuffers(device, physDevice,
-                                     mesh, deviceM, indice, allocator, useSSBO);
-
-    Buffer indexBuffer;
-
-    indexBuffer.createIndexBuffers(device, physDevice,
-                                   mesh, deviceM, indice, allocator);
-
-    gpu.vertexBuffer = vertexBuffer.getBuffer();
-    gpu.indexBuffer = indexBuffer.getBuffer();
-    gpu.vertexAlloc = vertexBuffer.getVMAMemory();
-    gpu.indexAlloc = indexBuffer.getVMAMemory();
-    gpu.vertexMem = vertexBuffer.getMemory();
-    gpu.indexMem = indexBuffer.getMemory();
-    if (useSSBO)
+    VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    // VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+    if (ssbo)
     {
-        gpu.vertexAddress = vertexBuffer.getDeviceAdress(device);
+        usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     }
 
-    return gpu;
-};
+    VkMemoryPropertyFlags memFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    if (map)
+        memFlags |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
-InstanceGPU GpuResourceUploader::uploadInstanceGPU(
-    const std::vector<uint8_t> &data, const InstanceLayout &layout,
-    uint32_t capacity, bool useSSBO, bool map) const
-{
-    InstanceGPU gpu;
+    Buffer temp;
+    temp.createBuffer(device, physDevice, bufferSize, usage, memFlags, allocator);
 
-    gpu.stride = layout.stride;
-    gpu.capacity = capacity;
-    gpu.count = data.size() / layout.stride;
+    buf.buffer = temp.getBuffer();
+    buf.allocation = temp.getVMAMemory();
+    buf.memory = temp.getMemory();
+    buf.mapped = map ? temp.map(allocator) : nullptr;
 
-    const auto device = context.getLogicalDeviceManager().getLogicalDevice();
-    const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
-    const auto indice = context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
-    const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
-
-    Buffer vertexBuffer;
-    // Todo: pattern
-    VkBufferUsageFlags usage =
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-
-    if (useSSBO)
-    {
-        usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-    }
-    vertexBuffer.createBuffer(device, physDevice, data.size(), usage,
-                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
-
-    vertexBuffer.uploadStaged(data.data(), data.size(), 0, physDevice, context.getLogicalDeviceManager(), indice, allocator);
-
-    gpu.instanceBuffer = vertexBuffer.getBuffer();
-    gpu.instanceAlloc = vertexBuffer.getVMAMemory();
-    gpu.instanceMem = vertexBuffer.getMemory();
-    gpu.mapped = map ? vertexBuffer.map(allocator) : nullptr;
-    return gpu;
+    return buf;
 }
 
-void GpuResourceUploader::updateInstanceGPU(
-    const InstanceGPU &gpu,
-    const void *srcData, uint32_t instanceCount) const
+void GpuResourceUploader::uploadToGPUBuffer(
+    GenericGPUBuffer &buf, uint32_t index, const void *data) const
 {
-    VkDeviceSize size = instanceCount * gpu.stride;
-    if (instanceCount > gpu.capacity || instanceCount == 0)
-    {
-        // Todo: reallocate
-        return;
+    const auto device = context.getLogicalDeviceManager().getLogicalDevice();
+    const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
+    const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
+    const auto queueIndex = context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
+
+    if (index >= buf.capacity)
+    { // WIth some limit to growth
+        reallocateGPUBuffer(buf, buf.capacity * 2);
     }
-    if (gpu.mapped)
+
+    VkDeviceSize size = buf.stride;
+
+    if (buf.mapped)
     {
-        memcpy(gpu.mapped, srcData, size);
+        memcpy(static_cast<uint8_t *>(buf.mapped) + index * buf.stride, data, size);
     }
     else
     {
-        const auto device = context.getLogicalDeviceManager().getLogicalDevice();
-        const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
-        const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
-        const auto queueIndice = context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
-
         Buffer staging;
-        staging.createBuffer(device, physDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, allocator);
+        staging.createBuffer(device, physDevice, size,
+                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             allocator);
 
-        if (allocator)
-        {
+        staging.uploadStaged(data, size, 0, physDevice, context.getLogicalDeviceManager(),
+                             queueIndex, allocator);
 
-            vkUtils::BufferHelper::uploadBufferVMA(allocator, staging.getVMAMemory(), srcData, size, 0);
-        }
-        else
-        {
-            vkUtils::BufferHelper::uploadBufferDirect(device, staging.getMemory(), srcData, size, 0);
-        }
-
-        // Copy to device buffer
-        staging.copyToBuffer(gpu.instanceBuffer, size, context.getLogicalDeviceManager(), queueIndice);
+        staging.copyToBuffer(buf.buffer, size, context.getLogicalDeviceManager(), queueIndex);
 
         staging.destroyBuffer(device, allocator);
     }
+
+    // Out of order upload would look bad with this
+    if (index >= buf.count)
+    {
+        buf.count = index + 1;
+    }
 }
 
-void GpuResourceUploader::syncInstanceGPU(
-    InstanceGPU &gpu,
-    const void *srcData,
-    uint32_t instanceCount,
-    const InstanceLayout &layout,
-    uint32_t minCapacity,
-    bool useSSBO,
-    bool map) const
+void GpuResourceUploader::uploadFullGPUBuffer(GenericGPUBuffer &buf,
+                                              const void *data,
+                                              uint32_t elementCount) const
 {
-    gpu.stride = layout.stride;
+    assert(data != nullptr);
 
-    uint32_t requiredCapacity =
-        std::max(instanceCount, minCapacity);
+    // Grow buffer if needed
+    if (elementCount > buf.capacity)
+        reallocateGPUBuffer(buf, elementCount);
 
-    const auto device = context.getLogicalDeviceManager().getLogicalDevice();
-    const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
+    VkDeviceSize size = elementCount * buf.stride;
 
-    if (gpu.capacity < requiredCapacity)
+    if (buf.mapped)
     {
-        // Destroy old buffer if it exists
-        if (gpu.instanceBuffer != VK_NULL_HANDLE)
-        {
-            const auto device = context.getLogicalDeviceManager().getLogicalDevice();
-            const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
-            gpu.destroy(device, allocator);
-        }
-
-        VkDeviceSize bufferSize =
-            requiredCapacity * gpu.stride;
-
-        const auto device = context.getLogicalDeviceManager().getLogicalDevice();
-        const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
-        const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
-
-        Buffer buffer;
-
-        VkBufferUsageFlags usage =
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-        VkMemoryPropertyFlags memProp = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-
-        if (useSSBO)
-        {
-            usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                     VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-        }
-
-        if (map)
-        {
-            memProp |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-        }
-
-        buffer.createBuffer(
-            device,
-            physDevice,
-            bufferSize,
-            usage,
-            memProp,
-            allocator);
-
-        gpu.instanceBuffer = buffer.getBuffer();
-        gpu.instanceAlloc = buffer.getVMAMemory();
-        gpu.instanceMem = buffer.getMemory();
-        gpu.capacity = requiredCapacity;
-        gpu.mapped = map ? buffer.map(allocator) : nullptr;
-    }
-
-    gpu.count = instanceCount;
-
-    if (instanceCount == 0 || srcData == nullptr)
-    {
-        return;
-    }
-
-    VkDeviceSize size = instanceCount * gpu.stride;
-
-    if (gpu.mapped)
-    {
-        memcpy(gpu.mapped, srcData, size);
+        memcpy(buf.mapped, data, size);
     }
     else
     {
@@ -226,205 +120,262 @@ void GpuResourceUploader::syncInstanceGPU(
         const auto queueIndex = context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
 
         Buffer staging;
-        staging.createBuffer(
-            device,
-            physDevice,
-            size,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            allocator);
+        staging.createBuffer(device, physDevice, size,
+                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             allocator);
 
-        vkUtils::BufferHelper::uploadBufferVMA(
-            allocator,
-            staging.getVMAMemory(),
-            srcData,
-            size,
-            0);
+        staging.uploadStaged(data, size, 0, physDevice,
+                             context.getLogicalDeviceManager(), queueIndex, allocator);
 
-        staging.copyToBuffer(
-            gpu.instanceBuffer,
-            size,
-            context.getLogicalDeviceManager(),
-            queueIndex);
-
+        staging.copyToBuffer(buf.buffer, size, context.getLogicalDeviceManager(), queueIndex);
         staging.destroyBuffer(device, allocator);
     }
+
+    buf.count = elementCount;
 }
 
-// Todo: Rewrite this method
-// Descriptor writing is too much responsibility here
-MaterialGPU GpuResourceUploader::uploadMaterialGPU(const AssetID<Material> matID, GPUResourceRegistry &gpuRegistry, int descriptorIdx, int pipelineIndex) const
+void GpuResourceUploader::reallocateGPUBuffer(GenericGPUBuffer &buf, uint32_t newCapacity) const
 {
-    MaterialGPU::MaterialGPUCreateInfo info{matID, descriptorIdx, pipelineIndex};
-    auto &deviceM = context.getLogicalDeviceManager();
     const auto device = context.getLogicalDeviceManager().getLogicalDevice();
-    const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
-    const auto indice = context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
     const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
+    const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
 
-    // Create or not a Pipeline
-    const Material &material = *(assetRegistry.get(info.cpuMaterial));
-
-    MaterialGPU gpuMat;
-    gpuMat.pipelineEntryIndex = info.pipelineIndex;
-
-    Buffer materialUniformBuffer;
-    materialUniformBuffer.createBuffer(deviceM.getLogicalDevice(), physDevice, sizeof(Material::MaterialConstants), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
-    materialUniformBuffer.uploadStaged(&material.mConstants, sizeof(Material::MaterialConstants), 0, physDevice, deviceM, indice, allocator);
-    // Better way to create this ?
-
-    auto getOrDummy = [&](AssetID<TextureCPU> id, Texture *(*getter)(VkPhysicalDevice, const LogicalDeviceManager &, uint32_t, VmaAllocator)) -> Texture *
+    std::vector<uint8_t> oldData(buf.count * buf.stride);
+    if (buf.mapped)
     {
-        TextureCPU *tex = assetRegistry.get(id);
-        if (!tex)
-        { // This can currently be uploaded multiples time
-            return getter(physDevice, deviceM, indice, allocator);
-        }
-
-        return gpuRegistry.get(gpuRegistry.add(id,
-                                               std::function<Texture()>([&]()
-                                                                        { return uploadTexture(id); })));
-    };
-
-    auto acquireTex = [&](AssetID<TextureCPU> id, Texture *(*getter)(VkPhysicalDevice, const LogicalDeviceManager &, uint32_t, VmaAllocator)) -> Texture *
-    {
-        auto texPtr = gpuRegistry.get<Texture>(GPUHandle<Texture>(id.getID()));
-        if (texPtr)
-        {
-            return texPtr;
-        };
-        // Else we create it
-        return getOrDummy(id, getter);
-    };
-
-    Texture *albedo = acquireTex(material.albedoMap, Texture::getDummyAlbedo);
-    Texture *normal = acquireTex(material.normalMap, Texture::getDummyNormal);
-    Texture *metallic = acquireTex(material.metallicMap, Texture::getDummyMetallic);
-    Texture *roughness = acquireTex(material.roughnessMap, Texture::getDummyRoughness);
-    Texture *emissive = acquireTex(material.emissiveMap, Texture::getDummyMetallic);
-
-    // Todo
-    // MetalRoughAO Check if can just do that
-    // Also perhaps use this as a way to decide if a vecor would be easier to deal with (definitly)
-    VkDescriptorBufferInfo uboDescInfo = materialUniformBuffer.getDescriptor();
-    VkDescriptorImageInfo albedoDescInfo = albedo->getImage().getDescriptor();
-    VkDescriptorImageInfo normalDescInfo = normal->getImage().getDescriptor();
-    VkDescriptorImageInfo metallicDescInfo = metallic->getImage().getDescriptor();
-    VkDescriptorImageInfo roughnessDescInfo = roughness->getImage().getDescriptor();
-    VkDescriptorImageInfo emissiveDesc = emissive->getImage().getDescriptor();
-
-    gpuMat.descriptorIndex = materialDescriptors.allocateDescriptorSet(deviceM.getLogicalDevice(), info.descriptorLayoutIdx);
-    auto &materialSet = materialDescriptors.getSet(gpuMat.descriptorIndex);
-    std::vector<VkWriteDescriptorSet> writes = {
-        vkUtils::Descriptor::makeWriteDescriptor(materialSet, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &uboDescInfo),
-        vkUtils::Descriptor::makeWriteDescriptor(materialSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &albedoDescInfo),
-        vkUtils::Descriptor::makeWriteDescriptor(materialSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &normalDescInfo),
-        vkUtils::Descriptor::makeWriteDescriptor(materialSet, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &metallicDescInfo),
-        vkUtils::Descriptor::makeWriteDescriptor(materialSet, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &roughnessDescInfo),
-        vkUtils::Descriptor::makeWriteDescriptor(materialSet, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &emissiveDesc)};
-    materialDescriptors.updateDescriptorSet(deviceM.getLogicalDevice(), writes);
-
-    return gpuMat;
-}
-
-Texture GpuResourceUploader::uploadTexture(const AssetID<TextureCPU> textureId) const
-{
-    Texture textureGPU;
-    auto &deviceM = context.getLogicalDeviceManager();
-    auto &physDevice = context.getPhysicalDeviceManager();
-
-    // Check on CPU might be needed here or above
-    textureGPU.createTextureImage(physDevice.getPhysicalDevice(),
-                                  deviceM, *(assetRegistry.get(textureId)), physDevice.getIndices().graphicsFamily.value(), deviceM.getVmaAllocator());
-    textureGPU.createTextureImageView(deviceM.getLogicalDevice());
-    textureGPU.createTextureSampler(deviceM.getLogicalDevice(), physDevice.getPhysicalDevice());
-
-    return textureGPU;
-};
-
-///////////////////////////////////////////
-
-template <>
-std::unordered_map<uint64_t, GPUResourceRegistry::GPURessRecord<MeshGPU>> &
-GPUResourceRegistry::getMap<MeshGPU>()
-{
-    return meshes;
-}
-
-template <>
-std::unordered_map<uint64_t, GPUResourceRegistry::GPURessRecord<MaterialGPU>> &
-GPUResourceRegistry::getMap<MaterialGPU>()
-{
-    return materials;
-}
-
-template <>
-std::unordered_map<uint64_t, GPUResourceRegistry::GPURessRecord<Texture>> &
-GPUResourceRegistry::getMap<Texture>()
-{
-    return textures;
-}
-
-template <>
-const std::unordered_map<uint64_t, GPUResourceRegistry::GPURessRecord<MeshGPU>> &
-GPUResourceRegistry::getMap<MeshGPU>() const
-{
-    return meshes;
-}
-
-template <>
-const std::unordered_map<uint64_t, GPUResourceRegistry::GPURessRecord<MaterialGPU>> &
-GPUResourceRegistry::getMap<MaterialGPU>() const
-{
-    return materials;
-}
-
-template <>
-const std::unordered_map<uint64_t, GPUResourceRegistry::GPURessRecord<Texture>> &
-GPUResourceRegistry::getMap<Texture>() const
-{
-    return textures;
-}
-
-void GPUResourceRegistry::clearAll(VkDevice device, VmaAllocator allocator)
-{
-    for (auto &pair : meshes)
-    {
-        if (pair.second.resource)
-        {
-            pair.second.resource->destroy(device, allocator);
-        }
+        memcpy(oldData.data(), buf.mapped, buf.count * buf.stride);
     }
-    meshes.clear();
-
-    for (auto &pair : materials)
+    else
     {
-        if (pair.second.resource)
-        {
-            pair.second.resource->destroy(device, allocator);
-        }
+        // Mapp then copy i guess.
+        _CCRITICAL("No Support for reallocating non mapped generic buffer");
     }
-    materials.clear();
+    buf.destroy(device, allocator);
 
-    for (auto &pair : textures)
+    GenericGPUBuffer newBuf = createGPUBuffer(buf.stride, newCapacity, buf.mapped != nullptr, buf.useSSBO);
+
+    // Copy old data
+    if (!oldData.empty())
     {
-        if (pair.second.resource)
-        {
-            pair.second.resource->destroy(device, allocator);
-        }
+        uploadFullGPUBuffer(newBuf, oldData.data(), buf.count);
     }
-    textures.clear();
 
-    for (auto &pair : instances)
+    buf = std::move(newBuf);
+}
+*/
+//////////////////////////////
+
+// Returns a handle to a GPU buffer, possibly a suballocation of an existing one
+// @ cpuAsset:
+// Todo: Template this
+// Could and should be expanded a lot
+// Tracking unused buffer and refillling it/Reallocation
+BufferKey GPUResourceRegistry::addBuffer(
+    AssetID<void> cpuAsset,
+    const BufferDesc &desc,
+    VkDeviceSize explicitOffset = 0)
+{
+    // Buffer Usage Policy should also define the key
+    BufferKey key{cpuAsset.getID(), desc.usage};
+    auto &record = getOrCreateBufferRecord(desc, key);
+
+    VkDeviceSize allocOffset = explicitOffset ? explicitOffset : record.usedSize;
+
+    if (explicitOffset != 0)
     {
-        for (auto &resource : pair.second.resources)
+        // Check that this fit
+        if (explicitOffset + desc.size > record.buffer->getSize())
         {
-            if (resource)
+            throw std::runtime_error("Explicit offset + size exceeds buffer total size");
+        }
+
+        // Check for overlap with existing allocations
+        for (const auto &alloc : record.allocations)
+        {
+            bool overlap = !(explicitOffset + desc.size <= alloc.offset || explicitOffset >= alloc.offset + alloc.size);
+            if (overlap)
             {
-                resource->destroy(device, allocator);
+                throw std::runtime_error("Explicit offset overlaps with existing allocation");
             }
         }
     }
-    instances.clear();
+    else // We simply allocate at the end
+    {
+        if (allocOffset + desc.size > record.buffer->getSize())
+        {
+            throw std::runtime_error("Not enough free space in buffer for new allocation");
+        }
+
+        record.usedSize += desc.size;
+    }
+
+    record.allocations.push_back({allocOffset, desc.size});
+    record.refCount++;
+    return BufferKey{key.assetId, desc.usage};
+}
+
+GPUBufferRef GPUResourceRegistry::getBuffer(const BufferKey &key, int allocation)
+{
+    auto it = mBufferRecords.find(key);
+    if (it != mBufferRecords.end())
+    {
+        const auto &record = it->second;
+        if (!record.allocations.empty() && allocation < record.allocations.size())
+        {
+            auto &alloc = record.allocations[allocation];
+            return GPUBufferRef{record.buffer.get(), alloc.offset, alloc.size, alloc.stride};
+        }
+    }
+    return {};
+}
+
+//This imply it exist
+bool GPUResourceRegistry::isEmpty(const BufferKey &key)
+{
+    auto it = mBufferRecords.find(key);
+    if( it->second.usedSize == 0){
+        return true;
+    }
+    return false;
+}
+
+void GPUResourceRegistry::releaseBuffer(const BufferKey &key)
+{
+    auto it = mBufferRecords.find(key);
+    if (it != mBufferRecords.end())
+    {
+        auto &rec = it->second;
+        if (--rec.refCount == 0)
+        {
+            auto device = mContext.getLDevice().getLogicalDevice();
+            auto allocator = mContext.getLDevice().getVmaAllocator();
+            rec.buffer->destroyBuffer(device, allocator);
+            mBufferRecords.erase(it);
+        }
+    }
+}
+
+GPUHandle<Texture> GPUResourceRegistry::addTexture(AssetID<TextureCPU> cpuAsset, TextureCPU *cpuData)
+{
+    auto &rec = getOrCreateTextureRecord(cpuAsset, cpuData);
+    return GPUHandle<Texture>{cpuAsset.getID()};
+}
+
+Texture *GPUResourceRegistry::getTexture(const GPUHandle<Texture> &handle)
+{
+    auto it = mTextureRecords.find(handle.getID());
+    return it != mTextureRecords.end() ? it->second.resource.get() : nullptr;
+}
+
+void GPUResourceRegistry::releaseTexture(const GPUHandle<Texture> &handle)
+{
+    auto it = mTextureRecords.find(handle.getID());
+    if (it != mTextureRecords.end())
+    {
+        auto &rec = it->second;
+        if (--rec.refCount == 0)
+        {
+            auto device = mContext.getLDevice().getLogicalDevice();
+            auto allocator = mContext.getLDevice().getVmaAllocator();
+            rec.resource->destroy(device, allocator);
+            mTextureRecords.erase(it);
+        }
+    }
+}
+
+GPUHandle<MaterialGPU> GPUResourceRegistry::addMaterial(AssetID<Material> cpuAsset, MaterialGPU gpuMaterial)
+{
+    auto &rec = getOrCreateMaterialRecord(cpuAsset, gpuMaterial);
+    return GPUHandle<MaterialGPU>{cpuAsset.getID()};
+}
+
+MaterialGPU *GPUResourceRegistry::getMaterial(const GPUHandle<MaterialGPU> &handle)
+{
+    auto it = mMaterialRecords.find(handle.getID());
+    return it != mMaterialRecords.end() ? it->second.resource.get() : nullptr;
+}
+
+void GPUResourceRegistry::releaseMaterial(const GPUHandle<MaterialGPU> &handle)
+{
+    auto it = mMaterialRecords.find(handle.getID());
+    if (it != mMaterialRecords.end())
+    {
+        auto &rec = it->second;
+        if (--rec.refCount == 0)
+        {
+            releaseBuffer(rec.resource->uniformBuffer);
+            releaseTexture(rec.resource->albedo);
+            releaseTexture(rec.resource->normal);
+            releaseTexture(rec.resource->metallic);
+            releaseTexture(rec.resource->roughness);
+            releaseTexture(rec.resource->emissive);
+            mMaterialRecords.erase(it);
+        }
+    }
+}
+
+void GPUResourceRegistry::clearAll()
+{
+    auto device = mContext.getLDevice().getLogicalDevice();
+    auto allocator = mContext.getLDevice().getVmaAllocator();
+
+    for (auto &record : mBufferRecords)
+    {
+        record.second.buffer->destroyBuffer(device, allocator);
+    }
+    mBufferRecords.clear();
+
+    for (auto &record : mTextureRecords)
+    {
+        record.second.resource->destroy(device, allocator);
+    }
+    mTextureRecords.clear();
+    mMaterialRecords.clear();
+}
+
+GPUResourceRegistry::BufferRecord &GPUResourceRegistry::getOrCreateBufferRecord(const BufferDesc &desc, const BufferKey &key)
+{
+    auto it = mBufferRecords.find(key);
+    if (it != mBufferRecords.end())
+    {
+        it->second.refCount++;
+        return it->second;
+    }
+
+    auto buffer = std::make_unique<Buffer>(mContext.createBuffer(desc));
+    auto [insertIt, inserted] = mBufferRecords.emplace(key, BufferRecord{std::move(buffer), {}, 0, 1});
+    return insertIt->second;
+}
+
+GPUResourceRegistry::ResourceRecord<Texture> &GPUResourceRegistry::getOrCreateTextureRecord(AssetID<TextureCPU> cpuAsset, TextureCPU *cpuData)
+{
+    auto it = mTextureRecords.find(cpuAsset.getID());
+    if (it != mTextureRecords.end())
+    {
+        it->second.refCount++;
+        return it->second;
+    }
+
+    if (!cpuData)
+    {
+        throw std::runtime_error("Cannot create GPU texture without CPU data");
+    }
+    auto tex = std::make_unique<Texture>(mContext.createTexture(*cpuData));
+    auto [insertIt, inserted] = mTextureRecords.emplace(cpuAsset.getID(), ResourceRecord<Texture>{std::move(tex)});
+    return insertIt->second;
+}
+
+GPUResourceRegistry::ResourceRecord<MaterialGPU> &GPUResourceRegistry::getOrCreateMaterialRecord(AssetID<Material> cpuAsset, const MaterialGPU &gpuMaterial)
+{
+    auto it = mMaterialRecords.find(cpuAsset.getID());
+    if (it != mMaterialRecords.end())
+    {
+        it->second.refCount++;
+        return it->second;
+    }
+
+    auto mat = std::make_unique<MaterialGPU>(gpuMaterial);
+    auto [insertIt, inserted] = mMaterialRecords.emplace(cpuAsset.getID(), ResourceRecord<MaterialGPU>{std::move(mat)});
+    return insertIt->second;
 }

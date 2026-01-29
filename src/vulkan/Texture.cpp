@@ -143,6 +143,8 @@ void Texture::createTextureImage(VkPhysicalDevice physDevice,
     textureData.freeImage();
 }
 
+//Todo:
+//Texture data should be different
 void Texture::createTextureImage(VkPhysicalDevice physDevice,
                                  const LogicalDeviceManager &deviceM, ImageData<stbi_uc> &textureData,
                                  uint32_t queueIndice, VmaAllocator allocator)

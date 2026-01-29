@@ -42,7 +42,7 @@ public:
     PipelineBuilder &setDepthTest(bool enable);
     PipelineBuilder &setInputConfig(const PipelineVertexInputConfig &);
     size_t computehash() const {
-        //BOol and dynamic/renderpass
+        //BOol and 
         return  mConfig.input.computeHash() ^ mConfig.uniform.computeHash() ^ mConfig.raster.computeHash() ^  mConfig.shaders.computeHash();
     }
     // Returns pipeline + layout

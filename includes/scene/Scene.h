@@ -10,7 +10,31 @@
 #include "config/PipelineConfigs.h"
 #include "geometry/Frustum.h"
 
+// Notes: This is a cleaner replacement
+// But both method need to be rethought.
+// A proper ECS Would remove this need
+struct InstanceIDAllocator
+{
+    uint32_t nextID = 0;
+    std::unordered_map<uint64_t, uint32_t> idMapping;
+};
+
+uint32_t getInstanceID(InstanceIDAllocator &allocator, uint64_t key)
+{
+    auto it = allocator.idMapping.find(key);
+    if (it != allocator.idMapping.end())
+    {
+        return it->second;
+    }
+
+    uint32_t id = allocator.nextID++;
+    allocator.idMapping[key] = id;
+    return id;
+}
+
 // Todo: Move it somewhere else close to Vertex maybe in a common Tpes
+// Todo: Handle more visibility, typically light visible object
+// Something
 struct SceneData
 {
     glm::mat4 viewproj;
@@ -30,18 +54,23 @@ struct LightPacket
     static constexpr uint32_t pointLightSize = sizeof(PointLight);
 };
 
-struct RenderObjectFrame
+// Skip if GPU culling ?
+struct VisibleObject
 {
     AssetID<Mesh> mesh;
-    AssetID<Material> material;
+    struct VisibleInstance
+    {
+        uint64_t instanceKey;
+        InstanceTransform transform; // only filled if needsUpload
+        bool transformDirty;
+    };
 
-    uint32_t indexOffset = 0;
-    uint32_t indexCount = 0;
+    std::vector<VisibleInstance> visibleInstances;
 
-    std::vector<InstanceTransform> transforms;
+    /*
     InstanceLayout layout;
     std::vector<uint8_t> instanceData;
-
+*/
     // Gpu Culling
     // Extents worldExtents;
 
@@ -49,20 +78,26 @@ struct RenderObjectFrame
     // uint32_t pipelineIndex = 0;
 };
 
+// Todo:  Better name
+struct VisibilityFrame
+{
+    std::vector<VisibleObject> objects;
+    // Visibility perqueue here too maybe
+    //  Notes: Could be per pass
+    SceneData sceneData;
+    LightPacket lightData;
+};
+
+struct PassQueue
+{
+    std::vector<Drawable *> drawCalls;
+    std::vector<uint32_t> pipelineIndex;
+};
+
 struct RenderPassFrame
 {
     RenderPassType type;
-    std::vector<size_t> sortedObjectIndices;
-};
-
-struct RenderFrame
-{
-    std::vector<RenderObjectFrame> objects;
-    std::vector<RenderPassFrame> passes;
-
-    // Notes: Could be per pass
-    SceneData sceneData;
-    LightPacket lightData;
+    PassQueue queue;
 };
 
 // Temporary
@@ -93,195 +128,66 @@ public:
 
 void fitCameraToBoundingBox(Camera &camera, const Extents &box);
 
-RenderFrame extractRenderFrame(const Scene &scene,
-                                      const AssetRegistry &registry);
-                                      
+VisibilityFrame extractRenderFrame(const Scene &scene,
+                                   const AssetRegistry &registry);
+
+#include "MaterialSystem.h"
+
 class RenderScene
 {
 public:
     RenderScene() = default;
     ~RenderScene() = default;
 
-    std::vector<Drawable> drawables;
-
-    struct PassRequirements
+    void initInstanceBuffer(
+        GPUResourceRegistry &registry)
     {
-        bool needsMaterial = false;
-        bool needsMesh = true;
-        bool needsTransform = true;
+        constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
+        constexpr uint32_t TRANSFORM_BUFFER_KEY = 0;
+
+        BufferDesc description;
+        description.updatePolicy = BufferUpdatePolicy::Dynamic;
+        description.memoryFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        description.size = MAX_INSTANCES * MAX_FRAMES_IN_FLIGHT;
+        description.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+        description.ssbo = true;
+        description.stride = sizeof(InstanceTransform);
+        AssetID<void> instanceBufferId(TRANSFORM_BUFFER_KEY);
+        // RenderScene might as well own this
+        instanceBuffer = registry.addBuffer(instanceBufferId, description, 0);
+        // Handle the allocations
+        instanceBuffer = registry.addBuffer(instanceBufferId, description, MAX_INSTANCES);
+        instanceBuffer = registry.addBuffer(instanceBufferId, description, MAX_INSTANCES * 2);
+    }
+    BufferKey instanceBuffer;
+    std::unordered_map<uint64_t, Drawable> drawables;
+    InstanceIDAllocator mInstanceAllocator;
+
+    uint32_t getOrAssignInstance(uint64_t instanceKey)
+    {
+        getInstanceID(mInstanceAllocator, instanceKey);
     };
-    /*
-enum RenderBits {
-    RENDER_BIT_MAIN = 1 << 0,
-    RENDER_BIT_SHADOW = 1 << 1,
-    RENDER_BIT_REFLECTION = 1 << 2,
-    RENDER_BIT_DEBUG = 1 << 3,
-};
-*/
+
+    static constexpr uint32_t MAX_INSTANCES = 1024;
 };
 
 /*
 // updateFrameSync():
 // - may allocate GPU resources
-// - may reallocate instance buffers
+// - may reallocate instance buffers (not currently)
 // - will uploads per-frame instance data (everytime when instancing exist or with dynamic meshes)
 // - must be called before rendering
 */
-RenderScene* updateFrameSync(
-    const RenderFrame &frame,
+
+void updateFrameSync(
+    VulkanContext &ctx,
+    RenderScene &scene,
+    const VisibilityFrame &frame,
     GPUResourceRegistry &registry,
     const AssetRegistry &cpuRegistry,
-    const GpuResourceUploader &uploader,
-    uint32_t currFrame);
-
-/*
-RenderScene updateFrame(const RenderFrame &frame,
-                        GPUResourceRegistry &registry,
-                        const AssetRegistry &cpuRegistry,
-                        const GpuResourceUploader &builder, uint32_t currFrame)
-{
-    RenderScene scene;
-    for (const RenderObjectFrame &rof : frame.objects)
-    {
-        // Todo:
-        // GPUHandle could be removed
-        const auto &mesh = cpuRegistry.get(rof.mesh);
-        uint32_t drawableCount = 0;
-
-        GPUHandle<MeshGPU> meshGPU = registry.add(rof.mesh, std::function<MeshGPU()>([&]()
-                                                                                     { return builder.uploadMeshGPU(rof.mesh); }));
-        constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
-        InstanceLayout layout{};
-        layout.stride = sizeof(InstanceTransform);
-
-        for (const auto &submesh : mesh->submeshes)
-        {
-            Drawable d{};
-            d.meshGPU = meshGPU;
-            d.indexOffset = submesh.indexOffset;
-            d.indexCount = submesh.indexCount;
-
-            // Todo:
-            // No upload here because Material are uploaded separately currently
-            // Hence the lambda is never used
-            // In practice, i could create a GpuHandle using the id but that's not a behavior i am clear on using.
-
-            d.materialGPU = registry.add(mesh->materialIds[submesh.materialId],
-                                         std::function<MaterialGPU()>([&]()
-                                                                      { return MaterialGPU(); }));
-
-            // Only if already exist but idk how to do it et
-            //  Todo:
-            //  Notes: Instance is pretty much mesh only dependant so it don't need to be nested here
-            d.hotInstanceGPU = registry.addMultiFrame(rof.mesh, mesh->materialIds[submesh.materialId], 0, MAX_FRAMES_IN_FLIGHT,
-                                                      std::function<InstanceGPU()>([&]()
-                                                                                   { return builder.uploadInstanceGPU(reinterpret_cast<const std::vector<uint8_t> &>(rof.transforms), layout, 10, true); }));
-
-            /*
-              const auto &instanceGPU = registry.getInstances(d.hotInstanceGPU, currFrame);
-
-// Only upload hot instance
-uploader.updateInstanceGPU(
-*instanceGPU,
-visibleTransforms.data(),
-visibleTransforms.size());
-* /
-
-// Todo: this don't need three Frame in flight
-d.coldInstanceGPU = registry.addMultiFrame(rof.mesh, mesh->materialIds[submesh.materialId], 1, 1,
-                                           std::function<InstanceGPU()>([&]()
-                                                                        { return builder.uploadInstanceGPU(rof.instanceData, rof.layout, 10, true); }));
-
-d.instanceCount = rof.transforms.size();
-d.pipelineEntryIndex =
-    scene.drawables.push_back(std::move(d));
-}
-}
-}
-// Handling null ptr
-RenderScene updateFrame(
-    const RenderFrame &frame,
-    GPUResourceRegistry &registry,
-    const AssetRegistry &cpuRegistry,
-    const GpuResourceUploader &uploader,
-    uint32_t currFrame)
-{
-    RenderScene scene;
-
-    for (const RenderObjectFrame &rof : frame.objects)
-    {
-        const auto &mesh = cpuRegistry.get(rof.mesh);
-
-        auto meshGPU = registry.add(
-            rof.mesh,
-            std::function<MeshGPU()>([&]
-                                     { return uploader.uploadMeshGPU(rof.mesh); }));
-
-        constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
-        InstanceLayout layout{};
-        layout.stride = sizeof(InstanceTransform);
-        for (const auto &submesh : mesh->submeshes)
-        {
-            Drawable d{};
-            d.meshGPU = meshGPU;
-            d.indexOffset = submesh.indexOffset;
-            d.indexCount = submesh.indexCount;
-
-            // Todo:
-            // No upload here because Material are uploaded separately currently
-            // Hence the lambda is never used
-            d.materialGPU = registry.add(mesh->materialIds[submesh.materialId],
-                                         std::function<MaterialGPU()>([&]()
-                                                                      { return MaterialGPU(); }));
-
-            d.hotInstanceGPU = registry.addMultiFrame(
-                rof.mesh,
-                mesh->materialIds[submesh.materialId],
-                0,
-                MAX_FRAMES_IN_FLIGHT,
-                std::function<InstanceGPU()>([&]
-                                             { return uploader.uploadInstanceGPU(
-                                                   {},
-                                                   layout,
-                                                   rof.transforms.size()); }));
-
-            d.coldInstanceGPU = registry.addMultiFrame(rof.mesh, mesh->materialIds[submesh.materialId], 1, 1,
-                                                       std::function<InstanceGPU()>([&]()
-                                                                                    { return uploader.uploadInstanceGPU(rof.instanceData, rof.layout, 10, true); }));
-
-            InstanceGPU *gpu =
-                registry.getInstances(d.hotInstanceGPU, currFrame);
-
-            uint32_t required = rof.transforms.size();
-
-            if (required > gpu.capacity)
-            {
-                uint32_t newCapacity =
-                    std::max(required, gpu.capacity * 2);
-
-                registry.reallocateInstance(
-                    d.hotInstanceGPU,
-                    currFrame,
-                    uploader,
-                    newCapacity,
-                    rof.layout,
-                    true);
-
-                gpu = registry.getInstance(d.hotInstanceGPU, currFrame);
-            }
-
-            uploader.updateInstanceGPU(
-                gpu,
-                rof.transforms.data(),
-                required);
-
-            gpu.count = required;
-            d.instanceCount = required;
-
-            scene.drawables.push_back(std::move(d));
-        }
-    }
-
-    return scene;
-}
-*/
+    MaterialSystem matSystem, uint32_t currFrame);
+    
+void buildPassFrame(
+    RenderPassFrame &outPass,
+    RenderScene &scene,
+    PipelineManager &mPipeline, int pipelineINdex);

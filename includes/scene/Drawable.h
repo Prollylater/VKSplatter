@@ -8,6 +8,12 @@
 struct Mesh;
 struct Material;
 
+/*
+SceneNode = one mesh + all its instances
+VisibilityFrame = still one mesh + all its instances(only relevant data for shader)
+Drawable  = one instance * meshes's submesh  = drawcall
+*/
+
 // Instance Data structure created on the fly
 // Instance buffer read only assume to not change
 
@@ -17,9 +23,23 @@ struct InstanceTransform
     glm::quat rotation;
 };
 
-//Notes: The generic interface is very messy and not that much useful
-//currently nor might ever be
-//A simpler approach might be better
+// Notes: The generic interface is very messy and not that much useful
+// currently nor might ever be
+// A simpler approach might be better
+
+struct InstanceData
+{
+    Transform transform;
+    // This is assigned at GPU upload
+    // Could just become and unique Index
+    uint32_t gpuIndex = UINT32_MAX;
+
+    // InstanceData migh be multiple buffered
+    // It's thus best to have a way to know to which gpu it need to upload
+    // This methid is temporary
+    uint8_t uploadedFrameMask;
+};
+
 struct SceneNode
 {
     AssetID<Mesh> mesh;
@@ -28,7 +48,7 @@ struct SceneNode
     // Hot field: transforms
     // This could also be an instance Data equivalent
     // for element that are often changed
-    std::vector<Transform> transforms;
+    std::vector<InstanceData> instances;
     // Generic instance data (cold)
     InstanceLayout layout;
     std::vector<uint8_t> instanceData;
@@ -42,7 +62,7 @@ struct SceneNode
         instanceData.resize(instanceData.size() + layout.stride);
         memset(&instanceData[index * layout.stride], 0, layout.stride);
 
-        transforms.push_back(Transform{});
+        instances.push_back({});
         return index;
     }
 
@@ -77,12 +97,14 @@ struct SceneNode
         return reinterpret_cast<T *>(instancePtr(instanceIndex) + h.offset);
     }
 
-    std::vector<uint8_t> getGenericData(uint32_t instanceIndex)  const
+    std::vector<uint8_t> getGenericData(uint32_t instanceIndex) const
     {
         std::vector<uint8_t> data;
 
-        if (instanceIndex * layout.stride >= instanceData.size()){
-            return data;}
+        if (instanceIndex * layout.stride >= instanceData.size())
+        {
+            return data;
+        }
 
         const uint8_t *src = &instanceData[instanceIndex * layout.stride];
 
@@ -95,24 +117,24 @@ struct SceneNode
     // Transform accessors
     Transform &getTransform(uint32_t instanceIndex)
     {
-        return transforms[instanceIndex];
+        return instances[instanceIndex].transform;
     }
 
     const Transform &getTransform(uint32_t instanceIndex) const
     {
-        return transforms[instanceIndex];
+        return instances[instanceIndex].transform;
     }
 
     void setTransform(uint32_t instanceIndex, const Transform &t)
     {
-        transforms[instanceIndex] = t;
+        instances[instanceIndex].transform = t;
     }
 
     InstanceTransform buildGPUTransform(uint32_t instanceIndex) const
     {
         InstanceTransform t{};
 
-        const Transform &tr = transforms[instanceIndex];
+        const Transform &tr = instances[instanceIndex].transform;
 
         const auto pos = tr.getPosition();
         t.position_scale = glm::vec4(pos[0], pos[1], pos[2], tr.getScale()[0]);
@@ -168,10 +190,10 @@ struct DrawableKey
 // Take the time to compare
 struct Drawable
 {
-    GPUHandle<MeshGPU> meshGPU;
+
+    BufferKey vtxBuffer;
+    BufferKey idxBuffer;
     GPUHandle<MaterialGPU> materialGPU;
-    GPUHandle<InstanceGPU> coldInstanceGPU;
-    GPUHandle<InstanceGPU> hotInstanceGPU;
 
     // Extents worldExtent;
 
@@ -179,10 +201,15 @@ struct Drawable
     // bool visible = true; //If drawable are visible the isntance make less sense
     uint32_t indexOffset = 0;
     uint32_t indexCount = 0;
-    uint32_t instanceCount = 0;
-    int pipelineEntryIndex;
-    // RenderFlags flags;   // shadow, transparency, etc.
+    uint32_t instanceCapacity = 0;
 
+    struct InstanceRange
+    {
+        uint32_t first;
+        uint32_t count;
+    };
+
+    std::vector<InstanceRange> instanceRanges;
     bool bindInstanceBuffer(VkCommandBuffer cmd, const Drawable &drawable, uint32_t bindingIndex);
 };
 

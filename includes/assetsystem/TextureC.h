@@ -12,8 +12,8 @@ void FreeImage(T *data)
 template <typename T>
 struct ImageData : AssetBase
 {
-    //static AssetType getStaticType() { return AssetType::Texture; }
-    //AssetType type() const override { return getStaticType(); }
+    // static AssetType getStaticType() { return AssetType::Texture; }
+    // AssetType type() const override { return getStaticType(); }
     T *data;
     uint32_t width;
     uint32_t height;
@@ -29,6 +29,41 @@ struct ImageData : AssetBase
             FreeImage<T>(data);
         }
     };
+
+    template <typename T>
+    static ImageData<T> makeDummyImage(const T (&pixel)[4])
+    {
+        return ImageData<T>{
+            .data = const_cast<T *>(pixel),
+            .width = 1,
+            .height = 1,
+            .channels = 4,
+            .freeInGPU = false};
+    }
+
+    static ImageData<stbi_uc>* getDummyAlbedoImage()
+    {
+        static stbi_uc white[4] = {255, 255, 255, 255};
+        return makeDummyImage(&white);
+    }
+
+    static ImageData<stbi_uc>* getDummyNormalImage()
+    {
+        static stbi_uc flatNormal[4] = {128, 128, 255, 255};
+        return makeDummyImage(&flatNormal);
+    }
+
+    static ImageData<stbi_uc>* getDummyRoughnessImage()
+    {
+        static stbi_uc white[4] = {255, 255, 255, 255};
+        return makeDummyImage(&white);
+    }
+
+    static ImageData<stbi_uc>* getDummyMetallicImage()
+    {
+        static stbi_uc black[4] = {0, 0, 0, 255};
+        return makeDummyImage(&black);
+    }
 };
 
 template <typename T>
@@ -54,11 +89,11 @@ ImageData<T> LoadImageTemplate(
     {
         data = stbi_load(filepath.c_str(), &width, &height, &channels, desired_channels);
     }
-    //Aggregate name initialization
+    // Aggregate name initialization
     if (!data)
     {
         std::cerr << "Failed to load image: " << filepath << "\nReason: " << stbi_failure_reason() << std::endl;
-        return {INVALID_ASSET_ID, "",  nullptr, 0, 0, 0};
+        return {INVALID_ASSET_ID, "", nullptr, 0, 0, 0};
     }
 
     if (verbose)

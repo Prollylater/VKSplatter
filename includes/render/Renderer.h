@@ -37,7 +37,7 @@ public:
         mContext = &context;
         mRegistry = &registry;
 
-        auto device = context.getLogicalDeviceManager().getLogicalDevice();
+        auto device = context.getLDevice().getLogicalDevice();
 
         // Setup Pipeline Cache and Pool
         mPipelineM.initialize(device, "");
@@ -46,28 +46,28 @@ public:
 
     void addPass(RenderPassType type, RenderPassConfig legacyConfig)
     {
-        auto device = mContext->getLogicalDeviceManager().getLogicalDevice();
+        auto device = mContext->getLDevice().getLogicalDevice();
         mUseDynamic = false;
         initRenderInfrastructure(type, legacyConfig);
     }
 
     void addPass(RenderPassType type, RenderTargetConfig dynConfig)
     {
-        auto device = mContext->getLogicalDeviceManager().getLogicalDevice();
+        auto device = mContext->getLDevice().getLogicalDevice();
         mUseDynamic = true;
         initRenderInfrastructure(type, dynConfig);
     }
 
     void beginFrame(const SceneData &sceneData, GLFWwindow *window);
     void beginPass(RenderPassType type);
-    void drawFrame(const SceneData &sceneData);
+    void drawFrame(const SceneData &sceneData,  const RenderPassFrame& pass);
     void endPass(RenderPassType type);
     void endFrame(bool framebufferResized);
 
     //SetUp Function
     void initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth);
     void initRenderingRessources(Scene &scene, const AssetRegistry &registry);
-    void updateRenderingScene(const RenderFrame &scene, const AssetRegistry &registry);
+    void updateRenderingScene(const VisibilityFrame &vFrame, const AssetRegistry &registry, MaterialSystem &matSystem);
     void deinitSceneRessources();
     void createFramesData(uint32_t framesInFlightCount, const std::vector<VkDescriptorSetLayoutBinding> &bindings);
 
@@ -83,6 +83,7 @@ public:
                                           const std::vector<VkImageView> &gbufferViews,
                                           VkImageView depthView, const VkExtent2D swapChainExtent);
 
+    RenderPassFrame forward;
                                           
 private:
     // Todo: Typically all  that here is really specific too Vulkan which make this Renderer not really Api Agnostic
@@ -91,7 +92,7 @@ private:
     AssetRegistry *mRegistry;
     
     //Temp
-    RenderScene* mRScene = nullptr;
+    RenderScene mRScene;
     FrameHandler mFrameHandler;
     GBuffers mGBuffers;
 

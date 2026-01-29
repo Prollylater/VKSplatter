@@ -51,6 +51,7 @@ void FrameHandler::createFrameData(VkDevice device, VkPhysicalDevice physDevice,
     frameData.mCommandPool.createCommandBuffers(1);
     frameData.mDescriptor.createDescriptorPool(device, 4, {});
 
+    //Temporary
     VkDeviceSize bufferSize = sizeof(SceneData);
 
     // UBO

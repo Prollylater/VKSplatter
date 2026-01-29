@@ -110,7 +110,7 @@ const glm::vec3 &Transform::getPosition() const { return position; }
 const glm::quat &Transform::getRotation() const { return rotation; }
 const glm::vec3 &Transform::getScale() const { return scale; }
 
-const glm::mat4 &Transform::getLocalMatrix()
+const glm::mat4 &Transform::getLocalMatrix() 
 {
     if (localDirty)
         updateLocalMatrix();

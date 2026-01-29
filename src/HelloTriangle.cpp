@@ -172,8 +172,8 @@ void HelloTriangleApplication::mainLoop()
 
         // Rendering
 
-        RenderFrame frameData = extractRenderFrame(logicScene, assetSystem.registry());
-        renderer.updateRenderingScene(frameData, assetSystem.registry());
+        VisibilityFrame frameData = extractRenderFrame(logicScene, assetSystem.registry());
+        renderer.updateRenderingScene(frameData, assetSystem.registry(), matSystem);
 
         std::cout << "Camera Position" << frameData.sceneData.eye[0] << " "
                   << frameData.sceneData.eye[1] << " "
@@ -181,7 +181,7 @@ void HelloTriangleApplication::mainLoop()
                   << std::endl;
         renderer.beginFrame(frameData.sceneData, window.getGLFWWindow());
         renderer.beginPass(RenderPassType::Forward);
-        renderer.drawFrame(frameData.sceneData);
+        renderer.drawFrame(frameData.sceneData, renderer.forward);
         renderer.endPass(RenderPassType::Forward);
         renderer.endFrame(framebufferResized);
 

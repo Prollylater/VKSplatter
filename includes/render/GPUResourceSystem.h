@@ -6,204 +6,81 @@
 #include <unordered_map>
 #include <memory>
 
-template <typename T>
-class GPUHandle
-{
-public:
-    uint64_t id = INVALID_ASSET_ID;
-
-    GPUHandle() = default;
-    explicit GPUHandle(uint64_t _id) : id(_id) {}
-
-    uint64_t getID() const { return id; }
-    bool valid() const { return id != 0; }
-
-    bool operator==(const GPUHandle &other) const { return id == other.id; }
-};
-
 // Are that many forward declaration useful ?
 class Mesh;
 class VulkanContext;
 class DescriptorManager;
 class PipelineManager;
-class GPUResourceRegistry;
 class AssetRegistry;
 struct InstanceLayout;
-class GpuResourceUploader
-{
-public:
-    GpuResourceUploader(const VulkanContext &ctx,
-                        const AssetRegistry &assets,
-                        DescriptorManager &descriptors,
-                        PipelineManager &pipelines) : context(ctx), assetRegistry(assets), materialDescriptors(descriptors),
-                                                      pipelineManager(pipelines) {};
-
-    MeshGPU uploadMeshGPU(const AssetID<Mesh>, bool useSSBO = false) const;
-    MaterialGPU uploadMaterialGPU(const AssetID<Material> matID, GPUResourceRegistry &gpuRegistry, int descriptorIdx, int pipelineIndex) const;
-    InstanceGPU uploadInstanceGPU(const std::vector<uint8_t> &data, const InstanceLayout &layout, uint32_t capacity, bool useSSBO = false, bool map = false) const;
-
-    void updateInstanceGPU(const InstanceGPU &gpu, const void *srcData, uint32_t instanceCount) const;
-    void syncInstanceGPU(
-        InstanceGPU &gpu,
-        const void *srcData,
-        uint32_t instanceCount,
-        const InstanceLayout &layout,
-        uint32_t minCapacity,
-        bool useSSBO = false,
-        bool map = false) const;
-
-    Texture uploadTexture(const AssetID<TextureCPU>) const;
-
-private:
-    const VulkanContext &context;
-    const AssetRegistry &assetRegistry;
-    DescriptorManager &materialDescriptors;
-    PipelineManager &pipelineManager;
-};
 
 // Todo: This class and the workflow it promotes is not currently satisfying in regard to the need some user might have
 
-using InstanceBatchID = uint64_t;
-
-inline uint64_t makeInstanceKey(
-    AssetID<Mesh> meshID,
-    AssetID<Material> materialID,
-    uint32_t instanceBatchID)
-{
-    return (static_cast<uint64_t>(meshID.getID()) << 32) |
-           (static_cast<uint64_t>(materialID.getID()) << 16) |
-           static_cast<uint64_t>(instanceBatchID);
-}
-
+// Todo: The refcounting
 class GPUResourceRegistry
 {
 public:
-    GPUResourceRegistry() = default;
-
-    // Todo: Guardcheck and ivalid asset ID
-    // The use of function here is a bit rigid
-    template <typename CpuT, typename GpuT>
-    GPUHandle<GpuT> add(const AssetID<CpuT> asset, std::function<GpuT()> uploader)
+    GPUResourceRegistry(VulkanContext &ctx)
+        : mContext(ctx)
     {
-        auto &map = getMap<GpuT>();
-        // same as AssetID for CPU-based resources
-        uint64_t key = asset.getID();
-
-        auto it = map.find(key);
-        if (it != map.end())
-        {
-            it->second.refCount++;
-            return GPUHandle<GpuT>{key};
-        }
-
-        map.emplace(key, GPURessRecord<GpuT>{
-                             .resource = std::make_unique<GpuT>(uploader()),
-                             .refCount = 1});
-        return GPUHandle<GpuT>{key};
     }
+    //Todo:Can i make it more homogeneous
+    BufferKey addBuffer(AssetID<void> cpuAsset, const BufferDesc &desc, VkDeviceSize explicitOffset = 0);
+    GPUBufferRef getBuffer(const BufferKey &key, int allocation = 0);
+    bool isEmpty(const BufferKey &key);
+    void releaseBuffer(const BufferKey &key);
 
-    template <typename GpuT>
-    GPUHandle<GpuT> addMultiFrame(AssetID<Mesh> meshID, AssetID<Material> materialID, InstanceBatchID batchId, uint32_t maxFramesInFlight, std::function<GpuT()> uploader)
-    {
-        auto &map = instances;
-        uint64_t key = makeInstanceKey(meshID, materialID, batchId);
+    GPUHandle<Texture> addTexture(AssetID<TextureCPU> cpuAsset, TextureCPU *cpuData = nullptr);
+    Texture *getTexture(const GPUHandle<Texture> &handle);
+    void releaseTexture(const GPUHandle<Texture> &handle);
 
-        auto it = map.find(key);
-        if (it != map.end())
-        {
-            it->second.refCount++;
-            return GPUHandle<GpuT>{key};
-        }
+    GPUHandle<MaterialGPU> addMaterial(AssetID<Material> cpuAsset, MaterialGPU gpuMaterial);
+    MaterialGPU *getMaterial(const GPUHandle<MaterialGPU> &handle);
+    void releaseMaterial(const GPUHandle<MaterialGPU> &handle);
 
-        GPURessRecordMultiFrame<GpuT> record;
-        record.resources.reserve(maxFramesInFlight);
-
-        for (uint32_t i = 0; i < maxFramesInFlight; ++i)
-        {
-            record.resources.emplace_back(std::make_unique<GpuT>(uploader()));
-        }
-        record.refCount = 1;
-
-        map.emplace(key, std::move(record));
-        return GPUHandle<GpuT>{key};
-    }
-
-    // Todo: A get based on on Asset ID ? That would increase the ref count or a softer add function removing the funtion object
-    // Should also be const
-    template <typename GpuT>
-    GpuT *get(const GPUHandle<GpuT> &handle)
-    {
-        auto &map = getMap<GpuT>();
-        auto it = map.find(handle.getID());
-
-        if (it != map.end())
-        {
-            return it->second.resource.get();
-        }
-        return nullptr;
-    }
-
-    InstanceGPU *getInstances(const GPUHandle<InstanceGPU> handle, uint32_t frame)
-    {
-        auto it = instances.find(handle.getID());
-
-        if (it != instances.end())
-        {
-            // Todo: Better method
-            if (it->second.resources.size() <= frame)
-            {
-                return it->second.resources[0].get();
-            }
-            return it->second.resources[frame].get();
-        }
-        return nullptr;
-    }
-
-    template <typename GpuT>
-    void release(GPUHandle<GpuT> handle, VkDevice device, VmaAllocator allocator = nullptr)
-    {
-        auto &map = getMap<GpuT>();
-        auto it = map.find(handle.getID());
-        if (it != map.end())
-        {
-            if (--it->second.refCount == 0)
-            {
-                it->second.resource->destroy(device, allocator);
-                map.erase(it);
-            }
-        }
-    }
-
-    void clearAll(VkDevice device, VmaAllocator allocator = nullptr);
+    void clearAll();
 
 private:
-    template <typename GpuT>
-    struct GPURessRecord
+    struct BufferAllocation
     {
-        std::unique_ptr<GpuT> resource;
-        uint32_t refCount = 0;
+        VkDeviceSize offset;
+        VkDeviceSize size;
+        VkDeviceSize stride;
+        //This used to be used as an Hash for very different allocation in the same Buffer
+        //Currently we are supposed to know the data and supply the allocation index
+        //uint64_t contentHash; 
     };
 
-    template <typename GpuT>
-    struct GPURessRecordMultiFrame
+    struct BufferRecord
     {
-        std::vector<std::unique_ptr<GpuT>> resources;
-        uint32_t refCount = 0;
+        std::unique_ptr<Buffer> buffer;
+        std::vector<BufferAllocation> allocations;
+        VkDeviceSize usedSize = 0;
+        uint32_t refCount = 1;
     };
 
-    std::unordered_map<uint64_t, GPURessRecord<MeshGPU>> meshes;
-    std::unordered_map<uint64_t, GPURessRecord<MaterialGPU>> materials;
-    std::unordered_map<uint64_t, GPURessRecord<Texture>> textures;
-    std::unordered_map<uint64_t, GPURessRecordMultiFrame<InstanceGPU>> instances;
+    // Bring back templating
+    template <typename T>
+    struct ResourceRecord
+    {
+        std::unique_ptr<T> resource;
+        uint32_t refCount = 1;
+    };
 
-    template <typename GpuT>
-    std::unordered_map<uint64_t, GPURessRecord<GpuT>> &getMap();
+private:
+    VulkanContext &mContext;
+    std::unordered_map<BufferKey, BufferRecord> mBufferRecords;
+    std::unordered_map<uint64_t, ResourceRecord<Texture>> mTextureRecords;
+    std::unordered_map<uint64_t, ResourceRecord<MaterialGPU>> mMaterialRecords;
 
-    template <typename GpuT>
-    const std::unordered_map<uint64_t, GPURessRecord<GpuT>> &getMap() const;
+    BufferRecord &getOrCreateBufferRecord(const BufferDesc &desc, const BufferKey &key);
+    ResourceRecord<Texture> &getOrCreateTextureRecord(AssetID<TextureCPU> cpuAsset, TextureCPU *cpuData);
+    ResourceRecord<MaterialGPU> &getOrCreateMaterialRecord(AssetID<Material> cpuAsset, const MaterialGPU &gpuMaterial);
 };
 
-template void GPUResourceRegistry::release(GPUHandle<MeshGPU> handle, VkDevice device, VmaAllocator allocator = nullptr);
-template void GPUResourceRegistry::release(GPUHandle<MaterialGPU> handle, VkDevice device, VmaAllocator allocator = nullptr);
-template void GPUResourceRegistry::release(GPUHandle<Texture> handle, VkDevice device, VmaAllocator allocator = nullptr);
-// template void GPUResourceRegistry::release(GPUHandle<InstanceGPU> handle, VkDevice device, VmaAllocator allocator = nullptr)
+
+MaterialGPU uploadMaterialGPU(
+    const AssetID<Material>& matID,
+    GPUResourceRegistry& gpuRegistry,
+    VulkanContext& context
+);

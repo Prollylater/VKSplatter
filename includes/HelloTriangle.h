@@ -61,6 +61,7 @@ private:
     VulkanContext context;
     Renderer renderer; // This class has too many responsibility, however msot make senses so far ~
     AssetSystem assetSystem;
+    MaterialSystem matSystem;
     Scene logicScene; // Scenegraph/ECS
 
     // Window abstraction for close, cleaner resize, pollingEvents too

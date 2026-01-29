@@ -1,5 +1,5 @@
 #include "Scene.h"
-
+#include <unordered_set>
 Scene::Scene()
 {
     sceneLayout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -9,7 +9,7 @@ Scene::Scene()
     sceneLayout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SceneData));
 
     lights.addDirLight({glm::vec4(0.5, 1.0, 0.0, 0.0), glm::vec4(1.0, 1.0, 1.0, 0.0), 1.0});
-    //lights.addDirLight({glm::vec4(0.5, -1.0, 0.0, 0.0), glm::vec4(0.2, 0.0, 1.0, 0.0), 1.0});
+    // lights.addDirLight({glm::vec4(0.5, -1.0, 0.0, 0.0), glm::vec4(0.2, 0.0, 1.0, 0.0), 1.0});
     lights.addPointLight({glm::vec4(0.0, 1.0, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 1.5, 1.5});
     lights.addPointLight({glm::vec4(-0.0, 0.0, 0.5, 0.0), glm::vec4(0.0, 1.0, 1.0, 0.0), 0.5, 0.5});
     lights.addPointLight({glm::vec4(-9.5, -14, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 2.5, 5.5});
@@ -25,7 +25,7 @@ Scene::Scene(int compute)
     sceneLayout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SceneData));
 };
 
-//Todo: &&
+// Todo: &&
 void Scene::addNode(SceneNode node)
 {
     /*
@@ -98,166 +98,239 @@ void fitCameraToBoundingBox(Camera &camera, const Extents &box)
     camera.setPosition(newPosition);
 }
 
-
-RenderScene* updateFrameSync(
-    const RenderFrame &frame,
+#include "Buffer.h"
+// Todo: Move BufferDesc out of Buffer
+void updateFrameSync(
+    VulkanContext &ctx,
+    RenderScene& scene,
+    const VisibilityFrame &frame,
     GPUResourceRegistry &registry,
     const AssetRegistry &cpuRegistry,
-    const GpuResourceUploader &uploader,
+    MaterialSystem matSystem,
     uint32_t currFrame)
 {
-    RenderScene* scenePtr = new RenderScene();
-    RenderScene& scene = *scenePtr;
-    constexpr uint32_t MAX_INSTANCES = 10;
+    constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
+    constexpr uint32_t TRANSFORM_BUFFER_KEY = 0;
 
-    for (const RenderObjectFrame &rof : frame.objects)
+    // scene.ensureInstanceBuffer(registry);
+    // One global instance Buffer. Might be divided
+    // RenderScene might as well own this
+    auto istBufferRef = registry.getBuffer(scene.instanceBuffer, currFrame);
+
+    for (auto &[_, drawable] : scene.drawables)
     {
-        const auto &mesh = cpuRegistry.get(rof.mesh);
-
-        // Mesh: lazy, once
-        auto meshGPU = registry.add(
-            rof.mesh,
-            std::function<MeshGPU()>([&]
-                                     { return uploader.uploadMeshGPU(rof.mesh); }));
-
-        constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
-        InstanceLayout layout{};
-        layout.stride = sizeof(InstanceTransform);
-
-        for (const auto &submesh : mesh->submeshes)
-        {
-            Drawable d{};
-            d.meshGPU = meshGPU;
-            d.indexOffset = submesh.indexOffset;
-            d.indexCount = submesh.indexCount;
-
-            // Todo:
-            // No upload here because Material are uploaded separately currently
-            // Hence the lambda is never used
-            d.materialGPU = registry.add(mesh->materialIds[submesh.materialId],
-                                         std::function<MaterialGPU()>([&]()
-                                                                      { return MaterialGPU(); }));
-
-            // Instance: lazy creation
-            d.hotInstanceGPU = registry.addMultiFrame(
-                rof.mesh,
-                mesh->materialIds[submesh.materialId],
-                0,
-                MAX_FRAMES_IN_FLIGHT,
-                std::function<InstanceGPU()>([&]
-                                             { return InstanceGPU{}; }));
-
-            d.coldInstanceGPU = registry.addMultiFrame(rof.mesh, mesh->materialIds[submesh.materialId], 1, MAX_INSTANCES,
-                                                       std::function<InstanceGPU()>([&]()
-                                                                                    { return uploader.uploadInstanceGPU(rof.instanceData, rof.layout, 10, true); }));
-
-            // Per-frame buffer
-            InstanceGPU *gpu = registry.getInstances(d.hotInstanceGPU, currFrame);
-
-            if (!gpu)
-            {
-                //Failure state for now
-                //We should always have an instance
-                return nullptr;
-            };
-            // Unified sync (allocate / reallocate / update)
-            uploader.syncInstanceGPU(
-                *gpu,
-                rof.transforms.data(),
-                static_cast<uint32_t>(rof.transforms.size()),
-                rof.layout,
-                MAX_INSTANCES);
-
-            d.instanceCount = gpu->count;
-
-            scene.drawables.push_back(std::move(d));
-        }
+        drawable.instanceRanges.clear();
     }
 
-    return scenePtr;
+    AssetID<Mesh> lastAsset(INVALID_ASSET_ID);
+    for (const auto &rof : frame.objects)
+    {
+        const auto &mesh = cpuRegistry.get(rof.mesh);
+        BufferKey vtxKey;
+        BufferKey idxKey;
+
+        if (rof.mesh.getID() != lastAsset.getID()) //Shouldn't really happen
+        {
+            AssetID<void> query = AssetID<void>(rof.mesh.getID());
+            BufferDesc description;
+            const VertexFormat &format = VertexFormatRegistry::getStandardFormat();
+            description.updatePolicy = BufferUpdatePolicy::Immutable;
+            description.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+            description.size = mesh->positions.size() * sizeof(glm::vec3) +
+                               mesh->normals.size() * sizeof(glm::vec3) + mesh->uvs.size() * sizeof(glm::vec2);
+            description.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+            description.ssbo = false;
+            vtxKey = registry.addBuffer(query, description, currFrame);
+            auto vtxBufferRef = registry.getBuffer(vtxKey);
+            if (vtxBufferRef.buffer == nullptr)
+            {
+                VertexBufferData vbd = buildInterleavedVertexBuffer(*mesh, format);
+                vtxBufferRef.uploadData(ctx, vbd.mBuffers[0].data(), description.size);
+            }
+
+            description.size = mesh->indices.size() * sizeof(uint32_t);
+            description.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+            idxKey = registry.addBuffer(query, description, currFrame);
+            auto idxBufferRef = registry.getBuffer(idxKey);
+
+            if (idxBufferRef.buffer == nullptr)
+            {
+                vtxBufferRef.uploadData(ctx, mesh->indices.data(), description.size);
+            }
+        }
+
+        for (uint32_t submeshIdx = 0; submeshIdx < mesh->submeshes.size(); submeshIdx++)
+        {
+            uint64_t drawableKey = (uint64_t(rof.mesh.getID()) << 32 | submeshIdx);
+            Drawable &drawable = scene.drawables[drawableKey];
+
+            // Upload Material if it doesn't exist
+            auto materialID = mesh->materialIds[mesh->submeshes[submeshIdx].materialId];
+            drawable.vtxBuffer = vtxKey;
+            drawable.idxBuffer = idxKey;
+            drawable.materialGPU = matSystem.requestMaterial(materialID);
+            drawable.indexOffset = mesh->submeshes[submeshIdx].indexOffset;
+            drawable.indexCount = mesh->submeshes[submeshIdx].indexCount;
+    
+            uint32_t firstInstance = UINT32_MAX;
+            uint32_t count = 0;
+
+            std::vector<uint32_t> instanceIDs;
+            instanceIDs.reserve(rof.visibleInstances.size());
+            for (const auto &inst : rof.visibleInstances)
+            {
+                uint32_t instanceID = scene.getOrAssignInstance(inst.instanceKey);
+
+                if (inst.transformDirty)
+                {
+                    istBufferRef.updateElement(ctx, &inst.transform, instanceID, sizeof(InstanceTransform));
+                }
+
+                instanceIDs.push_back(instanceID);
+            }
+
+            if (instanceIDs.empty())
+            {
+                continue;
+            }
+
+            // Sort & build ranges
+            std::sort(instanceIDs.begin(), instanceIDs.end());
+
+            uint32_t start = instanceIDs[0];
+            uint32_t count = 1;
+
+            for (size_t i = 1; i < instanceIDs.size(); ++i)
+            {
+                //Instance haven't contiguous id
+                if (!(instanceIDs[i] == instanceIDs[i - 1] + 1))
+                {
+                    drawable.instanceRanges.push_back({start, count});
+                    start = instanceIDs[i];
+                    count = 1;
+                    continue;
+                }
+                ++count;
+            }
+
+            drawable.instanceRanges.push_back({start, count});
+
+            // Drawable are one instance of a submesh
+            // This put it in instances [all submeshes] order
+            // submeshe [all instances] would be pre grouped to some degree
+        }
+    }
+    
 }
 
-
-RenderFrame extractRenderFrame(const Scene &scene,
-                                      const AssetRegistry &registry)
+// Allocator should be tied to SCene or be some sort of Ecs for handling removed stuff
+VisibilityFrame extractRenderFrame(const Scene &scene,
+                                   const AssetRegistry &registry)
 {
-    RenderFrame frame;
+    VisibilityFrame frame;
     frame.sceneData = scene.getSceneData();
     frame.lightData = scene.getLightPacket();
 
-    // Notes: We woudl flatten SceneNodes into RenderObjectFrames if we had hierarchy
-    for (size_t nodeIdx = 0; nodeIdx < scene.nodes.size(); ++nodeIdx)
+    // Assuming Scene new comer were resolved earlier
+    //  Notes: We woudl flatten SceneNodes into RenderObjectFrames if we had hierarchy
+    for (auto &node : scene.nodes)
     {
-        const SceneNode &node = scene.nodes[nodeIdx];
         if (!node.visible || node.instanceNb() == 0)
         {
+            // We might still want to upload first timer actually
+            // In hope to have more contiguous mesh
             continue;
+        }
+
+        std::vector<VisibleObject::VisibleInstance> visibleInstances;
+        for (uint32_t instIdx = 0; instIdx < node.instanceNb(); ++instIdx)
+        {
+            glm::vec3 worldPos = node.getTransform(instIdx).getPosition();
+            Extents worldExtents = node.nodeExtents;
+            worldExtents.translate(worldPos);
+
+            if (!testAgainstFrustum(frame.sceneData.viewproj, worldExtents))
+            {
+                continue;
+            }
+
+            uint64_t key = (uint64_t(&node) << 32) | instIdx;
+
+            VisibleObject::VisibleInstance data{};
+            data.transform = node.buildGPUTransform(instIdx);
+            data.instanceKey = key;
+            // Todo: Always dirty until i handle scene update
+            data.transformDirty = true;
+            visibleInstances.push_back(data);
         }
 
         const auto &mesh = registry.get(node.mesh);
 
-        for (uint32_t submeshIdx = 0; submeshIdx < mesh->submeshes.size(); ++submeshIdx)
-        {
-            RenderObjectFrame rof{};
-            const auto &submesh = mesh->submeshes[submeshIdx];
-            rof.mesh = node.mesh;
-            rof.material = mesh->materialIds[submesh.materialId];
-
-            rof.indexOffset = submesh.indexOffset;
-            rof.indexCount = submesh.indexCount;
-
-            rof.transforms.reserve(node.instanceNb());
-            rof.instanceData.reserve(node.instanceNb());
-
-            for (uint32_t instIdx = 0; instIdx < node.instanceNb(); ++instIdx)
-            {
-
-                if (!testAgainstFrustum(frame.sceneData.viewproj, node.nodeExtents))
-                {
-                    continue;
-                }
-                rof.transforms.push_back(node.buildGPUTransform(instIdx));
-                rof.instanceData = node.getGenericData(instIdx);
-            }
-
-            // rof.worldExtents = node.nodeExtents;
-            rof.layout = node.layout;
-            frame.objects.push_back(std::move(rof));
-        }
+        // Create one RenderObjectFrame per submesh, sharing visibleInstances
+        // Notes: Ideally visibile instance array wouldn'( be duplicated)
+        // Pointer with Linear Allocator
+        VisibleObject rof{};
+        rof.mesh = node.mesh;
+        // rof.indexOffset = 0;
+        // rof.vertexOffset = 0;
+        rof.visibleInstances = visibleInstances;
+        frame.objects.push_back(std::move(rof));
+        // rof.instanceData = node.getGenericData(instIdx);
+        //  rof.worldExtents = node.nodeExtents;
+        // rof.layout = node.layout;
     }
-
-    // Handle passes
-    //  Note:
-    //   Currently only Forward pass exists, but expandable
-    RenderPassFrame forwardPass{};
-    forwardPass.type = RenderPassType::Forward;
-    forwardPass.sortedObjectIndices.reserve(frame.objects.size());
-    for (size_t i = 0; i < frame.objects.size(); ++i)
-    {
-        forwardPass.sortedObjectIndices.push_back(i);
-    }
-
-    /*
-    // Sort by pipeline first, then material if we separate material and piepline
-    std::sort(frame.sortedIndices.begin(), frame.sortedIndices.end(),
-    [&](size_t a, size_t b)
-    {
-        const auto &ra = frame.objects[a];
-        const auto &rb = frame.objects[b];
-        if (ra.pipelineIndex != rb.pipelineIndex)
-            return ra.pipelineIndex < rb.pipelineIndex;
-        return ra.materialHash < rb.materialHash;
-    });
-    */
-    std::sort(forwardPass.sortedObjectIndices.begin(), forwardPass.sortedObjectIndices.end(),
-              [&](size_t a, size_t b)
-              {
-                  const auto &rofa = frame.objects[a];
-                  const auto &rofb = frame.objects[b];
-                  return rofa.material.getID() < rofb.material.getID();
-              });
-
-    frame.passes.push_back(std::move(forwardPass));
 
     return frame;
 };
+
+/*
+ // Sort by pipeline first, then material if we separate material and piepline
+ std::sort(frame.sortedIndices.begin(), frame.sortedIndices.end(),
+ [&](size_t a, size_t b)
+ {
+     const auto &ra = frame.objects[a];
+     const auto &rb = frame.objects[b];
+     if (ra.pipelineIndex != rb.pipelineIndex)
+         return ra.pipelineIndex < rb.pipelineIndex;
+     return ra.materialHash < rb.materialHash;
+ });
+ */
+
+
+
+
+void buildPassFrame(
+    RenderPassFrame &outPass,
+    RenderScene &scene,
+    PipelineManager &mPipeline, int pipelineINdex)
+{
+    outPass.queue.drawCalls.clear();
+    outPass.queue.pipelineIndex.clear();
+
+    for (auto &[key, drawable] : scene.drawables)
+    {
+        if (drawable.instanceRanges.empty())
+        {
+            continue;
+        }
+
+        // Pass-level filtering happens
+        // Reintroduce Passrequirement and what not
+        // if (!materialCompatible(drawable.materialGPU, outPass.type))
+        //    continue;
+        // Also we still haven't really culled thing only visible by certain passes
+
+        /*
+        PipelineBuilder pkey;
+        pkey.pass = outPass.type;
+        pkey.material = drawable.materialGPU;
+        pkey.vertexFormat = drawable.vertexFormat;
+        pkey.depthTest = true;
+        pkey.depthWrite = (outPass.type != RenderPassType::Transparent);
+        */
+
+        outPass.queue.drawCalls.push_back(&drawable);
+    }
+    outPass.queue.pipelineIndex.push_back(pipelineINdex);
+}

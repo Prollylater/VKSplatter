@@ -13,53 +13,40 @@
 
 #include "SyncObjects.h"
 #include "Buffer.h"
+#include "Texture.h"
 
 // Todo: Which heap allocation are absolutely needed
 class VulkanContext
 {
 public:
-    // Core Vulkan handles, direct access
-    VulkanInstanceManager mInstanceM;
+    VulkanContext() = default;
+    ~VulkanContext() { destroyAll(); }
+
+    void initVulkanBase(GLFWwindow *window, ContextCreateInfo &createInfo);
+    void recreateSwapchain(GLFWwindow *window);
+    void destroyAll();
+
+    const PhysicalDeviceManager &getPDeviceM() const { return mPhysDeviceM; }
+    PhysicalDeviceManager &getPDeviceM() { return mPhysDeviceM; }
+
+    const LogicalDeviceManager &getLDevice() const { return mLogDeviceM; }
+    LogicalDeviceManager &getLDevice() { return mLogDeviceM; }
+
+    const SwapChainManager &getSwapChainManager() const { return mSwapChainM; }
+    SwapChainManager &getSwapChainManager() { return mSwapChainM; }
+
+    //Most can be const
+    Buffer createBuffer(const BufferDesc &desc);
+    void updateBuffer(Buffer &buffer, const void *data, VkDeviceSize size, VkDeviceSize offset = 0);
+    Texture createTexture( ImageData<stbi_uc> &cpuTexture);
+
     PhysicalDeviceManager mPhysDeviceM;
     LogicalDeviceManager mLogDeviceM;
     SwapChainManager mSwapChainM;
+    VulkanInstanceManager mInstanceM;
 
-    /*
-    Probably also in Renderer
-    Once the archtiecture get clearer
-    // Global
-    vkUtils::DeletionQueue deletionQueue;
-
-    deletionQueue.push([=]() {
-        vkDestroyBuffer(device, buffer, nullptr);
-    });
-    deletionQueue.flush();
-    */
-
-    // Getters returning const references
-    // const VulkanInstanceManager &getInstanceManager() const { return mInstanceM; }
-    // VulkanInstanceManager &getInstanceManager() { return mInstanceM; }
-
-    const PhysicalDeviceManager &getPhysicalDeviceManager() const { return mPhysDeviceM; }
-    const LogicalDeviceManager &getLogicalDeviceManager() const { return mLogDeviceM; }
-
-    const SwapChainManager &getSwapChainManager() const { return mSwapChainM; }
-
-    PhysicalDeviceManager &getPhysicalDeviceManager() { return mPhysDeviceM; }
-    LogicalDeviceManager &getLogicalDeviceManager() { return mLogDeviceM; }
-
-    SwapChainManager &getSwapChainManager() { return mSwapChainM; }
-
-    // Not too sure about what init  or not and in private or not
-
-    void initVulkanBase(GLFWwindow *window, ContextCreateInfo &createInfo);
-
-    void recreateSwapchain(GLFWwindow *window);
-
-    void destroyAll();
 
 private:
-    // TODO: Memory allocator, debug messenger, etc.
 };
 
 /*
@@ -78,4 +65,3 @@ A frame in flight refers to a rendering operation that
     OR not ? It's weird wait for the chapter
     Depth Buffer/Stencil Buffer (Only used during rendering. Sent for rendering, consumed there and  ignried)
 */
-

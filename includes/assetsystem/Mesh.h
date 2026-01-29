@@ -55,7 +55,6 @@ struct Mesh : AssetBase
         uint32_t indexOffset;
         uint32_t indexCount;
         uint32_t vertexOffset;
-        //AssetID<Material>
         uint32_t materialId;
     };
     std::vector<Submesh> submeshes;
