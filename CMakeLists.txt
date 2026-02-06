@@ -65,6 +65,7 @@ set(SOURCES
     ${SOURCE_DIR}/render/GPUResourceSystem.cpp   
     ${SOURCE_DIR}/render/GPUResource.cpp   
     ${SOURCE_DIR}/render/VertexDescriptions.cpp   
+    ${SOURCE_DIR}/render/MaterialSystem.cpp   
     ${SOURCE_DIR}/render/Renderer.cpp   
 
     ${SOURCE_DIR}/vulkan/utils/RessourceHelper.cpp   
@@ -92,11 +93,13 @@ ${GLFW_INCLUDE_DIRS}
 ${INCLUDE_DIR}
 ${INCLUDE_DIR}/vulkan
 ${INCLUDE_DIR}/render
+
 ${INCLUDE_DIR}/scene
 ${INCLUDE_DIR}/assetsystem
 ${INCLUDE_DIR}/core
 ${SOURCE_DIR}/core
 ${SOURCE_DIR}/scene
+${SOURCE_DIR}/render
 ${THIRD_PARTY})
 
 # Link libraries

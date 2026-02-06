@@ -79,7 +79,7 @@ PipelineBuilder &PipelineBuilder::setRenderPass(VkRenderPass renderPass, uint32_
 }
 
 // Todo: element passed and how they are stored could be better
-//like span here
+//Todo: Consider ViewMask and Subpass at some point
 PipelineBuilder &PipelineBuilder::setDynamicRenderPass(const std::vector<VkFormat> &colors,
                                                        VkFormat depth, VkFormat stencil, uint32_t vMask)
 {

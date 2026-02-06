@@ -11,6 +11,7 @@
 //Add default material
 //Change codeStyle to code_style
 class RenderTargetInfo;
+
 struct Material : AssetBase
 {
   enum class LightingPath : uint8_t { Deferred, Forward, Both };

@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 #include "Texture.h"
+#include "ContextController.h"
 struct Material;
 
 inline uint64_t makeInstanceKey(
@@ -108,7 +109,6 @@ namespace std
 struct MaterialGPU
 {
 
-    // int pipelineEntryIndex = -1;
     int descriptorIndex = -1;
 
     BufferKey uniformBuffer;

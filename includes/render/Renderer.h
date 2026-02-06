@@ -8,7 +8,8 @@
 #include "ResourceSystem.h"
 #include "RenderPass.h"
 #include "ContextController.h"
-
+#include "MaterialSystem.h"
+#include "RenderScene.h"
 class VulkanContext;
 
 // Todo:Inherit from frame data handler class ? Or framehandler object (better)
@@ -41,7 +42,6 @@ public:
 
         // Setup Pipeline Cache and Pool
         mPipelineM.initialize(device, "");
-        mMaterialDescriptors.createDescriptorPool(device, 50, {});
     }
 
     void addPass(RenderPassType type, RenderPassConfig legacyConfig)
@@ -60,13 +60,14 @@ public:
 
     void beginFrame(const SceneData &sceneData, GLFWwindow *window);
     void beginPass(RenderPassType type);
-    void drawFrame(const SceneData &sceneData,  const RenderPassFrame& pass);
+    void drawFrame(const SceneData &sceneData, const RenderPassFrame &pass, const DescriptorManager& materialDescriptor);
+
     void endPass(RenderPassType type);
     void endFrame(bool framebufferResized);
 
-    //SetUp Function
+    // SetUp Function
     void initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth);
-    void initRenderingRessources(Scene &scene, const AssetRegistry &registry);
+    void initRenderingRessources(Scene &scene, const AssetRegistry &registry,  MaterialSystem &system);
     void updateRenderingScene(const VisibilityFrame &vFrame, const AssetRegistry &registry, MaterialSystem &matSystem);
     void deinitSceneRessources();
     void createFramesData(uint32_t framesInFlightCount, const std::vector<VkDescriptorSetLayoutBinding> &bindings);
@@ -83,21 +84,20 @@ public:
                                           const std::vector<VkImageView> &gbufferViews,
                                           VkImageView depthView, const VkExtent2D swapChainExtent);
 
-    RenderPassFrame forward;
-                                          
+    std::vector<RenderPassFrame> passes;
+
 private:
     // Todo: Typically all  that here is really specific too Vulkan which make this Renderer not really Api Agnostic
     // OpenGL wouldn't need it
     VulkanContext *mContext;
     AssetRegistry *mRegistry;
-    
-    //Temp
+
+    // Temp
     RenderScene mRScene;
     FrameHandler mFrameHandler;
     GBuffers mGBuffers;
 
     // Recent addition
-    DescriptorManager mMaterialDescriptors;
     RenderPassManager mRenderPassM;
     GPUResourceRegistry mGpuRegistry;
 
@@ -111,7 +111,6 @@ private:
     void initRenderInfrastructure(RenderPassType type, const RenderTargetConfig &cfg);
     void initRenderInfrastructure(RenderPassType type, const RenderPassConfig &cfg);
 
-    //Todo: Remove
+    // Todo: Remove
     uint32_t mIndexImage{};
 };
-

@@ -31,12 +31,13 @@ public:
     Buffer() = default;
     ~Buffer() = default;
 
+    //Todo:: Default Variable order + The soup should be directly replaced by Buffer Desc
     void createBuffer(VkDevice device,
                       VkPhysicalDevice physDevice,
                       VkDeviceSize data,
                       VkBufferUsageFlags usage,
                       VkMemoryPropertyFlags properties,VmaAllocator alloc = VK_NULL_HANDLE,
-                      BufferUpdatePolicy updatePolicy
+                      BufferUpdatePolicy updatePolicy = BufferUpdatePolicy::StagingOnly
                       );
 
     void destroyBuffer(VkDevice device, VmaAllocator allocator = VK_NULL_HANDLE);

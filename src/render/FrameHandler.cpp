@@ -88,15 +88,9 @@ void FrameHandler::destroyFrameData(VkDevice device)
 
 };
 
+//Todo: Remove this method
 void FrameHandler::createFramesDescriptorSet(VkDevice device, const std::vector<std::vector<VkDescriptorSetLayoutBinding>> &layouts)
 {
-    for (const auto &layout : layouts)
-    {
-        // Todo:
-        //  5 is just a magic number for a number of uniform that seemed "fine"
-        // poolSize.push_back({layout.descriptorType, 10});
-    }
-
     for (int i = 0; i < mFramesData.size(); i++)
     {
         auto &descriptor = getCurrentFrameData().mDescriptor;
@@ -162,7 +156,7 @@ void FrameHandler::updateUniformBuffers(glm::mat4 data)
     memcpy(getCurrentFrameData().mCameraMapping, &data, sizeof(glm::mat4));
 };
 
-//Todo: Notharcoded
+//Todo: This is more or less just hardcoded
 void FrameHandler::writeFramesDescriptors(VkDevice device, int setIndex)
 {
     for (auto &frame : mFramesData)
@@ -179,6 +173,8 @@ void FrameHandler::writeFramesDescriptors(VkDevice device, int setIndex)
         frame.mDescriptor.updateDescriptorSet(device, writes);
     }
 };
+
+ 
 
 void SwapChainResources::createFramebuffer(uint32_t index, VkDevice device, VkExtent2D extent, const std::vector<VkImageView> &attachments, VkRenderPass renderPass)
 {

@@ -4,8 +4,8 @@
 #include "Material.h"
 #include "geometry/Extents.h"
 
-//Helper for plane geometry,
-//Geometry config concept to abstract away tinyloader
+// Helper for plane geometry,
+// Geometry config concept to abstract away tinyloader
 
 struct Mesh : AssetBase
 {
@@ -16,7 +16,7 @@ struct Mesh : AssetBase
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;
     std::vector<glm::vec2> uvs;
-    std::vector<glm::vec3> colors; //Remove
+    std::vector<glm::vec3> colors; // Remove
     std::vector<uint32_t> indices;
     Extents bndbox;
     // Todo: Alignment is slightly off but not bothering right now
@@ -49,7 +49,6 @@ struct Mesh : AssetBase
         return true;
     }
 
-    
     struct Submesh
     {
         uint32_t indexOffset;
@@ -58,7 +57,11 @@ struct Mesh : AssetBase
         uint32_t materialId;
     };
     std::vector<Submesh> submeshes;
-
     std::vector<AssetID<Material>> materialIds;
-};
 
+    enum GeometryFeature : uint32_t
+    {
+        Static = 1 << 0,
+        Animated = 1 << 1,
+    } features = GeometryFeature::Static;
+};

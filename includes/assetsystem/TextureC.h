@@ -31,7 +31,7 @@ struct ImageData : AssetBase
     };
 
     template <typename T>
-    static ImageData<T> makeDummyImage(const T (&pixel)[4])
+    static ImageData<T> makeDummyImage(const T pixel[4])
     {
         return ImageData<T>{
             .data = const_cast<T *>(pixel),

@@ -14,9 +14,9 @@ class PipelineManager;
 class AssetRegistry;
 struct InstanceLayout;
 
-// Todo: This class and the workflow it promotes is not currently satisfying in regard to the need some user might have
 
 // Todo: The refcounting
+
 class GPUResourceRegistry
 {
 public:

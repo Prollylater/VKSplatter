@@ -193,12 +193,15 @@ struct Drawable
 
     BufferKey vtxBuffer;
     BufferKey idxBuffer;
+    uint32_t geometryFeatures;
+    //RenderPassType pass;
+    // bool visible = true; //If drawable are visible the isntance make less sense
+    
     GPUHandle<MaterialGPU> materialGPU;
-
+    uint32_t materialInstance;
     // Extents worldExtent;
 
     // Todo: Implement
-    // bool visible = true; //If drawable are visible the isntance make less sense
     uint32_t indexOffset = 0;
     uint32_t indexCount = 0;
     uint32_t instanceCapacity = 0;

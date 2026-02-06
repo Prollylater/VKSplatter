@@ -2,6 +2,7 @@
 #include "ContextController.h"
 #include "Renderer.h"
 #include "ResourceSystem.h"
+#include "MaterialSystem.h"
 #include "WindowVk.h"
 #include "Clock.h"
 #include "logging/Logger.h"

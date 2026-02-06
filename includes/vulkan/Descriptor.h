@@ -8,6 +8,8 @@
 
 size_t hashBindings(const std::vector<VkDescriptorSetLayoutBinding> &bindings);
 
+//Todo: Investigate refactoring toward a better managment of dynamic resources
+//Gzen2
 class DescriptorManager
 {
 public:

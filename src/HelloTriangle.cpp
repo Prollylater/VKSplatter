@@ -44,6 +44,7 @@ void HelloTriangleApplication::initVulkan()
     // Logging and "check", throw, error handling
     renderer.initAllGbuffers({}, true);
 
+    
     renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT, logicScene.sceneLayout.descriptorSetLayoutsBindings);
 
     if (dynamic)
@@ -63,7 +64,7 @@ void HelloTriangleApplication::initVulkan()
 
     initScene();
     std::cout << "InitRenderRe" << std::endl;
-    renderer.initRenderingRessources(logicScene, assetSystem.registry());
+    renderer.initRenderingRessources(logicScene, assetSystem.registry(), matSystem);
 
     vkInitialized = true;
 }
@@ -77,8 +78,7 @@ void HelloTriangleApplication::initScene()
 
     SceneNode node{
         .mesh = assetMesh,
-        .nodeExtents = meshAsset->bndbox
-    };
+        .nodeExtents = meshAsset->bndbox};
 
     InstanceLayout meshLayout;
     meshLayout.fields.push_back({"id", InstanceFieldType::Uint32, 0, sizeof(uint32_t)});
@@ -181,7 +181,7 @@ void HelloTriangleApplication::mainLoop()
                   << std::endl;
         renderer.beginFrame(frameData.sceneData, window.getGLFWWindow());
         renderer.beginPass(RenderPassType::Forward);
-        renderer.drawFrame(frameData.sceneData, renderer.forward);
+        renderer.drawFrame(frameData.sceneData, renderer.passes[0], matSystem.materialDescriptor());
         renderer.endPass(RenderPassType::Forward);
         renderer.endFrame(framebufferResized);
 

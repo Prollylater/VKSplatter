@@ -73,6 +73,49 @@ GPUHandle<MaterialGPU> MaterialSystem::requestMaterial(AssetID<Material> materia
                         materialId));
 }
 
+
+    MaterialInstance MaterialSystem::requestMaterialInstance(
+        GPUHandle<MaterialGPU> gpuMat,
+        RenderPassType pass,
+        uint32_t geometryFeatures)
+    {
+        MaterialInstanceKey key{gpuMat, pass, geometryFeatures};
+
+        auto it = mInstancesIdx.find(key);
+        if (it != mInstancesIdx.end())
+        {
+            return mInstances[it->second];
+        }
+
+        return MaterialInstance{-1,RenderPassType::Count};
+    }
+
+    MaterialInstance MaterialSystem::addMaterialInstance(
+        GPUHandle<MaterialGPU> gpuMat,
+        RenderPassType pass,
+        uint32_t geometryFeatures,
+        int pipelineIndex)
+    {
+        MaterialInstanceKey key{gpuMat, pass, geometryFeatures};
+
+        auto it = mInstancesIdx.find(key);
+        if (it != mInstancesIdx.end())
+        {
+            return mInstances[it->second];
+        }
+
+        // Create new variant
+        MaterialInstance instance;
+        instance.pipelineIndex = pipelineIndex;
+        instance.pass = pass;
+
+        uint32_t idx = static_cast<uint32_t>(mInstances.size());
+        mInstances.push_back(instance);
+        mInstancesIdx[key] = idx;
+
+        return instance;
+    }
+
 void MaterialSystem::updateMaterial(AssetID<Material> materialId)
 {
     auto material = mGPURegistry.getMaterial(materialId);
