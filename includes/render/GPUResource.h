@@ -58,10 +58,19 @@ struct GPUBufferRef
 
     //Single element update
     //Assume the object correspon to stride
-    void updateElement(VulkanContext &ctx, const void *data, uint32_t index, VkDeviceSize dataSize)
+    //Notes:
+    //Todo: Store stride by adding it in description then in allocation ?
+    void updateElement(VulkanContext &ctx, const void *data, uint32_t index, VkDeviceSize stride)
     {
-        //Notes: "Experimental"
+        /* Previously we passed dataSize and not size. DataSize was passed to control stride as the feature was halfbaked
+        Still need to be reconsidarated
         if (!buffer || offset + stride > size || stride == 0 || stride != dataSize)
+        {
+            return;
+        }
+
+        */
+        if (!buffer || offset + stride > size || stride == 0 || stride)
         {
             return;
         }
@@ -76,13 +85,13 @@ struct GPUBufferRef
     Buffer *buffer = nullptr;
     VkDeviceSize offset = 0;
     VkDeviceSize size = 0;
-    VkDeviceSize stride = 0;
+    //VkDeviceSize stride = 0;
 
 };
 
 struct BufferKey
 {
-    uint64_t assetId = 0;         // AssetID of CPU object or anything else
+    uint64_t assetId = INVALID_ASSET_ID;         // AssetID of CPU object or anything else
     VkBufferUsageFlags usage = 0; // Optional further disambiguation
 
     bool operator==(const BufferKey &other) const
@@ -118,10 +127,4 @@ struct MaterialGPU
     GPUHandle<Texture> roughness;
     GPUHandle<Texture> emissive;
 
-    struct MaterialGPUCreateInfo
-    {
-        AssetID<Material> cpuMaterial;
-        int descriptorLayoutIdx;
-        int pipelineIndex;
-    };
 };

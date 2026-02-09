@@ -1,14 +1,15 @@
-#pragma once
 #include "RenderScene.h"
 #include "Buffer.h"
+#include "Texture.h"
+#include "MaterialSystem.h"
 
-void updateFrameSync(
+// Todo: Trim down
+void RenderScene::updateFrameSync(
     VulkanContext &ctx,
-    RenderScene &scene,
     const VisibilityFrame &frame,
     GPUResourceRegistry &registry,
     const AssetRegistry &cpuRegistry,
-    MaterialSystem matSystem,
+    MaterialSystem &matSystem,
     uint32_t currFrame)
 {
     constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 3;
@@ -17,9 +18,9 @@ void updateFrameSync(
     // scene.ensureInstanceBuffer(registry);
     // One global instance Buffer. Might be divided
     // RenderScene might as well own this
-    auto istBufferRef = registry.getBuffer(scene.instanceBuffer, currFrame);
+    auto istBufferRef = registry.getBuffer(instanceBuffer, currFrame);
 
-    for (auto &[_, drawable] : scene.drawables)
+    for (auto &[_, drawable] : drawables)
     {
         drawable.instanceRanges.clear();
     }
@@ -36,36 +37,48 @@ void updateFrameSync(
             AssetID<void> query = AssetID<void>(rof.mesh.getID());
             BufferDesc description;
             const VertexFormat &format = VertexFormatRegistry::getStandardFormat();
-            description.updatePolicy = BufferUpdatePolicy::Immutable;
+            description.updatePolicy = BufferUpdatePolicy::StagingOnly;
             description.memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
             description.size = mesh->positions.size() * sizeof(glm::vec3) +
                                mesh->normals.size() * sizeof(glm::vec3) + mesh->uvs.size() * sizeof(glm::vec2);
             description.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
             description.ssbo = false;
-            vtxKey = registry.addBuffer(query, description, currFrame);
-            auto vtxBufferRef = registry.getBuffer(vtxKey);
-            if (vtxBufferRef.buffer == nullptr)
+
+            BufferKey vtxKeyTmp{rof.mesh.getID(), description.usage};
+
+            // This is temporary hopefully
+            if (!registry.hasBuffer(vtxKeyTmp))
             {
+                vtxKey = registry.addBuffer(query, description);
+                GPUResourceRegistry::BufferAllocation allocation{.offset = 0, .size = description.size};
+                registry.allocateInBuffer(vtxKey, allocation);
+
+                auto vtxBufferRef = registry.getBuffer(vtxKey);
                 VertexBufferData vbd = buildInterleavedVertexBuffer(*mesh, format);
                 vtxBufferRef.uploadData(ctx, vbd.mBuffers[0].data(), description.size);
+
+                description.size = mesh->indices.size() * sizeof(uint32_t);
+                description.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+                idxKey = registry.addBuffer(query, description);
+                allocation.size = description.size;
+                registry.allocateInBuffer(idxKey, allocation);
+                auto idxBufferRef = registry.getBuffer(idxKey);
+                idxBufferRef.uploadData(ctx, mesh->indices.data(), description.size);
             }
-
-            description.size = mesh->indices.size() * sizeof(uint32_t);
-            description.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-            idxKey = registry.addBuffer(query, description, currFrame);
-            auto idxBufferRef = registry.getBuffer(idxKey);
-
-            if (idxBufferRef.buffer == nullptr)
+            else
             {
-                vtxBufferRef.uploadData(ctx, mesh->indices.data(), description.size);
+
+                vtxKey = vtxKeyTmp;
+                idxKey = BufferKey{rof.mesh.getID(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT};
             }
         }
 
         for (uint32_t submeshIdx = 0; submeshIdx < mesh->submeshes.size(); submeshIdx++)
         {
             uint64_t drawableKey = (uint64_t(rof.mesh.getID()) << 32 | submeshIdx);
-            Drawable &drawable = scene.drawables[drawableKey];
+            Drawable &drawable = drawables[drawableKey];
 
             // Upload Material if it doesn't exist
             auto materialID = mesh->materialIds[mesh->submeshes[submeshIdx].materialId];
@@ -76,13 +89,13 @@ void updateFrameSync(
             drawable.indexCount = mesh->submeshes[submeshIdx].indexCount;
 
             uint32_t firstInstance = UINT32_MAX;
-            uint32_t count = 0;
 
+            // Query valid instance and update if needed
             std::vector<uint32_t> instanceIDs;
             instanceIDs.reserve(rof.visibleInstances.size());
             for (const auto &inst : rof.visibleInstances)
             {
-                uint32_t instanceID = scene.getOrAssignInstance(inst.instanceKey);
+                uint32_t instanceID = getOrAssignInstance(inst.instanceKey);
 
                 if (inst.transformDirty)
                 {
@@ -125,7 +138,6 @@ void updateFrameSync(
     }
 }
 
-
 void buildPassFrame(
     RenderPassFrame &outFrame,
     RenderScene &scene,
@@ -139,11 +151,13 @@ void buildPassFrame(
     for (auto &[key, drawable] : scene.drawables)
     {
         // Skip drawables with no instances
-        if (drawable.instanceRanges.empty()){
-            continue;}
+        if (drawable.instanceRanges.empty())
+        {
+            continue;
+        }
 
         // Resolve material variant (guaranteed to return a valid MaterialInstance, dummy if necessary)
-        const MaterialInstance &matInst  = materialSystem.requestMaterialInstance(drawable.materialGPU, outFrame.type, 0);
+        const MaterialInstance &matInst = materialSystem.requestMaterialInstance(drawable.materialGPU, outFrame.type, 0);
 
         uint32_t pipeline = matInst.pipelineIndex;
 

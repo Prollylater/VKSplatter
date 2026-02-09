@@ -92,8 +92,10 @@ Buffer VulkanContext::createBuffer(const BufferDesc &desc)
         break;
     case BufferUpdatePolicy::StagingOnly:
     case BufferUpdatePolicy::Immutable:
+    default:
         // Device local only
         memFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
         break;
     }
 
@@ -122,13 +124,11 @@ void VulkanContext::updateBuffer(Buffer &buffer, const void *data, VkDeviceSize 
     break;
 
     case BufferUpdatePolicy::StagingOnly:
-        const QueueFamilyIndices &indicesFamily = mPhysDeviceM.getIndices();
-
         buffer.uploadStaged(data, size, offset, mPhysDeviceM.getPhysicalDevice(),
-                            mLogDeviceM, indicesFamily.graphicsFamily.value(), mLogDeviceM.getVmaAllocator());
+                            mLogDeviceM, mPhysDeviceM.getIndices().graphicsFamily.value(), mLogDeviceM.getVmaAllocator());
         break;
-
     case BufferUpdatePolicy::Immutable:
+    default:
         // Do nothing: immutable buffers cannot be updated after creation
         break;
     }

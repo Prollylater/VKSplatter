@@ -213,7 +213,7 @@ struct Drawable
     };
 
     std::vector<InstanceRange> instanceRanges;
-    bool bindInstanceBuffer(VkCommandBuffer cmd, const Drawable &drawable, uint32_t bindingIndex);
+    //bool bindInstanceBuffer(VkCommandBuffer cmd, const Drawable &drawable, uint32_t bindingIndex);
 };
 
 // Todo: Handling a submesh ? Since it would also affect visibility

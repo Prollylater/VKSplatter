@@ -2,7 +2,7 @@
 
 
     //Binding 
-
+/*
     bool Drawable::bindInstanceBuffer(VkCommandBuffer cmd, const Drawable &drawable, uint32_t bindingIndex)
     {
         if (drawable.hotInstanceGPU.getID() != INVALID_ASSET_ID)
@@ -16,3 +16,4 @@
         return false;
 
     }
+*/

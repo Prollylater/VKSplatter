@@ -13,7 +13,7 @@ layout(location = 2) in vec2 fragTexCoord;
 
 layout(set = 0, binding = 0) uniform SceneData{  
 	mat4 viewproj;
-    vec4 eye;
+        vec4 eye;
 	vec4 ambientColor;
 } sceneUBO;
 

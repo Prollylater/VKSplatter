@@ -170,51 +170,63 @@ void GpuResourceUploader::reallocateGPUBuffer(GenericGPUBuffer &buf, uint32_t ne
 // @ cpuAsset:
 // Todo: Template this
 // Could and should be expanded a lot
-// Tracking unused buffer and refillling it/Reallocation
+// Tracking unused buffer and refillling it/Reallocation, explicit offset etc...
+
 BufferKey GPUResourceRegistry::addBuffer(
     AssetID<void> cpuAsset,
-    const BufferDesc &desc,
-    VkDeviceSize explicitOffset = 0)
+    const BufferDesc &desc)
 {
+    if (!cpuAsset.isValid())
+    {
+        return BufferKey{};
+    }
     // Buffer Usage Policy should also define the key
+    // The Key depend of an asset ID so no multi buffer directly
     BufferKey key{cpuAsset.getID(), desc.usage};
-    auto &record = getOrCreateBufferRecord(desc, key);
+    auto &record = acquireBufferRecord(desc, key);
 
-    VkDeviceSize allocOffset = explicitOffset ? explicitOffset : record.usedSize;
-
-    if (explicitOffset != 0)
-    {
-        // Check that this fit
-        if (explicitOffset + desc.size > record.buffer->getSize())
-        {
-            throw std::runtime_error("Explicit offset + size exceeds buffer total size");
-        }
-
-        // Check for overlap with existing allocations
-        for (const auto &alloc : record.allocations)
-        {
-            bool overlap = !(explicitOffset + desc.size <= alloc.offset || explicitOffset >= alloc.offset + alloc.size);
-            if (overlap)
-            {
-                throw std::runtime_error("Explicit offset overlaps with existing allocation");
-            }
-        }
-    }
-    else // We simply allocate at the end
-    {
-        if (allocOffset + desc.size > record.buffer->getSize())
-        {
-            throw std::runtime_error("Not enough free space in buffer for new allocation");
-        }
-
-        record.usedSize += desc.size;
-    }
-
-    record.allocations.push_back({allocOffset, desc.size});
-    record.refCount++;
+    record.allocations.clear();
+    record.usedSize = 0;
+    record.refCount = 0;
     return BufferKey{key.assetId, desc.usage};
 }
 
+uint32_t GPUResourceRegistry::allocateInBuffer(BufferKey bufferKey, const GPUResourceRegistry::BufferAllocation &alloc)
+{
+
+    // Notes: Create a better function ?
+    auto &record = acquireBufferRecord({}, bufferKey);
+
+    VkDeviceSize allocOffset = alloc.offset ? alloc.offset : record.usedSize;
+
+    // Notes: Technically, currently due to lack of fine tuning inside, it's better to avoid passing allocOffset != 0
+    // and create hole within. Something to reconsider later
+    if (allocOffset + alloc.size > record.buffer->getSize())
+    {
+        throw std::runtime_error("Offset + size exceeds buffer total size");
+    }
+
+    // Check for overlap with existing allocations
+    for (const auto &allocation : record.allocations)
+    {
+        // Overlap if allocOffset is after
+        bool isAfter = allocOffset >= allocation.offset + allocation.size;
+        bool isBefore = allocOffset + alloc.size <= allocation.offset;
+        bool overlap = !(isAfter || isBefore);
+        if (overlap)
+        {
+            throw std::runtime_error("Explicit offset overlaps with existing allocation");
+        }
+    }
+
+    record.usedSize = std::max(record.usedSize, allocOffset + alloc.size);
+    record.usedSize = allocOffset + alloc.size;
+    record.allocations.push_back({allocOffset, alloc.size});
+
+    return record.refCount++;
+}
+
+//Todo: Rename to getBufferAllocation
 GPUBufferRef GPUResourceRegistry::getBuffer(const BufferKey &key, int allocation)
 {
     auto it = mBufferRecords.find(key);
@@ -224,20 +236,15 @@ GPUBufferRef GPUResourceRegistry::getBuffer(const BufferKey &key, int allocation
         if (!record.allocations.empty() && allocation < record.allocations.size())
         {
             auto &alloc = record.allocations[allocation];
-            return GPUBufferRef{record.buffer.get(), alloc.offset, alloc.size, alloc.stride};
+            return GPUBufferRef{record.buffer.get(), alloc.offset, alloc.size /*, alloc.stride*/};
         }
     }
     return {};
 }
 
-//This imply it exist
-bool GPUResourceRegistry::isEmpty(const BufferKey &key)
+bool GPUResourceRegistry::hasBuffer(const BufferKey& key) const
 {
-    auto it = mBufferRecords.find(key);
-    if( it->second.usedSize == 0){
-        return true;
-    }
-    return false;
+    return mBufferRecords.find(key) != mBufferRecords.end();
 }
 
 void GPUResourceRegistry::releaseBuffer(const BufferKey &key)
@@ -248,8 +255,8 @@ void GPUResourceRegistry::releaseBuffer(const BufferKey &key)
         auto &rec = it->second;
         if (--rec.refCount == 0)
         {
-            auto device = mContext.getLDevice().getLogicalDevice();
-            auto allocator = mContext.getLDevice().getVmaAllocator();
+            auto device = mContext->getLDevice().getLogicalDevice();
+            auto allocator = mContext->getLDevice().getVmaAllocator();
             rec.buffer->destroyBuffer(device, allocator);
             mBufferRecords.erase(it);
         }
@@ -258,7 +265,12 @@ void GPUResourceRegistry::releaseBuffer(const BufferKey &key)
 
 GPUHandle<Texture> GPUResourceRegistry::addTexture(AssetID<TextureCPU> cpuAsset, TextureCPU *cpuData)
 {
-    auto &rec = getOrCreateTextureRecord(cpuAsset, cpuData);
+    if (!cpuAsset.isValid())
+    {
+        return GPUHandle<Texture>{};
+    }
+
+    auto &rec = acquireTextureRecord(cpuAsset, cpuData);
     return GPUHandle<Texture>{cpuAsset.getID()};
 }
 
@@ -276,8 +288,8 @@ void GPUResourceRegistry::releaseTexture(const GPUHandle<Texture> &handle)
         auto &rec = it->second;
         if (--rec.refCount == 0)
         {
-            auto device = mContext.getLDevice().getLogicalDevice();
-            auto allocator = mContext.getLDevice().getVmaAllocator();
+            auto device = mContext->getLDevice().getLogicalDevice();
+            auto allocator = mContext->getLDevice().getVmaAllocator();
             rec.resource->destroy(device, allocator);
             mTextureRecords.erase(it);
         }
@@ -286,7 +298,11 @@ void GPUResourceRegistry::releaseTexture(const GPUHandle<Texture> &handle)
 
 GPUHandle<MaterialGPU> GPUResourceRegistry::addMaterial(AssetID<Material> cpuAsset, MaterialGPU gpuMaterial)
 {
-    auto &rec = getOrCreateMaterialRecord(cpuAsset, gpuMaterial);
+    if (!cpuAsset.isValid())
+    {
+        return GPUHandle<MaterialGPU>{};
+    }
+    auto &rec = acquireMaterialRecord(cpuAsset, gpuMaterial);
     return GPUHandle<MaterialGPU>{cpuAsset.getID()};
 }
 
@@ -317,8 +333,8 @@ void GPUResourceRegistry::releaseMaterial(const GPUHandle<MaterialGPU> &handle)
 
 void GPUResourceRegistry::clearAll()
 {
-    auto device = mContext.getLDevice().getLogicalDevice();
-    auto allocator = mContext.getLDevice().getVmaAllocator();
+    auto device = mContext->getLDevice().getLogicalDevice();
+    auto allocator = mContext->getLDevice().getVmaAllocator();
 
     for (auto &record : mBufferRecords)
     {
@@ -334,7 +350,7 @@ void GPUResourceRegistry::clearAll()
     mMaterialRecords.clear();
 }
 
-GPUResourceRegistry::BufferRecord &GPUResourceRegistry::getOrCreateBufferRecord(const BufferDesc &desc, const BufferKey &key)
+GPUResourceRegistry::BufferRecord &GPUResourceRegistry::acquireBufferRecord(const BufferDesc &desc, const BufferKey &key)
 {
     auto it = mBufferRecords.find(key);
     if (it != mBufferRecords.end())
@@ -343,12 +359,12 @@ GPUResourceRegistry::BufferRecord &GPUResourceRegistry::getOrCreateBufferRecord(
         return it->second;
     }
 
-    auto buffer = std::make_unique<Buffer>(mContext.createBuffer(desc));
+    auto buffer = std::make_unique<Buffer>(mContext->createBuffer(desc));
     auto [insertIt, inserted] = mBufferRecords.emplace(key, BufferRecord{std::move(buffer), {}, 0, 1});
     return insertIt->second;
 }
 
-GPUResourceRegistry::ResourceRecord<Texture> &GPUResourceRegistry::getOrCreateTextureRecord(AssetID<TextureCPU> cpuAsset, TextureCPU *cpuData)
+GPUResourceRegistry::ResourceRecord<Texture> &GPUResourceRegistry::acquireTextureRecord(AssetID<TextureCPU> cpuAsset, TextureCPU *cpuData)
 {
     auto it = mTextureRecords.find(cpuAsset.getID());
     if (it != mTextureRecords.end())
@@ -361,12 +377,12 @@ GPUResourceRegistry::ResourceRecord<Texture> &GPUResourceRegistry::getOrCreateTe
     {
         throw std::runtime_error("Cannot create GPU texture without CPU data");
     }
-    auto tex = std::make_unique<Texture>(mContext.createTexture(*cpuData));
+    auto tex = std::make_unique<Texture>(mContext->createTexture(*cpuData));
     auto [insertIt, inserted] = mTextureRecords.emplace(cpuAsset.getID(), ResourceRecord<Texture>{std::move(tex)});
     return insertIt->second;
 }
 
-GPUResourceRegistry::ResourceRecord<MaterialGPU> &GPUResourceRegistry::getOrCreateMaterialRecord(AssetID<Material> cpuAsset, const MaterialGPU &gpuMaterial)
+GPUResourceRegistry::ResourceRecord<MaterialGPU> &GPUResourceRegistry::acquireMaterialRecord(AssetID<Material> cpuAsset, const MaterialGPU &gpuMaterial)
 {
     auto it = mMaterialRecords.find(cpuAsset.getID());
     if (it != mMaterialRecords.end())

@@ -80,6 +80,7 @@ public:
     {
         return mDescriptorManager;
     }
+    //Update a Descriptor Set function to separate build Material in two functions
 
 private:
     MaterialGPU buildMaterialGPU(
@@ -94,12 +95,6 @@ private:
     GPUResourceRegistry &mGPURegistry;
     DescriptorManager mDescriptorManager;
 
-    // This exist onnly to deduplicate Dummy
-    AssetID<TextureCPU> mDummyAlbedoID;
-    AssetID<TextureCPU> mDummyNormalID;
-    AssetID<TextureCPU> mDummyMetallicID;
-    AssetID<TextureCPU> mDummyRoughnessID;
-    AssetID<TextureCPU> mDummyEmissiveID;
 
     std::vector<MaterialInstance> mInstances;
     std::unordered_map<MaterialInstanceKey, uint32_t, MaterialInstanceKey::KeyHash> mInstancesIdx;

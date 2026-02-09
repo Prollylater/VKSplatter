@@ -10,6 +10,7 @@
 #include "ContextController.h"
 #include "MaterialSystem.h"
 #include "RenderScene.h"
+
 class VulkanContext;
 
 // Todo:Inherit from frame data handler class ? Or framehandler object (better)
@@ -42,6 +43,7 @@ public:
 
         // Setup Pipeline Cache and Pool
         mPipelineM.initialize(device, "");
+        mGpuRegistry.initDevice(context);
     }
 
     void addPass(RenderPassType type, RenderPassConfig legacyConfig)
@@ -75,6 +77,9 @@ public:
     const GBuffers &getDepthResources() const { return mGBuffers; }
     GBuffers &getDepthResources() { return mGBuffers; }
 
+
+    GPUResourceRegistry &getGPURegistry() { return mGpuRegistry; }
+
     // GraphicPipeline
     int requestPipeline(const PipelineLayoutConfig &config,
                         const std::string &vertexPath,
@@ -89,8 +94,8 @@ public:
 private:
     // Todo: Typically all  that here is really specific too Vulkan which make this Renderer not really Api Agnostic
     // OpenGL wouldn't need it
-    VulkanContext *mContext;
-    AssetRegistry *mRegistry;
+    VulkanContext *mContext; 
+    AssetRegistry *mRegistry; //Todo: This is never really used
 
     // Temp
     RenderScene mRScene;
@@ -99,7 +104,9 @@ private:
 
     // Recent addition
     RenderPassManager mRenderPassM;
-    GPUResourceRegistry mGpuRegistry;
+    ///Todo: Lot of thing to discuss here
+    //Notably the pattern of discussion with Material system 
+    GPUResourceRegistry mGpuRegistry; 
 
     // Todo: Dynamic pass manager + Merge it with RenderPassManager
     //  Dynamic Rendering Path

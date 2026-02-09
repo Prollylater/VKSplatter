@@ -158,3 +158,18 @@ VisibilityFrame extractRenderFrame(const Scene &scene,
 
     return frame;
 };
+
+
+
+uint32_t getInstanceID(InstanceIDAllocator &allocator, uint64_t key)
+{
+    auto it = allocator.idMapping.find(key);
+    if (it != allocator.idMapping.end())
+    {
+        return it->second;
+    }
+
+    uint32_t id = allocator.nextID++;
+    allocator.idMapping[key] = id;
+    return id;
+}

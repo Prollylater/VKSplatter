@@ -67,11 +67,14 @@ set(SOURCES
     ${SOURCE_DIR}/render/VertexDescriptions.cpp   
     ${SOURCE_DIR}/render/MaterialSystem.cpp   
     ${SOURCE_DIR}/render/Renderer.cpp   
+    ${SOURCE_DIR}/render/RenderScene.cpp   
+
 
     ${SOURCE_DIR}/vulkan/utils/RessourceHelper.cpp   
     ${SOURCE_DIR}/vulkan/utils/PipelineHelper.cpp   
 
     ${SOURCE_DIR}/core/WindowVk.cpp
+     ${SOURCE_DIR}/core/Application.cpp
     ${SOURCE_DIR}/core/Clock.cpp
     
     ${THIRD_PARTY}/stb_image_loader.cpp

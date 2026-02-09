@@ -22,8 +22,8 @@ struct AssetID
 {
     uint64_t id = INVALID_ASSET_ID; 
 
-    AssetID() = default;
-    explicit AssetID(uint64_t _id) : id(_id) {};
+    constexpr AssetID() = default;
+    constexpr explicit AssetID(uint64_t _id) : id(_id) {};
     //explicit AssetID(std::string name) : id(std::hash<std::string>{}()) {};
 
     uint64_t getID() const { return id; }

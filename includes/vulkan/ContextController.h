@@ -20,7 +20,7 @@ class VulkanContext
 {
 public:
     VulkanContext() = default;
-    ~VulkanContext() { destroyAll(); }
+    ~VulkanContext() = default;
 
     void initVulkanBase(GLFWwindow *window, ContextCreateInfo &createInfo);
     void recreateSwapchain(GLFWwindow *window);

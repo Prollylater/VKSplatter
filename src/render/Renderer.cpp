@@ -17,7 +17,7 @@ void Renderer::createFramesData(uint32_t framesInFlightCount, const std::vector<
 
   mFrameHandler.createFramesData(logicalDevice, physicalDevice, graphicsFamilyIndex, framesInFlightCount);
 
-  // Init Frame Descriptor set of Scene
+  // Init Frame Descriptor set of Scene instance Buffer
   PipelineSetLayoutBuilder meshSSBO;
   meshSSBO.addDescriptor(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
@@ -107,18 +107,19 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   const VkPhysicalDevice &physDevice = mContext->getPDeviceM().getPhysicalDevice();
   const uint32_t indice = mContext->getPDeviceM().getIndices().graphicsFamily.value();
 
+  mRScene.initInstanceBuffer(mGpuRegistry);
   // Create pipeline
   // Todo: automatically resolve this kind of stuff
   auto vf = VertexFormatRegistry::getStandardFormat();
 
-  PipelineLayoutConfig sceneConfig{{mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0)}, scene.sceneLayout.pushConstants};
+  PipelineLayoutConfig sceneConfig{{mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0), {}, mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(1)}, scene.sceneLayout.pushConstants};
   int pipelineEntryIndex = 0;
   auto layout = MaterialLayoutRegistry::Get(MaterialType::PBR);
   {
     // resolve materials globally
     auto &matDescriptors = system.materialDescriptor();
     int matLayoutIdx = matDescriptors.getOrCreateSetLayout(device, layout.descriptorSetLayoutsBindings);
-    sceneConfig.descriptorSetLayouts.push_back(matDescriptors.getDescriptorLat(matLayoutIdx));
+    sceneConfig.descriptorSetLayouts[1] = matDescriptors.getDescriptorLat(matLayoutIdx);
     pipelineEntryIndex = requestPipeline(sceneConfig, vertPath, fragPath);
   }
 
@@ -171,10 +172,13 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
     int frameIndex = mFrameHandler.getCurrentFrameIndex();
     auto istBufferRef = mGpuRegistry.getBuffer(mRScene.instanceBuffer, frameIndex);
     auto &descriptor = mFrameHandler.getCurrentFrameData().mDescriptor;
-    std::vector<VkWriteDescriptorSet> writes = {
-        vkUtils::Descriptor::makeWriteDescriptor(descriptor.getSet(frameIndex), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &istBufferRef.getDescriptor()),
 
+    VkDescriptorBufferInfo istSSBO = istBufferRef.buffer->getDescriptor();
+
+    std::vector<VkWriteDescriptorSet> writes = {
+        vkUtils::Descriptor::makeWriteDescriptor(descriptor.getSet(1), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &istSSBO),
     };
+
     descriptor.updateDescriptorSet(device, writes);
 
     mFrameHandler.advanceFrame();
@@ -188,7 +192,7 @@ void Renderer::updateRenderingScene(const VisibilityFrame &vFrame, const AssetRe
 {
   // Todo:
 
-  updateFrameSync(*mContext, mRScene, vFrame, mGpuRegistry, registry, matSystem, mFrameHandler.getCurrentFrameIndex());
+  mRScene.updateFrameSync(*mContext, vFrame, mGpuRegistry, registry, matSystem, mFrameHandler.getCurrentFrameIndex());
   passes.clear();
   // Shadow pass
   {
@@ -505,10 +509,11 @@ for each shader {
       // Bind descriptors
       std::vector<VkDescriptorSet> sets = {
           frameRess.mDescriptor.getSet(0),
-          materialDescriptor.getSet(materialGpu->descriptorIndex)};
+          materialDescriptor.getSet(materialGpu->descriptorIndex),
+          frameRess.mDescriptor.getSet(1)};
 
       vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                              mPipelineM.getPipelineLayout(materialGpu->descriptorIndex), 0,
+                              mPipelineM.getPipelineLayout(queue.pipelineIndex), 0,
                               sets.size(), sets.data(),
                               0, nullptr);
 
@@ -521,7 +526,7 @@ for each shader {
       vkCmdBindIndexBuffer(cmd, idxBuffer, 0, VK_INDEX_TYPE_UINT32);
 
       // Push constants
-      vkCmdPushConstants(cmd, mPipelineM.getPipelineLayout(materialGpu->descriptorIndex),
+      vkCmdPushConstants(cmd, mPipelineM.getPipelineLayout(queue.pipelineIndex),
                          VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &sceneData.viewproj);
 
       // Draw

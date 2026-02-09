@@ -30,10 +30,9 @@ struct ImageData : AssetBase
         }
     };
 
-    template <typename T>
-    static ImageData<T> makeDummyImage(const T pixel[4])
+    static ImageData<stbi_uc> makeDummyImage(const stbi_uc pixel[4])
     {
-        return ImageData<T>{
+        return ImageData<stbi_uc>{
             .data = const_cast<T *>(pixel),
             .width = 1,
             .height = 1,
@@ -41,28 +40,28 @@ struct ImageData : AssetBase
             .freeInGPU = false};
     }
 
-    static ImageData<stbi_uc>* getDummyAlbedoImage()
+    static ImageData<stbi_uc> getDummyAlbedoImage()
     {
         static stbi_uc white[4] = {255, 255, 255, 255};
-        return makeDummyImage(&white);
+        return makeDummyImage(white);
     }
 
-    static ImageData<stbi_uc>* getDummyNormalImage()
+    static ImageData<stbi_uc> getDummyNormalImage()
     {
         static stbi_uc flatNormal[4] = {128, 128, 255, 255};
-        return makeDummyImage(&flatNormal);
+        return makeDummyImage(flatNormal);
     }
 
-    static ImageData<stbi_uc>* getDummyRoughnessImage()
+    static ImageData<stbi_uc> getDummyRoughnessImage()
     {
         static stbi_uc white[4] = {255, 255, 255, 255};
-        return makeDummyImage(&white);
+        return makeDummyImage(white);
     }
 
-    static ImageData<stbi_uc>* getDummyMetallicImage()
+    static ImageData<stbi_uc> getDummyMetallicImage()
     {
         static stbi_uc black[4] = {0, 0, 0, 255};
-        return makeDummyImage(&black);
+        return makeDummyImage(black);
     }
 };
 

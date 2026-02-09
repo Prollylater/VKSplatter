@@ -22,7 +22,7 @@ struct BufferDesc {
     BufferUpdatePolicy updatePolicy;
     VkMemoryPropertyFlags memoryFlags;  
     bool ssbo = false;
-    VkDeviceSize stride = 0;
+    //VkDeviceSize stride = 0;
 };
 
 class Buffer

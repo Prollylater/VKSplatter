@@ -19,18 +19,7 @@ struct InstanceIDAllocator
     std::unordered_map<uint64_t, uint32_t> idMapping;
 };
 
-uint32_t getInstanceID(InstanceIDAllocator &allocator, uint64_t key)
-{
-    auto it = allocator.idMapping.find(key);
-    if (it != allocator.idMapping.end())
-    {
-        return it->second;
-    }
-
-    uint32_t id = allocator.nextID++;
-    allocator.idMapping[key] = id;
-    return id;
-}
+uint32_t getInstanceID(InstanceIDAllocator &allocator, uint64_t key);
 
 // Todo: Move it somewhere else close to Vertex maybe in a common Tpes
 // Todo: Handle more visibility, typically light visible object

@@ -1,8 +1,9 @@
 #include "HelloTriangle.h"
-
 #include "LogicalDevice.h"
 #include "Inputs.h"
 #include "EventsSub.h"
+#include "Renderer.h"
+#include "WindowVk.h"
 
 /*
  the general pattern that object creation function parameters in Vulkan follow is:
@@ -12,67 +13,22 @@ Pointer to custom allocator callbacks, always nullptr in this tutorial
 Pointer to the variable that stores the handle to the new object
 */
 
-// GLFW Functions
-void HelloTriangleApplication::initWindow()
+void HelloTriangleApplication::setup()
 {
-    window.init("Vk Cico", WIDTH, HEIGHT);
-    window.setEventCallback([&](Event &e)
-                            { onEvent(e); });
-}
-
-void HelloTriangleApplication::initVulkan()
-{
-    // Config
-    ContextCreateInfo info = ContextCreateInfo::Default();
-    info.selectionCriteria.requireGeometryShader = true;
-    SwapChainConfig swapChain = SwapChainConfig::Default();
-    info.getSwapChainConfig() = swapChain;
-    // RenderStuff Info
-
-    // Todo: Shouldn't be here or anywhere but eh
-    VertexFlags sceneflag = STANDARD_STATIC_FLAG;
-    VertexFormatRegistry::addFormat(sceneflag);
-
-    context.initVulkanBase(window.getGLFWWindow(), info);
-
-    // Renderer
-    constexpr bool dynamic = true;
-
-    renderer.initialize(context, assetSystem.registry());
-
-    // Todo: Generalist
-    // Logging and "check", throw, error handling
-    renderer.initAllGbuffers({}, true);
-
-    
-    renderer.createFramesData(info.MAX_FRAMES_IN_FLIGHT, logicScene.sceneLayout.descriptorSetLayoutsBindings);
-
-    if (dynamic)
-    {
-        RenderTargetConfig defRenderPass;
-        defRenderPass.addAttachment(context.mSwapChainM.getSwapChainImageFormat().format, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, AttachmentConfig::Role::Present)
-            .addAttachment(context.mPhysDeviceM.findDepthFormat(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, AttachmentConfig::Role::Depth);
-        renderer.addPass(RenderPassType::Forward, defRenderPass);
-    }
-    else
-    {
-        RenderPassConfig defConfigRenderPass = RenderPassConfig::defaultForward(context.mSwapChainM.getSwapChainImageFormat().format, context.mPhysDeviceM.findDepthFormat());
-        renderer.addPass(RenderPassType::Forward, defConfigRenderPass);
-    }
-
-    std::cout << "InitScene" << std::endl;
-
     initScene();
-    std::cout << "InitRenderRe" << std::endl;
-    renderer.initRenderingRessources(logicScene, assetSystem.registry(), matSystem);
+    std::cout << "Init Scene" << std::endl;
 
-    vkInitialized = true;
-}
+    getRenderer().initRenderingRessources(getScene(), getAssetSystem().registry(), getMaterialSystem());
 
-// const std::string MODEL_PATH = "hearthspring.obj";
+    fitCameraToBoundingBox(getScene().getCamera(), getScene().sceneBB);
+};
+
+//const std::string MODEL_PATH = "hearthspring.obj";
 const std::string MODEL_PATH = "sibenik.obj";
 void HelloTriangleApplication::initScene()
 {
+
+    auto &assetSystem = getAssetSystem();
     auto assetMesh = assetSystem.loadMeshWithMaterials(cico::fs::meshes() / MODEL_PATH);
     const Mesh *meshAsset = assetSystem.registry().get(assetMesh);
 
@@ -94,9 +50,24 @@ void HelloTriangleApplication::initScene()
     node.getTransform(i).setPosition(glm::vec3(-1, 0, 0));
     setFieldU32(node, i, "id", 1);*/
 
-    logicScene.addNode(node);
+    getScene().addNode(node);
+}
 
-    std::cout << "Logic Scene" << logicScene.nodes.size() << std::endl;
+void HelloTriangleApplication::render()
+{
+    auto &renderer = getRenderer();
+    VisibilityFrame frameData = extractRenderFrame(getScene(), getAssetSystem().registry());
+    renderer.updateRenderingScene(frameData, getAssetSystem().registry(), getMaterialSystem());
+
+    std::cout << "Camera Position" << frameData.sceneData.eye[0] << " "
+              << frameData.sceneData.eye[1] << " "
+              << frameData.sceneData.eye[2] << " "
+              << std::endl;
+    renderer.beginFrame(frameData.sceneData, getWindow().getGLFWWindow());
+    renderer.beginPass(RenderPassType::Forward);
+    renderer.drawFrame(frameData.sceneData, renderer.passes[0], getMaterialSystem().materialDescriptor());
+    renderer.endPass(RenderPassType::Forward);
+    renderer.endFrame(framebufferResized);
 }
 
 // Revise the separation between event dispatching and inputing
@@ -109,94 +80,52 @@ struct MouseStateTemp
     bool dragging = false;
 };
 
-void HelloTriangleApplication::mainLoop()
+void HelloTriangleApplication::update(float dt)
 {
-    float appLastTime = clock.elapsed();
-    float targetFps = 0;
-    MouseStateTemp mainLoopMouseState;
+    static MouseStateTemp mainLoopMouseState;
+    Camera &cam = getScene().getCamera();
 
-    Camera &cam = logicScene.getCamera();
-    fitCameraToBoundingBox(cam, logicScene.sceneBB);
-
-    while (window.isOpen()) // Stand in for app is running for now
+    if (cico::InputCode::isKeyPressed(getWindow().getGLFWWindow(), cico::InputCode::KeyCode::P))
     {
-        // Bit barbaric profiling
-        const float currentTime = clock.elapsed();
-        float delta = currentTime - appLastTime;
-        appLastTime = currentTime;
-
-        glfwPollEvents();
-        // Temp
-
-        if (cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::P))
-        {
-            cam.setMvmtSpd(cam.getMvmtSpd() * 1.1f);
-        }
-
-        if (cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::M))
-        {
-            cam.setMvmtSpd(cam.getMvmtSpd() * 0.9);
-        }
-
-        cam.processKeyboardMovement(delta,
-                                    cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::W),
-                                    cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::S),
-                                    cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::A),
-                                    cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::D),
-                                    cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::R),
-                                    cico::InputCode::isKeyPressed(window.getGLFWWindow(), cico::InputCode::KeyCode::F));
-
-        if (cico::InputCode::IsMouseButtonPressed(window.getGLFWWindow(), cico::InputCode::MouseButton::BUTTON_LEFT))
-        {
-            // std::cout<<"Pressed"<< std::endl;
-            if (!mainLoopMouseState.dragging)
-            {
-                mainLoopMouseState.prevXY = cico::InputCode::getMousePosition(window.getGLFWWindow());
-            }
-            mainLoopMouseState.dragging = true;
-            mainLoopMouseState.XY = cico::InputCode::getMousePosition(window.getGLFWWindow());
-        }
-        else if (cico::InputCode::IsMouseButtonReleased(window.getGLFWWindow(), cico::InputCode::MouseButton::BUTTON_LEFT))
-        {
-            mainLoopMouseState.dragging = false;
-        }
-
-        if (mainLoopMouseState.dragging)
-        {
-            const auto &currentXY = mainLoopMouseState.XY;
-            const auto &prevXY = mainLoopMouseState.prevXY;
-
-            cam.processMouseMovement(currentXY[0] - prevXY[0], currentXY[1] - prevXY[1]);
-            mainLoopMouseState.prevXY = mainLoopMouseState.XY;
-        }
-
-        // Rendering
-
-        VisibilityFrame frameData = extractRenderFrame(logicScene, assetSystem.registry());
-        renderer.updateRenderingScene(frameData, assetSystem.registry(), matSystem);
-
-        std::cout << "Camera Position" << frameData.sceneData.eye[0] << " "
-                  << frameData.sceneData.eye[1] << " "
-                  << frameData.sceneData.eye[2] << " "
-                  << std::endl;
-        renderer.beginFrame(frameData.sceneData, window.getGLFWWindow());
-        renderer.beginPass(RenderPassType::Forward);
-        renderer.drawFrame(frameData.sceneData, renderer.passes[0], matSystem.materialDescriptor());
-        renderer.endPass(RenderPassType::Forward);
-        renderer.endFrame(framebufferResized);
-
-        // Todo:
-        // Point of this in #13 was to use a Frame Target and not hog ressources once it is reached
-        // WIth the current stuff, it really just
-        // float frameTime = clock.elapsedMs() - appLastTime;
-        // Calcilate the remainnig millisceond to reach targetFPS (float)
-        // We idle
-
-        cico::logging::flushBuffer();
+        cam.setMvmtSpd(cam.getMvmtSpd() * 1.1f);
     }
 
-    // Make sure the program exit properly once windows is closed
-    context.mLogDeviceM.waitIdle();
+    if (cico::InputCode::isKeyPressed(getWindow().getGLFWWindow(), cico::InputCode::KeyCode::M))
+    {
+        cam.setMvmtSpd(cam.getMvmtSpd() * 0.9);
+    }
+
+    cam.processKeyboardMovement(dt,
+                                cico::InputCode::isKeyPressed(getWindow().getGLFWWindow(), cico::InputCode::KeyCode::W),
+                                cico::InputCode::isKeyPressed(getWindow().getGLFWWindow(), cico::InputCode::KeyCode::S),
+                                cico::InputCode::isKeyPressed(getWindow().getGLFWWindow(), cico::InputCode::KeyCode::A),
+                                cico::InputCode::isKeyPressed(getWindow().getGLFWWindow(), cico::InputCode::KeyCode::D),
+                                cico::InputCode::isKeyPressed(getWindow().getGLFWWindow(), cico::InputCode::KeyCode::R),
+                                cico::InputCode::isKeyPressed(getWindow().getGLFWWindow(), cico::InputCode::KeyCode::F));
+
+    if (cico::InputCode::IsMouseButtonPressed(getWindow().getGLFWWindow(), cico::InputCode::MouseButton::BUTTON_LEFT))
+    {
+        // std::cout<<"Pressed"<< std::endl;
+        if (!mainLoopMouseState.dragging)
+        {
+            mainLoopMouseState.prevXY = cico::InputCode::getMousePosition(getWindow().getGLFWWindow());
+        }
+        mainLoopMouseState.dragging = true;
+        mainLoopMouseState.XY = cico::InputCode::getMousePosition(getWindow().getGLFWWindow());
+    }
+    else if (cico::InputCode::IsMouseButtonReleased(getWindow().getGLFWWindow(), cico::InputCode::MouseButton::BUTTON_LEFT))
+    {
+        mainLoopMouseState.dragging = false;
+    }
+
+    if (mainLoopMouseState.dragging)
+    {
+        const auto &currentXY = mainLoopMouseState.XY;
+        const auto &prevXY = mainLoopMouseState.prevXY;
+
+        cam.processMouseMovement(currentXY[0] - prevXY[0], currentXY[1] - prevXY[1]);
+        mainLoopMouseState.prevXY = mainLoopMouseState.XY;
+    }
 }
 
 void HelloTriangleApplication::onEvent(Event &event)
@@ -205,7 +134,7 @@ void HelloTriangleApplication::onEvent(Event &event)
     if (event.type() == KeyPressedEvent::getStaticType())
     {
         KeyPressedEvent eventK = static_cast<KeyPressedEvent &>(event);
-        if (cico::InputCode::isKeyPressed(window.getGLFWWindow(), static_cast<cico::InputCode::KeyCode>(eventK.key)))
+        if (cico::InputCode::isKeyPressed(getWindow().getGLFWWindow(), static_cast<cico::InputCode::KeyCode>(eventK.key)))
         {
             std::cout << "Input Key pressed " << cico::Input::keyToString(static_cast<cico::InputCode::KeyCode>(eventK.key)) << std::endl;
         }
@@ -213,7 +142,7 @@ void HelloTriangleApplication::onEvent(Event &event)
     if (event.type() == KeyReleasedEvent::getStaticType())
     {
         KeyReleasedEvent eventK = static_cast<KeyReleasedEvent &>(event);
-        if (cico::InputCode::isKeyReleased(window.getGLFWWindow(), static_cast<cico::InputCode::KeyCode>(eventK.key)))
+        if (cico::InputCode::isKeyReleased(getWindow().getGLFWWindow(), static_cast<cico::InputCode::KeyCode>(eventK.key)))
         {
             std::cout << "Input Key released " << cico::Input::keyToString(static_cast<cico::InputCode::KeyCode>(eventK.key)) << std::endl;
         }
@@ -231,15 +160,3 @@ void HelloTriangleApplication::onEvent(Event &event)
         KeyReleasedEvent& keyEvent = static_cast<KeyReleasedEvent&>(e);
         std::cout << "Event  Key Released: " << static_cast<char>(keyEvent.key) << std::endl; });
 };
-
-void HelloTriangleApplication::cleanup()
-{
-    // Todo:
-    // Due to asset Registry still holding texture GPU data Textures fail to be freed,
-    // Only apply to DummyTexture now
-    cico::logging::shutdown();
-    renderer.deinitSceneRessources();
-    context.destroyAll();
-
-    window.close();
-}
