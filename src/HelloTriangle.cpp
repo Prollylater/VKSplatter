@@ -59,7 +59,7 @@ void HelloTriangleApplication::initScene()
         .nodeExtents = meshAsset->bndbox};
 
      i = nodeb.addInstance();
-    nodeb.getTransform(i).setPosition(glm::vec3(0.0, 2.0, 19.0));
+    nodeb.getTransform(i).setPosition(glm::vec3(0.0, 0.0, 17.0));
     getScene().addNode(nodeb);
 
 }

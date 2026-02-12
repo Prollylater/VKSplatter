@@ -94,6 +94,7 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_include_directories(VulkanGLFWExample PRIVATE
 ${Vulkan_INCLUDE_DIRS} 
 ${GLFW_INCLUDE_DIRS}
+${THIRD_PARTY}
 ${SOURCE_DIR}/vulkan
 ${SOURCE_DIR}/assetsystem
 ${SOURCE_DIR}/core
