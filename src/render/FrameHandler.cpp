@@ -1,5 +1,6 @@
 #include "FrameHandler.h"
 #include "utils/PipelineHelper.h"
+#include "utils/RessourceHelper.h"
 
 #include "Scene.h" //Exist solely due to SizeOfSceneData
 #include "Texture.h"
@@ -69,10 +70,10 @@ void FrameHandler::createShadowTextures(LogicalDeviceManager &deviceM, VkPhysica
             .aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT,
             .viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
             .levelCount = 1,
-            .baseArrayLayer = 1};
+            .baseArrayLayer = 0};
 
+        // Texture view
         frameData.cascadePoolArray.createImageView(config);
-        advanceFrame();
 
         // We then create the sampler
         vkUtils::Texture::ImageSamplerConfig samplerConfig = {
@@ -81,6 +82,22 @@ void FrameHandler::createShadowTextures(LogicalDeviceManager &deviceM, VkPhysica
 
         frameData.cascadePoolArray.createImageSampler(depthConfig.device, depthConfig.physDevice);
 
+        for (uint32_t i = 0; i < CascadedShadow::MAX_CASCADES; i++)
+        {
+            vkUtils::Texture::ImageViewCreateConfig depthViewConfig = {
+                .device = depthConfig.device,
+                .image = frameData.cascadePoolArray.getImage(),
+                .format = VK_FORMAT_D32_SFLOAT,
+                .aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                .levelCount = 1,
+                .baseArrayLayer = i,
+                .layerCount = 1};
+
+            VkImageView imageView = vkUtils::Texture::createImageView(depthViewConfig);
+            frameData.depthView.push_back(imageView);
+        };
+        advanceFrame();
         // Todo:
         // VkFrameBuffer as it stand is not compatible with this
         // We would have to create an additional VKFrameBuffer, but this lead to multiples troubles
@@ -185,7 +202,7 @@ void FrameHandler::writeFramesDescriptors(VkDevice device, int setIndex)
         auto dscrptrShdw = frame.mShadowBuffer.getDescriptor();
         auto descriptor = frame.cascadePoolArray.getDescriptor();
         descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        //Duplication is actually unecessary
+        // Duplication is actually unecessary
         std::vector<VkWriteDescriptorSet> writes = {
             vkUtils::Descriptor::makeWriteDescriptor(frame.mDescriptor.getSet(setIndex), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &dscrptrCam),
             vkUtils::Descriptor::makeWriteDescriptor(frame.mDescriptor.getSet(setIndex), 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &dscrptrDirLght),

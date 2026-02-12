@@ -131,6 +131,11 @@ PipelineBuilder &PipelineBuilder::setInputConfig(const PipelineVertexInputConfig
     return *this;
 }
 
+PipelineBuilder &PipelineBuilder::setDepthTest(bool enable){
+        mConfig.depth.enableDetphTest = enable;
+    return *this;
+};
+
 
 
 

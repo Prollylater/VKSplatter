@@ -250,7 +250,8 @@ private:
         case AttachmentSource::Type::FrameLocal:
             // TODO: Convenience
             // FrameHandler ought to be redesigned, and FrameLocal should be replace by GPURegistry
-            return mFrameHandler->getCurrentFrameData().cascadePoolArray.getView();
+            //return mFrameHandler->getCurrentFrameData().cascadePoolArray.getView();
+            return mFrameHandler->getCurrentFrameData().depthView[0]; 
         case AttachmentSource::Type::External:
             // return  could fetch from GPU Registry but wouldn't work if local
         default:

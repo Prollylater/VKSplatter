@@ -30,6 +30,7 @@ struct FrameResources
 
     //Notes: Currently always 1024*1024
     Image cascadePoolArray;
+    std::vector<VkImageView> depthView;
 };
 
 class FrameHandler

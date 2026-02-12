@@ -72,7 +72,8 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
     sceneConfig.descriptorSetLayouts[1] = matDescriptors.getDescriptorLat(matLayoutIdx);
     pipelineEntryIndex = requestPipeline(sceneConfig, vertPath, fragPath, RenderPassType::Forward);
     // Nearly the same
-   pipelineEntryIndexShadow = requestPipeline(sceneConfig, vertPath, "", RenderPassType::Shadow);
+    auto shadowPath = cico::fs::shaders() / "shadowv.spv";
+    pipelineEntryIndexShadow = requestPipeline(sceneConfig, shadowPath, "", RenderPassType::Shadow);
   }
 
   // Current state force the duplication of Instance per material which is a problematic but unforeseen thing
@@ -83,7 +84,7 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
     {
       auto gpuMat = system.requestMaterial(mat);
       system.addMaterialInstance(gpuMat, RenderPassType::Forward, 0, pipelineEntryIndex);
-     system.addMaterialInstance(gpuMat, RenderPassType::Shadow, 0, pipelineEntryIndexShadow);
+      system.addMaterialInstance(gpuMat, RenderPassType::Shadow, 0, pipelineEntryIndexShadow);
     }
   }
 
@@ -147,9 +148,9 @@ void Renderer::updateRenderingScene(const VisibilityFrame &vFrame, const AssetRe
   mRScene.updateFrameSync(*mContext, vFrame, mGpuRegistry, registry, matSystem, mFrameHandler.getCurrentFrameIndex());
   // Shadow pass
   {
-    //auto &shadow = mPassesHandler.getBackend(RenderPassType::Shadow);
-    //shadow.frames.type = RenderPassType::Shadow;
-    //buildPassFrame(shadow.frames, mRScene, matSystem);
+    auto &shadow = mPassesHandler.getBackend(RenderPassType::Shadow);
+    shadow.frames.type = RenderPassType::Shadow;
+    buildPassFrame(shadow.frames, mRScene, matSystem);
   }
   // Forward pass
   {
@@ -192,11 +193,23 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config,
 
   if (mUseDynamic)
   {
-    auto attachments = mGBuffers.getAllFormats();
-    attachments.insert(attachments.begin(), mContext->getSwapChainManager().getSwapChainImageFormat().format);
-    std::vector<VkFormat> clrAttach(attachments.begin(), attachments.end() - 1);
+    if (type != RenderPassType::Shadow)
+    {
+      // Hardcode,
+      // Here we fetch format instead of passing them
+      // getAllFormats is also a bad idea since it doesn't match what we actually want
+      // PassesHandler should handle
+      auto attachments = mGBuffers.getAllFormats();
+      attachments.insert(attachments.begin(), mContext->getSwapChainManager().getSwapChainImageFormat().format);
+      std::vector<VkFormat> clrAttach(attachments.begin(), attachments.end() - 1);
+      builder.setDynamicRenderPass(clrAttach, attachments.back());
+    }
+    else
+    {
+      auto attachments = mGBuffers.getAllFormats();
 
-    builder.setDynamicRenderPass(clrAttach, attachments.back());
+      builder.setDynamicRenderPass({}, attachments.back());
+    }
   }
   else
   {
@@ -290,6 +303,7 @@ void Renderer::beginPass(RenderPassType type)
   VkCommandBuffer command = frameRess.mCommandPool.get();
   uint32_t renderPassIndex = static_cast<uint32_t>(type);
 
+  // Todo :  Handle the proper transition for each frame through passesHandler
   if (mUseDynamic)
   {
     // Transition swapchain image to COLOR_ATTACHMENT_OPTIMAL for rendering
@@ -301,12 +315,33 @@ void Renderer::beginPass(RenderPassType type)
     transObj.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     vkUtils::Texture::recordImageMemoryBarrier(command, transObj);
 
+    if (type == RenderPassType::Shadow)
+    {
+      auto image = frameRess.cascadePoolArray.getImage();
+
+      auto transObj = vkUtils::Texture::makeTransition(
+          image,
+          VK_IMAGE_LAYOUT_UNDEFINED,
+          VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+          VK_IMAGE_ASPECT_DEPTH_BIT);
+      // PRepare the correct one for next passes
+      transObj.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+      transObj.dstStageMask =
+          VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+      transObj.dstAccessMask =
+          VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+      vkUtils::Texture::recordImageMemoryBarrier(command, transObj);
+
+      extent.height = 1024;
+      extent.width = 1024;
+    }
+
     // Todo: Pretty hard to do and reaad +  swapchain need to always be first
 
     mPassesHandler.updateDynamicRenderingInfo(type, extent);
 
     VkRenderingInfo renderInfo = mPassesHandler.getBackend(type).dynamicInfo.info;
-
     vkCmdBeginRendering(command, &renderInfo);
   }
   else

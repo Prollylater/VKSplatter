@@ -59,7 +59,7 @@ void HelloTriangleApplication::initScene()
         .nodeExtents = meshAsset->bndbox};
 
      i = nodeb.addInstance();
-    nodeb.getTransform(i).setPosition(glm::vec3(0.0, 12.5, 2.0));
+    nodeb.getTransform(i).setPosition(glm::vec3(0.0, 2.0, 19.0));
     getScene().addNode(nodeb);
 
 }
@@ -75,9 +75,13 @@ void HelloTriangleApplication::render()
               << frameData.sceneData.eye[2] << " "
               << std::endl;
     renderer.beginFrame(frameData.sceneData, getWindow().getGLFWWindow());
+     renderer.beginPass(RenderPassType::Shadow);
+    renderer.drawFrame(RenderPassType::Shadow, frameData.sceneData, getMaterialSystem().materialDescriptor());
+    renderer.endPass(RenderPassType::Shadow);
     renderer.beginPass(RenderPassType::Forward);
     renderer.drawFrame(RenderPassType::Forward, frameData.sceneData, getMaterialSystem().materialDescriptor());
     renderer.endPass(RenderPassType::Forward);
+    
     renderer.endFrame(framebufferResized);
 }
 

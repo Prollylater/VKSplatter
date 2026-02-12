@@ -35,7 +35,7 @@ void PipelineManager::initialize(VkDevice device, const std::string &cacheFile)
     {
         return;
     };
-    
+
     std::ifstream in(cacheFile, std::ios::binary | std::ios::ate);
     if (in)
     {
@@ -56,7 +56,7 @@ void PipelineManager::initialize(VkDevice device, const std::string &cacheFile)
     }
 }
 
-//Get or create
+// Get or create
 int PipelineManager::createPipelineWithBuilder(VkDevice device, const PipelineBuilder &builder)
 {
     size_t hash = builder.computehash();
@@ -405,17 +405,11 @@ namespace
     VkPipelineDepthStencilStateCreateInfo createDefaultDepthStencilState(const PipelineDepthConfig &info)
     {
         VkPipelineDepthStencilStateCreateInfo depthStencil{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-         if (info.enableDetphTest)
-        {
-            depthStencil.depthTestEnable = VK_TRUE;
-            depthStencil.depthWriteEnable = VK_TRUE ;
-            depthStencil.depthCompareOp = info.enableDetphTest ? VK_COMPARE_OP_LESS : VK_COMPARE_OP_ALWAYS;
-            depthStencil.minDepthBounds = 0.0f;
-            depthStencil.maxDepthBounds = 1.0f;
-        }
-        // Not for now
-        depthStencil.depthBoundsTestEnable = VK_FALSE;
-        depthStencil.stencilTestEnable = VK_FALSE;
+        depthStencil.depthTestEnable = info.enableDetphTest ? VK_TRUE : VK_FALSE;
+        depthStencil.depthWriteEnable = info.enableDetphTest ? VK_TRUE : VK_FALSE;
+        depthStencil.depthCompareOp = info.enableDetphTest ? VK_COMPARE_OP_LESS : VK_COMPARE_OP_ALWAYS;
+        depthStencil.minDepthBounds = 0.0f;
+        depthStencil.maxDepthBounds = 1.0f;
         depthStencil.front = {};
         depthStencil.back = {};
 

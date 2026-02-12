@@ -30,7 +30,7 @@ public:
                          const LogicalDeviceManager &deviceM,
                          uint32_t queueIndice);
 
-     void createImageView( vkUtils::Texture::ImageViewCreateConfig & config);
+    void createImageView( vkUtils::Texture::ImageViewCreateConfig & config);
     void createImageView(VkDevice device, VkImageAspectFlags aspectflag);
     void createImageSampler(VkDevice device, VkPhysicalDevice physDevice);
 

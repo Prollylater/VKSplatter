@@ -70,19 +70,18 @@ void Application::initFramework()
     initVulkan(info);
 
     // Initialize default systems
-    mScene = std::make_unique<Scene>();//Scene in Application ?
+    mScene = std::make_unique<Scene>(); // Scene in Application ?
     mAssetSystem = std::make_unique<AssetSystem>();
 
     mRenderer = std::make_unique<Renderer>();
     mRenderer->initialize(*mContext, mAssetSystem->registry());
- 
-    //Also passes definition is not much "Frameworkey"
 
-   
+    // Also passes definition is not much "Frameworkey"
+
     // TODO: This should come from configuration or user setup
     mRenderer->initAllGbuffers({}, true);
     mRenderer->createFramesData(info.MAX_FRAMES_IN_FLIGHT,
-                                   mScene->sceneLayout.descriptorSetLayoutsBindings);
+                                mScene->sceneLayout.descriptorSetLayoutsBindings);
     // Setup default render pass (TODO: make configurable)
 
     constexpr bool useDynamic = true;
@@ -91,20 +90,20 @@ void Application::initFramework()
     {
         RenderTargetConfig defRenderPass;
         defRenderPass.addAttachment(AttachmentSource::Swapchain(),
-                         mContext->mSwapChainM.getSwapChainImageFormat().format,
-                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                         VK_ATTACHMENT_LOAD_OP_CLEAR,
-                         VK_ATTACHMENT_STORE_OP_STORE,
-                         AttachmentConfig::Role::Present)
-            .addAttachment(AttachmentSource::GBuffer(0), 
-                mContext->mPhysDeviceM.findDepthFormat(),
-                VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                VK_ATTACHMENT_LOAD_OP_CLEAR,
-                VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                AttachmentConfig::Role::Depth);
+                                    mContext->mSwapChainM.getSwapChainImageFormat().format,
+                                    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                    VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                    VK_ATTACHMENT_STORE_OP_STORE,
+                                    AttachmentConfig::Role::Present)
+            .addAttachment(AttachmentSource::GBuffer(0),
+                           mContext->mPhysDeviceM.findDepthFormat(),
+                           VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                           VK_ATTACHMENT_LOAD_OP_CLEAR,
+                           VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                           AttachmentConfig::Role::Depth);
         mRenderer->addPass(RenderPassType::Forward, defRenderPass);
 
-        //Depth only passes
+        // Depth only passes
         RenderTargetConfig defShadowPass;
         /*defShadowPass.addAttachment(AttachmentSource::FrameLocal(0),
                          mContext->mSwapChainM.getSwapChainImageFormat().format,
@@ -112,12 +111,12 @@ void Application::initFramework()
                          VK_ATTACHMENT_LOAD_OP_CLEAR,
                          VK_ATTACHMENT_STORE_OP_STORE,
                          AttachmentConfig::Role::Present)*/
-        defShadowPass.addAttachment(AttachmentSource::FrameLocal(0), 
-                mContext->mPhysDeviceM.findDepthFormat(),
-                VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                VK_ATTACHMENT_LOAD_OP_CLEAR,
-                VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                AttachmentConfig::Role::Depth);
+        defShadowPass.addAttachment(AttachmentSource::FrameLocal(0),
+                                    mContext->mPhysDeviceM.findDepthFormat(),
+                                    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                                    VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                    VK_ATTACHMENT_STORE_OP_STORE,
+                                    AttachmentConfig::Role::Depth);
         mRenderer->addPass(RenderPassType::Shadow, defShadowPass);
     }
     else
@@ -127,11 +126,11 @@ void Application::initFramework()
             mContext->mPhysDeviceM.findDepthFormat());
         mRenderer->addPass(RenderPassType::Forward, defConfigRenderPass);
 
-        //Shadow pass not done here
+        // Shadow pass not done here
     }
 
     // Todo: This pattern is off
-    auto& ctx = *mContext.get();
+    auto &ctx = *mContext.get();
     mMaterialSystem = std::make_unique<MaterialSystem>(ctx, mAssetSystem->registry(), mRenderer->getGPURegistry());
 
     _CINFO("Framework initialized");
@@ -139,7 +138,7 @@ void Application::initFramework()
     mClock.reset();
 }
 
-void Application::initVulkan(ContextCreateInfo& info)
+void Application::initVulkan(ContextCreateInfo &info)
 {
     SwapChainConfig swapChain = SwapChainConfig::Default();
     info.getSwapChainConfig() = swapChain;
@@ -206,10 +205,10 @@ void Application::mainLoop()
 void Application::cleanup()
 {
     // Todo: Name should be changed across the board
-    if(mMaterialSystem){
+    if (mMaterialSystem)
+    {
         mMaterialSystem->materialDescriptor().destroyDescriptorLayout(mContext.get()->getLDevice().getLogicalDevice());
         mMaterialSystem->materialDescriptor().destroyDescriptorPool(mContext.get()->getLDevice().getLogicalDevice());
-
     }
 
     if (mRenderer)
