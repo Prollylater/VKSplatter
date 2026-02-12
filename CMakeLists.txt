@@ -23,7 +23,7 @@ endif()
 
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 
-# I need to move all files to have both .cpp and .h together
+
 # Source files
 set(SOURCES
     ${SOURCE_DIR}/main.cpp
@@ -75,7 +75,7 @@ set(SOURCES
     ${SOURCE_DIR}/vulkan/utils/PipelineHelper.cpp   
 
     ${SOURCE_DIR}/core/WindowVk.cpp
-     ${SOURCE_DIR}/core/Application.cpp
+    ${SOURCE_DIR}/core/Application.cpp
     ${SOURCE_DIR}/core/Clock.cpp
     
     ${THIRD_PARTY}/stb_image_loader.cpp
@@ -94,17 +94,12 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_include_directories(VulkanGLFWExample PRIVATE
 ${Vulkan_INCLUDE_DIRS} 
 ${GLFW_INCLUDE_DIRS}
-${INCLUDE_DIR}
-${INCLUDE_DIR}/vulkan
-${INCLUDE_DIR}/render
-
-${INCLUDE_DIR}/scene
-${INCLUDE_DIR}/assetsystem
-${INCLUDE_DIR}/core
+${SOURCE_DIR}/vulkan
+${SOURCE_DIR}/assetsystem
 ${SOURCE_DIR}/core
 ${SOURCE_DIR}/scene
 ${SOURCE_DIR}/render
-${THIRD_PARTY})
+${SOURCE_DIR})
 
 # Link libraries
 target_link_libraries(${PROJECT_NAME} 
