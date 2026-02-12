@@ -6,28 +6,28 @@
 // With method to create each i guess ?
 
 VkRenderPass RenderPassManager::getRenderPass(uint32_t id) const { return mRenderPasses[id].pass; };
-VkRenderPass RenderPassManager::getRenderPass(RenderPassType id) const { return mRenderPasses[static_cast<uint32_t>(id)].pass; };
+//VkRenderPass RenderPassManager::getRenderPass(RenderPassType id) const { return mRenderPasses[static_cast<uint32_t>(id)].pass; };
 const RenderPassConfig &RenderPassManager::getConfiguration(uint32_t id) const
 {
     return mRenderPasses[id].config;
 }
 
-void RenderPassManager::createRenderPass(VkDevice device, RenderPassType type, const RenderPassConfig &configStruct)
+void RenderPassManager::createRenderPass(VkDevice device, int type, const RenderPassConfig &configStruct)
 {
     std::vector<VkAttachmentDescription> attachments;
     attachments.reserve(configStruct.attachments.size());
     for (auto &att : configStruct.attachments)
     {
         VkAttachmentDescription description{};
-        description.flags = att.flags;
-        description.format = att.format;
-        description.samples = att.samples;
-        description.loadOp = att.loadOp;
-        description.storeOp = att.storeOp;
-        // description.stencilLoadOp = att.stencilLoadOp;
-        // description.stencilStoreOp = att.stencilStoreOp;
-        description.initialLayout = att.initialLayout;
-        description.finalLayout = att.finalLayout;
+        description.flags = att.config.flags;
+        description.format = att.config.format;
+        description.samples = att.config.samples;
+        description.loadOp = att.config.loadOp;
+        description.storeOp = att.config.storeOp;
+        // description.stencilLoadOp = att.config.stencilLoadOp;
+        // description.stencilStoreOp = att.config.stencilStoreOp;
+        description.initialLayout = att.config.initialLayout;
+        description.finalLayout = att.config.finalLayout;
         attachments.push_back(description);
     }
 

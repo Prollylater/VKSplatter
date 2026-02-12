@@ -66,8 +66,9 @@ set(SOURCES
     ${SOURCE_DIR}/render/GPUResource.cpp   
     ${SOURCE_DIR}/render/VertexDescriptions.cpp   
     ${SOURCE_DIR}/render/MaterialSystem.cpp   
-    ${SOURCE_DIR}/render/Renderer.cpp   
-    ${SOURCE_DIR}/render/RenderScene.cpp   
+    ${SOURCE_DIR}/render/Renderer.cpp  
+    ${SOURCE_DIR}/render/RenderScene.cpp  
+    ${SOURCE_DIR}/render/Passes.cpp  
 
 
     ${SOURCE_DIR}/vulkan/utils/RessourceHelper.cpp   

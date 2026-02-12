@@ -144,7 +144,6 @@ void buildPassFrame(
     MaterialSystem &materialSystem)
 {
     outFrame.queues.clear();
-    outFrame.passSet.clear();
 
     std::unordered_map<uint32_t, size_t> queueMap;
 

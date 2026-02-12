@@ -117,9 +117,9 @@ void VulkanContext::updateBuffer(Buffer &buffer, const void *data, VkDeviceSize 
     {
     case BufferUpdatePolicy::Dynamic:
     {
-        void *mapped = buffer.map();
+        void *mapped = buffer.map(mLogDeviceM.getVmaAllocator());
         std::memcpy(static_cast<uint8_t *>(mapped) + offset, data, size);
-        buffer.unmap(); // if memory is coherent this may be a no-op
+        //buffer.unmap(); // if memory is coherent this may be a no-op
     }
     break;
 

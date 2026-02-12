@@ -4,19 +4,8 @@
 #include "CommandPool.h"
 #include "Descriptor.h"
 #include "Buffer.h"
+#include "Texture.h"
 #include "config/PipelineConfigs.h"
-
-class SwapChainResources
-{
-public:
-    void createFramebuffer(uint32_t index, VkDevice device, VkExtent2D extent, const std::vector<VkImageView> &attachments, VkRenderPass renderPass);
-    void destroyFramebuffers(VkDevice device);
-
-    const VkFramebuffer &getFramebuffers(uint32_t index) const;
-
-private:
-    std::array<VkFramebuffer, 6> mPassFramebuffers;
-};
 
 struct FrameResources
 {
@@ -24,7 +13,8 @@ struct FrameResources
     FrameSyncObjects mSyncObjects;
     DescriptorManager mDescriptor;
 
-    // Todo: Mapping is now included in Buffer
+    //Notes: This currently avoid the use of memory manager but make "assumption"
+    //I need to reevaluate whether or not this scheme is fine
     Buffer mCameraBuffer;
     void *mCameraMapping;
 
@@ -35,8 +25,11 @@ struct FrameResources
     Buffer mDirLightsBuffer;
     void *mDirLightMapping;
 
-    // Legacy
-    SwapChainResources mFramebuffer;
+    Buffer mShadowBuffer;
+    void *mShadowMapping;
+
+    //Notes: Currently always 1024*1024
+    Image cascadePoolArray;
 };
 
 class FrameHandler
@@ -50,15 +43,10 @@ public:
 
     void advanceFrame();
     void createFramesData(VkDevice device, VkPhysicalDevice physDevice, uint32_t queueIndice, uint32_t framesInFlightCount);
+    void createShadowTextures(LogicalDeviceManager& device, VkPhysicalDevice physDevice, uint32_t queueIndice);
+
     // void addFramesDescriptorSet(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding> &layouts);
     void createFramesDescriptorSet(VkDevice device, const std::vector<std::vector<VkDescriptorSetLayoutBinding>> &layouts);
-
-    // Pass the attachments and used them to create framebuffers
-    void createFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, RenderPassType type, const VkExtent2D swapChainExtent);
-
-    // Misleading
-    // This add before the framebuffer attachments images views of the swapchain then create framebuffers
-    void completeFrameBuffers(VkDevice device, const std::vector<VkImageView> &attachments, VkRenderPass renderPass, RenderPassType type, const std::vector<VkImageView> swapChainViews, const VkExtent2D swapChainExtent);
 
     void updateUniformBuffers(glm::mat4 data);
     void writeFramesDescriptors(VkDevice device, int setIndex);

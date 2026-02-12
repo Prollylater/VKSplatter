@@ -87,14 +87,14 @@ void Image::destroyImage(VkDevice device, VmaAllocator allocator)
     }
 }
 
-// Todo: This helper should work with the already exiting value to infer the rest
+// Todo: This might need a different system
 void Image::createImageSampler(VkDevice device, VkPhysicalDevice physDevice)
 {
     mDescriptor.sampler = vkUtils::Texture::createSampler(device, physDevice, mMipLevels);
 }
 
 // Todo: This helper should work with the already exiting value to infer the rest
-
+//Todo: Not very useful, better make a converter from imageConfig to imageView
 void Image::createImageView(VkDevice device, VkImageAspectFlags aspectflag)
 {
     // TOdo:Should also pass the Info or use a make config
@@ -109,6 +109,10 @@ void Image::createImageView(VkDevice device, VkImageAspectFlags aspectflag)
     //  I could set everything to red and rgba would be red
 }
 
+void Image::createImageView(vkUtils::Texture::ImageViewCreateConfig& config)
+{
+    mDescriptor.imageView = vkUtils::Texture::createImageView(config);
+}
 void Image::transitionImage(VkImageLayout newlayout,
                             VkImageAspectFlags aspectMask,
                             const LogicalDeviceManager &deviceM,

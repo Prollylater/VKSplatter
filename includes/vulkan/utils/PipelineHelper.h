@@ -180,6 +180,7 @@ namespace vkUtils
 {
     namespace RenderPass
     {
+        /*
         inline RenderPassConfig makeDefaultConfig(VkFormat swpachChainFormat, VkFormat depthFormat, RenderPassType type = RenderPassType::Forward)
         {
 
@@ -285,7 +286,7 @@ namespace vkUtils
             defConfigRenderPass.dependencies.push_back(subp2Dep);
 
             return defConfigRenderPass;
-        }
+        }*/
     }
 }
 

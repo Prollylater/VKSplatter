@@ -23,8 +23,10 @@ void HelloTriangleApplication::setup()
     fitCameraToBoundingBox(getScene().getCamera(), getScene().sceneBB);
 };
 
-//const std::string MODEL_PATH = "hearthspring.obj";
+// const std::string MODEL_PATH = "hearthspring.obj";
 const std::string MODEL_PATH = "sibenik.obj";
+const std::string MODEL_PATH2 = "bmw.obj";
+
 void HelloTriangleApplication::initScene()
 {
 
@@ -51,6 +53,15 @@ void HelloTriangleApplication::initScene()
     setFieldU32(node, i, "id", 1);*/
 
     getScene().addNode(node);
+
+    SceneNode nodeb{
+        .mesh = assetMesh,
+        .nodeExtents = meshAsset->bndbox};
+
+     i = nodeb.addInstance();
+    nodeb.getTransform(i).setPosition(glm::vec3(0.0, 12.5, 2.0));
+    getScene().addNode(nodeb);
+
 }
 
 void HelloTriangleApplication::render()
@@ -65,7 +76,7 @@ void HelloTriangleApplication::render()
               << std::endl;
     renderer.beginFrame(frameData.sceneData, getWindow().getGLFWWindow());
     renderer.beginPass(RenderPassType::Forward);
-    renderer.drawFrame(frameData.sceneData, renderer.passes[0], getMaterialSystem().materialDescriptor());
+    renderer.drawFrame(RenderPassType::Forward, frameData.sceneData, getMaterialSystem().materialDescriptor());
     renderer.endPass(RenderPassType::Forward);
     renderer.endFrame(framebufferResized);
 }

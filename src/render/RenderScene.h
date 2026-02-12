@@ -4,18 +4,6 @@
 #include "Scene.h" //Visibility frame among other
 #include "Drawable.h"
 
-struct PassQueue
-{
-  uint32_t pipelineIndex;
-  std::vector<Drawable *> drawCalls;
-};
-
-struct RenderPassFrame
-{
-  RenderPassType type;
-  std::vector<VkDescriptorSet> passSet;
-  std::vector<PassQueue> queues;
-};
 
 class MaterialSystem;
 
@@ -87,6 +75,20 @@ public:
 // - will uploads per-frame instance data (everytime when instancing exist or with dynamic meshes)
 // - must be called before rendering
 */
+
+
+
+struct PassQueue
+{
+  uint32_t pipelineIndex;
+  std::vector<Drawable *> drawCalls;
+};
+
+struct RenderPassFrame
+{
+  RenderPassType type; //Remove
+  std::vector<PassQueue> queues;
+};
 
 void buildPassFrame(
     RenderPassFrame &outFrame,

@@ -76,30 +76,49 @@ void Application::initFramework()
     mRenderer = std::make_unique<Renderer>();
     mRenderer->initialize(*mContext, mAssetSystem->registry());
  
+    //Also passes definition is not much "Frameworkey"
+
    
-    // TODO: This should come from configuration
+    // TODO: This should come from configuration or user setup
     mRenderer->initAllGbuffers({}, true);
     mRenderer->createFramesData(info.MAX_FRAMES_IN_FLIGHT,
                                    mScene->sceneLayout.descriptorSetLayoutsBindings);
     // Setup default render pass (TODO: make configurable)
 
     constexpr bool useDynamic = true;
+    // TODO: This should come from configuration simplified for the user
     if (useDynamic)
     {
         RenderTargetConfig defRenderPass;
-        defRenderPass.addAttachment(
+        defRenderPass.addAttachment(AttachmentSource::Swapchain(),
                          mContext->mSwapChainM.getSwapChainImageFormat().format,
                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                          VK_ATTACHMENT_LOAD_OP_CLEAR,
                          VK_ATTACHMENT_STORE_OP_STORE,
                          AttachmentConfig::Role::Present)
-            .addAttachment(
+            .addAttachment(AttachmentSource::GBuffer(0), 
                 mContext->mPhysDeviceM.findDepthFormat(),
                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                 VK_ATTACHMENT_LOAD_OP_CLEAR,
                 VK_ATTACHMENT_STORE_OP_DONT_CARE,
                 AttachmentConfig::Role::Depth);
         mRenderer->addPass(RenderPassType::Forward, defRenderPass);
+
+        //Depth only passes
+        RenderTargetConfig defShadowPass;
+        /*defShadowPass.addAttachment(AttachmentSource::FrameLocal(0),
+                         mContext->mSwapChainM.getSwapChainImageFormat().format,
+                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                         VK_ATTACHMENT_LOAD_OP_CLEAR,
+                         VK_ATTACHMENT_STORE_OP_STORE,
+                         AttachmentConfig::Role::Present)*/
+        defShadowPass.addAttachment(AttachmentSource::FrameLocal(0), 
+                mContext->mPhysDeviceM.findDepthFormat(),
+                VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                VK_ATTACHMENT_LOAD_OP_CLEAR,
+                VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                AttachmentConfig::Role::Depth);
+        mRenderer->addPass(RenderPassType::Shadow, defShadowPass);
     }
     else
     {
@@ -107,6 +126,8 @@ void Application::initFramework()
             mContext->mSwapChainM.getSwapChainImageFormat().format,
             mContext->mPhysDeviceM.findDepthFormat());
         mRenderer->addPass(RenderPassType::Forward, defConfigRenderPass);
+
+        //Shadow pass not done here
     }
 
     // Todo: This pattern is off

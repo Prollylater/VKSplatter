@@ -6,14 +6,18 @@ Scene::Scene()
     sceneLayout.addDescriptor(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
     sceneLayout.addDescriptor(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
 
+    sceneLayout.addDescriptor(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    sceneLayout.addDescriptor(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+
     sceneLayout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SceneData));
 
     lights.addDirLight({glm::vec4(0.5, 1.0, 0.0, 0.0), glm::vec4(1.0, 1.0, 1.0, 0.0), 1.0});
+    lights.setMatchingShadow(0, true, shadow.getCascadeShadows().createDirectionalShadow(0));
     // lights.addDirLight({glm::vec4(0.5, -1.0, 0.0, 0.0), glm::vec4(0.2, 0.0, 1.0, 0.0), 1.0});
-    lights.addPointLight({glm::vec4(0.0, 1.0, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 1.5, 1.5});
-    lights.addPointLight({glm::vec4(-0.0, 0.0, 0.5, 0.0), glm::vec4(0.0, 1.0, 1.0, 0.0), 0.5, 0.5});
-    lights.addPointLight({glm::vec4(-9.5, -14, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 2.5, 5.5});
-    lights.addPointLight({glm::vec4(-5.5, -13.0, 0.5, -0.5), glm::vec4(0.0, 1.0, 1.0, 0.0), 5.5, 1.5});
+    // lights.addPointLight({glm::vec4(0.0, 1.0, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 1.5, 1.5});
+    // lights.addPointLight({glm::vec4(-0.0, 0.0, 0.5, 0.0), glm::vec4(0.0, 1.0, 1.0, 0.0), 0.5, 0.5});
+    // lights.addPointLight({glm::vec4(-9.5, -14, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 2.5, 5.5});
+    // lights.addPointLight({glm::vec4(-5.5, -13.0, 0.5, -0.5), glm::vec4(0.0, 1.0, 1.0, 0.0), 5.5, 1.5});
 };
 
 Scene::Scene(int compute)
@@ -78,7 +82,6 @@ SceneData Scene::getSceneData() const
 
 LightPacket Scene::getLightPacket() const
 {
-
     return {lights.getDirLights(), lights.dirLightCount(), lights.getPointLights(), lights.pointLightCount()};
 }
 
@@ -97,7 +100,6 @@ void fitCameraToBoundingBox(Camera &camera, const Extents &box)
 
     camera.setPosition(newPosition);
 }
-
 
 // Allocator should be tied to SCene or be some sort of Ecs for handling removed stuff
 VisibilityFrame extractRenderFrame(const Scene &scene,
@@ -158,8 +160,6 @@ VisibilityFrame extractRenderFrame(const Scene &scene,
 
     return frame;
 };
-
-
 
 uint32_t getInstanceID(InstanceIDAllocator &allocator, uint64_t key)
 {

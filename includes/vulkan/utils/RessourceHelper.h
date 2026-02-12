@@ -45,6 +45,8 @@ namespace vkUtils
 
         VkSampler createSampler(VkDevice device, VkPhysicalDevice physDevice, int mipmaplevel);
 
+        VkSampler createSampler(const ImageSamplerConfig& cfg);
+
         void recordImageMemoryBarrier(VkCommandBuffer cmdBuffer,
                                       const ImageTransition &transitionObject);
 

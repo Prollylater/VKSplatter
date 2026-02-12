@@ -57,7 +57,7 @@ struct SceneNode
 
     uint32_t addInstance()
     {
-        uint32_t index = instanceCount++;
+        uint32_t index = instanceCount++; 
         // Replace by other allocator + introduce instance deletion
         instanceData.resize(instanceData.size() + layout.stride);
         memset(&instanceData[index * layout.stride], 0, layout.stride);

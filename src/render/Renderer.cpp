@@ -23,7 +23,7 @@ void Renderer::createFramesData(uint32_t framesInFlightCount, const std::vector<
 
   std::vector<std::vector<VkDescriptorSetLayoutBinding>> layoutBindings = {bindings, meshSSBO.descriptorSetLayoutsBindings};
   mFrameHandler.createFramesDescriptorSet(logicalDevice, layoutBindings);
-
+  mFrameHandler.createShadowTextures(mContext->getLDevice(), physicalDevice, graphicsFamilyIndex);
   // Update/Store UBO
   mFrameHandler.writeFramesDescriptors(logicalDevice, 0);
 }
@@ -47,58 +47,6 @@ void Renderer::initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth)
   //}
 };
 
-void Renderer::initRenderInfrastructure(RenderPassType type, const RenderTargetConfig &cfg)
-{
-  std::cout << "Init Render Infrastructure" << std::endl;
-
-  const auto &mLogDeviceM = mContext->getLDevice();
-  const auto &mPhysDeviceM = mContext->getPDeviceM();
-  const auto &mSwapChainM = mContext->getSwapChainManager();
-
-  const VkFormat depthFormat = mPhysDeviceM.findDepthFormat();
-  // Onward is just hardcoded stuff not meant to be dynamic yet
-  const VmaAllocator &allocator = mLogDeviceM.getVmaAllocator();
-
-  if (cfg.type == RenderConfigType::Dynamic)
-  {
-    // Collect image views for dynamic rendering
-    std::vector<VkImageView> colorViews = mGBuffers.collectColorViews(cfg.getClrAttachmentsID());
-
-    // Configure per-frame rendering info
-    createFramesDynamicRenderingInfo(type, cfg, colorViews, mGBuffers.getDepthImageView(),
-                                     mSwapChainM.getSwapChainExtent());
-  }
-};
-
-void Renderer::initRenderInfrastructure(RenderPassType type, const RenderPassConfig &cfg)
-{
-  std::cout << "Init Render Infrastructure" << std::endl;
-
-  const auto &mLogDeviceM = mContext->getLDevice();
-  const auto &mPhysDeviceM = mContext->getPDeviceM();
-  const auto &mSwapChainM = mContext->getSwapChainManager();
-
-  const VkDevice &device = mLogDeviceM.getLogicalDevice();
-
-  const VkFormat depthFormat = mPhysDeviceM.findDepthFormat();
-
-  // Onward is just hardcoded stuff not meant to be dynamic yet
-  const VmaAllocator &allocator = mLogDeviceM.getVmaAllocator();
-
-  if (cfg.type == RenderConfigType::LegacyRenderPass)
-  {
-
-    mRenderPassM.createRenderPass(device, type, cfg);
-
-    std::vector<VkImageView> views = mGBuffers.collectColorViews(cfg.getClrAttachmentsID());
-    views.push_back(mGBuffers.getDepthImageView());
-
-    mFrameHandler.completeFrameBuffers(device, views, mRenderPassM.getRenderPass(type), type,
-                                       mSwapChainM.GetSwapChainImageViews(),
-                                       mSwapChainM.getSwapChainExtent());
-  }
-};
-
 // All the rest are frame ressourees
 // Todo: This iss uploading which should be reworked once scene managment is redone
 void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &registry, MaterialSystem &system)
@@ -114,15 +62,20 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
 
   PipelineLayoutConfig sceneConfig{{mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0), {}, mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(1)}, scene.sceneLayout.pushConstants};
   int pipelineEntryIndex = 0;
+  int pipelineEntryIndexShadow = 0;
+
   auto layout = MaterialLayoutRegistry::Get(MaterialType::PBR);
   {
     // resolve materials globally
     auto &matDescriptors = system.materialDescriptor();
     int matLayoutIdx = matDescriptors.getOrCreateSetLayout(device, layout.descriptorSetLayoutsBindings);
     sceneConfig.descriptorSetLayouts[1] = matDescriptors.getDescriptorLat(matLayoutIdx);
-    pipelineEntryIndex = requestPipeline(sceneConfig, vertPath, fragPath);
+    pipelineEntryIndex = requestPipeline(sceneConfig, vertPath, fragPath, RenderPassType::Forward);
+    // Nearly the same
+   pipelineEntryIndexShadow = requestPipeline(sceneConfig, vertPath, "", RenderPassType::Shadow);
   }
 
+  // Current state force the duplication of Instance per material which is a problematic but unforeseen thing
   for (auto &node : scene.nodes)
   {
     const auto &mesh = registry.get(node.mesh);
@@ -130,6 +83,7 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
     {
       auto gpuMat = system.requestMaterial(mat);
       system.addMaterialInstance(gpuMat, RenderPassType::Forward, 0, pipelineEntryIndex);
+     system.addMaterialInstance(gpuMat, RenderPassType::Shadow, 0, pipelineEntryIndexShadow);
     }
   }
 
@@ -190,22 +144,18 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
 
 void Renderer::updateRenderingScene(const VisibilityFrame &vFrame, const AssetRegistry &registry, MaterialSystem &matSystem)
 {
-  // Todo:
-
   mRScene.updateFrameSync(*mContext, vFrame, mGpuRegistry, registry, matSystem, mFrameHandler.getCurrentFrameIndex());
-  passes.clear();
   // Shadow pass
   {
-    // RenderPassFrame &shadow = frameGraph.shadowPass;
-    // shadow.type = RenderPassType::Shadow;
-    // buildPassFrame(shadow, scene, pipelineCache);
+    //auto &shadow = mPassesHandler.getBackend(RenderPassType::Shadow);
+    //shadow.frames.type = RenderPassType::Shadow;
+    //buildPassFrame(shadow.frames, mRScene, matSystem);
   }
   // Forward pass
   {
-    RenderPassFrame forward;
-    forward.type = RenderPassType::Forward;
-    buildPassFrame(forward, mRScene, matSystem);
-    passes.push_back(std::move(forward));
+    auto &forward = mPassesHandler.getBackend(RenderPassType::Forward);
+    forward.frames.type = RenderPassType::Forward;
+    buildPassFrame(forward.frames, mRScene, matSystem);
   }
 }
 
@@ -217,22 +167,16 @@ void Renderer::deinitSceneRessources()
   // Below is more destroy Renderer than anything else
   mGBuffers.destroy(device, allocator);
   mGpuRegistry.clearAll();
-  for (int i = 0; i < mContext->mSwapChainM.GetSwapChainImageViews().size(); i++)
-  {
-    auto &frameData = mFrameHandler.getCurrentFrameData();
-    frameData.mFramebuffer.destroyFramebuffers(device);
-    mFrameHandler.advanceFrame();
-  }
 
   mFrameHandler.destroyFramesData(device);
 
-  mRenderPassM.destroyAll(device);
+  mPassesHandler.destroyRessources(device);
   mPipelineM.destroy(device);
 }
 
 int Renderer::requestPipeline(const PipelineLayoutConfig &config,
                               const std::string &vertexPath,
-                              const std::string &fragmentPath)
+                              const std::string &fragmentPath, RenderPassType type)
 {
 
   const VkDevice &device = mContext->getLDevice().getLogicalDevice();
@@ -256,65 +200,12 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config,
   }
   else
   {
-    builder.setRenderPass(mRenderPassM.getRenderPass(RenderPassType::Forward));
+    builder.setRenderPass(mPassesHandler.getBackend(type).renderPassLegacy.getRenderPass(0));
   }
 
   builder.setUniform(config);
 
   return mPipelineM.createPipelineWithBuilder(device, builder);
-};
-
-void Renderer::createFramesDynamicRenderingInfo(RenderPassType type, const RenderTargetConfig &cfg,
-                                                const std::vector<VkImageView> &gbufferViews,
-                                                VkImageView depthView, const VkExtent2D swapChainExtent)
-{
-  const uint16_t index = static_cast<uint16_t>(type);
-  auto &renderColorInfos = mDynamicPassesInfo[index].colorAttachments;
-  auto &renderDepthInfo = mDynamicPassesInfo[index].depthAttachment;
-  auto &renderInfo = mDynamicPassesInfo[index].info;
-  mDynamicPassesConfig[index] = cfg;
-
-  renderColorInfos.clear();
-
-  // SwapChain image
-  VkRenderingAttachmentInfo swapchainColor;
-  swapchainColor = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-  // swapchainColor.imageView = swapChainView; //Notes: This is set dynamically during render
-
-  swapchainColor.imageLayout = cfg.attachments[0].finalLayout; // target layout for rendering
-  swapchainColor.loadOp = cfg.attachments[0].loadOp;
-  swapchainColor.storeOp = cfg.attachments[0].storeOp;
-  swapchainColor.clearValue = {{0.2f, 0.2f, 0.2f, 1.0f}};
-  renderColorInfos.push_back(swapchainColor);
-
-  for (size_t i = 0; i < gbufferViews.size(); ++i)
-  {
-    VkRenderingAttachmentInfo colorInfo{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    colorInfo.imageView = gbufferViews[i];
-    colorInfo.imageLayout = cfg.attachments[i + 1].finalLayout; // target layout for rendering
-    colorInfo.loadOp = cfg.attachments[i + 1].loadOp;
-    colorInfo.storeOp = cfg.attachments[i + 1].storeOp;
-    // colorInfo.clearValue =  set per-pass per-frame
-    renderColorInfos.push_back(colorInfo);
-  }
-
-  if (cfg.enableDepth && depthView != VK_NULL_HANDLE)
-  {
-    renderDepthInfo = {VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    renderDepthInfo.imageView = depthView;
-    renderDepthInfo.imageLayout = cfg.attachments.back().finalLayout;
-    renderDepthInfo.loadOp = cfg.attachments.back().loadOp;
-    renderDepthInfo.storeOp = cfg.attachments.back().storeOp;
-    renderDepthInfo.clearValue = {1.0f, 0}; // Important...
-  }
-  // fill depth load/store...
-  renderInfo = {.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-                .renderArea = {.offset = {0, 0}, .extent = swapChainExtent},
-                .layerCount = 1,
-                .colorAttachmentCount = static_cast<uint32_t>(renderColorInfos.size()),
-                .pColorAttachments = renderColorInfos.data(),
-                .pDepthAttachment = cfg.enableDepth ? &renderDepthInfo : nullptr};
-  // Todo: set renderArea / layerCount / viewMask as needed
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -411,14 +302,18 @@ void Renderer::beginPass(RenderPassType type)
     vkUtils::Texture::recordImageMemoryBarrier(command, transObj);
 
     // Todo: Pretty hard to do and reaad +  swapchain need to always be first
-    mDynamicPassesInfo[renderPassIndex].colorAttachments[0].imageView = mContext->getSwapChainManager().GetSwapChainImageViews()[mFrameHandler.getCurrentFrameIndex()];
-    VkRenderingInfo renderInfo = mDynamicPassesInfo[renderPassIndex].info;
+
+    mPassesHandler.updateDynamicRenderingInfo(type, extent);
+
+    VkRenderingInfo renderInfo = mPassesHandler.getBackend(type).dynamicInfo.info;
+
     vkCmdBeginRendering(command, &renderInfo);
   }
   else
   {
-    mRenderPassM.startPass(renderPassIndex, command,
-                           frameRess.mFramebuffer.getFramebuffers(renderPassIndex), extent);
+    auto &pass = mPassesHandler.getBackend(type);
+    // Todo: If mFrameHandler is to stay with pass, i might hide mFrameHandler.getCurrentFrameIndex() through a more direct start pass
+    pass.renderPassLegacy.startPass(0, command, pass.frameBuffers.getFramebuffers(mFrameHandler.getCurrentFrameIndex()), extent);
   }
 
   // Setup viewport / scissor
@@ -461,12 +356,13 @@ void Renderer::endPass(RenderPassType type)
   }
   else
   {
-    mRenderPassM.endPass(frameRess.mCommandPool.get());
+    auto &pass = mPassesHandler.getBackend(type);
+    pass.renderPassLegacy.endPass(frameRess.mCommandPool.get());
   }
 };
 
 // Handle non Material object
-void Renderer::drawFrame(const SceneData &sceneData, const RenderPassFrame &pass, const DescriptorManager &materialDescriptor)
+void Renderer::drawFrame(RenderPassType type, const SceneData &sceneData, const DescriptorManager &materialDescriptor)
 {
   /*
   vertexCount: Even though we don't have a vertex buffer, we technically still have 3 vertices to draw.
@@ -496,7 +392,8 @@ for each shader {
   VkCommandBuffer cmd = frameRess.mCommandPool.get();
 
   // Draw all queues
-  for (const PassQueue &queue : pass.queues)
+  auto &pass = mPassesHandler.getBackend(type);
+  for (const PassQueue &queue : pass.frames.queues)
   {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineM.getPipeline(queue.pipelineIndex));
     for (auto *draw : queue.drawCalls)

@@ -15,10 +15,10 @@ enum class FragmentShaderType
 // Renderpass
 enum class RenderPassType : uint16_t
 {
+    Shadow,
     Forward,
     GBuffer,
     Lighting,
-    Shadow,
     PostProcess,
     UI,
     Count
@@ -74,8 +74,8 @@ struct PipelineLayoutConfig
 struct PipelineRasterConfig
 {
     VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
-    //Todo: https://johannesugb.github.io/gpu-programming/why-do-opengl-proj-matrices-fail-in-vulkan/
-    //This subject CLOCKWISE should be used
+    // Todo: https://johannesugb.github.io/gpu-programming/why-do-opengl-proj-matrices-fail-in-vulkan/
+    // This subject CLOCKWISE should be used
     VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     // Lines and Point with fillModeNonSolid available with gpu features
     VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL;
@@ -180,10 +180,10 @@ struct PipelineSetLayoutBuilder
     }
 };
 
-//Todo: SHould be directly in Material
-//But hten Material would need to output it ?
-// PipelineSetLayoutBuilder materialLayoutInfo;
-// Introduce information too much tied to the Pipeline here
+// Todo: SHould be directly in Material
+// But hten Material would need to output it ?
+//  PipelineSetLayoutBuilder materialLayoutInfo;
+//  Introduce information too much tied to the Pipeline here
 struct MaterialLayoutRegistry
 {
     static const PipelineSetLayoutBuilder &Get(MaterialType type)
@@ -221,6 +221,45 @@ struct MaterialLayoutRegistry
 
 // Expand it for Subpasses and multiple attachements
 // TOdo: Do i froget the {.membervariable}
+struct AttachmentSource
+{
+    enum class Type : uint8_t
+    {
+        GBuffer,
+        Swapchain,
+        FrameLocal,
+        External
+    };
+
+    Type type = Type::GBuffer;
+
+    // Used for GBuffer / FrameLocal
+    uint32_t id = 0;
+
+    // Used only if type == External
+    VkImageView externalView = VK_NULL_HANDLE;
+
+    static AttachmentSource GBuffer(uint32_t index)
+    {
+        return {Type::GBuffer, index, VK_NULL_HANDLE};
+    }
+
+    static AttachmentSource FrameLocal(uint32_t index)
+    {
+        return {Type::FrameLocal, index, VK_NULL_HANDLE};
+    }
+
+    static AttachmentSource Swapchain()
+    {
+        return {Type::Swapchain, 0, VK_NULL_HANDLE};
+    }
+
+    static AttachmentSource External(VkImageView view)
+    {
+        return {Type::External, 0, view};
+    }
+};
+
 struct AttachmentConfig
 {
     // Todo: See where this could be used
@@ -238,28 +277,27 @@ struct AttachmentConfig
 
     enum class Role : uint8_t
     {
-        Other,
+        Color,
         Depth,
         Present
-    } role;
-
-    // Index of the attachment in The Gbuffer
-    // Todo: Might interesting to find another way as for example Depth will need an ID but it won't really be used due to Depth Buffer be separated
-    // An automatic way to assign using correct fromat ?
-    // This also create a disconnect since we also jave VkFormat which is an information that should come from the attachment
-    // The better choice would be to pass the Gbuffer directly in
-    // Currently 255 is a stand in for invalid
-    uint8_t realAttachmentID = 255;
+    } role = Role::Color;
 
     // VkAttachmentLoadOp stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     // VkAttachmentStoreOp stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 };
 
-enum class RenderConfigType
+struct AttachmentBinding
+{
+    AttachmentSource source;
+    AttachmentConfig config;
+};
+
+enum class RenderConfigType : uint8_t
 {
     Dynamic,
     LegacyRenderPass
 };
+
 // Todo: Crtp might not really useful here
 // Look for example where it is actually useful
 // Static polymorphism is probably not needed
@@ -268,28 +306,29 @@ enum class RenderConfigType
 template <typename Derived>
 struct RenderTargetConfigCRTP
 {
-    // The entire Attachement COnfig i
-    // Not fully useful for dynamic rendering
-    // Should we change this ?
-    std::vector<AttachmentConfig> attachments;
+    // Todo:
+    //  The entire Attachement config is not that useful with dynamic rendering iirc
+    std::vector<AttachmentBinding> attachments;
 
     RenderConfigType type = RenderConfigType::Dynamic;
 
     bool enableDepth = true;
     bool enableMSAA = false;
 
+    // Todo: Remove ?
     std::vector<VkFormat> getAttachementsFormat() const
     {
         std::vector<VkFormat> attachmentFormat;
         attachmentFormat.reserve(attachments.size());
         for (const auto &attachment : attachments)
         {
-            attachmentFormat.push_back(attachment.format);
+            attachmentFormat.push_back(attachment.config.format);
         }
         return attachmentFormat;
     }
 
-    // Format of the actual offscreen G-buffers (excluding swapchain & depth)
+    // Todo: Remove ?
+    //  Format of the actual offscreen G-buffers (excluding swapchain & depth)
     std::vector<VkFormat> extractGBufferFormats() const
     {
         std::vector<VkFormat> fmts;
@@ -297,71 +336,47 @@ struct RenderTargetConfigCRTP
         // Todo:
         for (const auto &att : attachments)
         {
-            if (att.role == AttachmentConfig::Role::Other)
+            if (att.config.role == AttachmentConfig::Role::Color)
             {
                 // Bad fail safe until i deal with this
-                if (att.finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR || att.finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+                if (att.config.finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ||
+                    att.config.finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
                 {
                     continue;
-                    ;
                 }
-                fmts.push_back(att.format);
+                fmts.push_back(att.config.format);
             }
         }
         return fmts;
     }
 
-    // Todo:
-    // This add Attachment without modifying the invalidID (Mostly present/depth right now)
     Derived &addAttachment(
+        AttachmentSource source,
         VkFormat format,
         VkImageLayout finalLayout,
         VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        AttachmentConfig::Role role = AttachmentConfig::Role::Other)
+        AttachmentConfig::Role role = AttachmentConfig::Role::Color)
     {
-        attachments.push_back({.format = format,
-                               .samples = VK_SAMPLE_COUNT_1_BIT,
-                               .loadOp = loadOp,
-                               .storeOp = storeOp,
-                               .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                               .finalLayout = finalLayout,
-                               .role = role});
-        return static_cast<Derived &>(*this);
-    }
+        attachments.push_back({.source = source,
+                               .config = {
+                                   .format = format,
+                                   .samples = enableMSAA ? VK_SAMPLE_COUNT_4_BIT
+                                                         : VK_SAMPLE_COUNT_1_BIT,
+                                   .loadOp = loadOp,
+                                   .storeOp = storeOp,
+                                   .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                                   .finalLayout = finalLayout,
+                                   .role = role}});
 
-    Derived &addAttachment(
-        uint8_t attachmentId,
-        VkFormat format,
-        VkImageLayout finalLayout,
-        VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        AttachmentConfig::Role role = AttachmentConfig::Role::Other)
-    {
-        attachments.push_back({.format = format,
-                               .samples = VK_SAMPLE_COUNT_1_BIT,
-                               .loadOp = loadOp,
-                               .storeOp = storeOp,
-                               .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                               .finalLayout = finalLayout,
-                               .role = role,
-                               .realAttachmentID = attachmentId});
-        return static_cast<Derived &>(*this);
-    }
-
-    const std::vector<uint8_t> getClrAttachmentsID() const
-    {
-        // Todo: Still on the subject of trying more of C++20 tools, this kind of situation ? filter, transform
-        std::vector<uint8_t> attachementsUsed;
-        attachementsUsed.reserve(attachments.size());
-        for (const auto &attachment : attachments)
+        // TODO:Currently a GBUFFERS structures only own one depth type
+        // This serve as a failsafe
+        if (source.type == AttachmentSource::Type::GBuffer && role == AttachmentConfig::Role::Depth)
         {
-            if (attachment.realAttachmentID != 255)
-            {
-                attachementsUsed.push_back(attachment.realAttachmentID);
-            }
+            attachments.back().source.id = UINT32_MAX;
         }
-        return attachementsUsed;
+
+        return derived();
     }
 
     Derived &derived() { return static_cast<Derived &>(*this); }
@@ -371,7 +386,6 @@ struct RenderTargetConfigCRTP
 struct RenderTargetConfig : RenderTargetConfigCRTP<RenderTargetConfig>
 {
     RenderTargetConfig() { type = RenderConfigType::Dynamic; }
-    // Storethe Harrier?
 };
 
 struct SubpassConfig
@@ -430,10 +444,10 @@ struct RenderPassConfig : RenderTargetConfigCRTP<RenderPassConfig>
 
     static RenderPassConfig defaultForward(VkFormat colorFormat, VkFormat depthFormat)
     {
-        // Todo: Could
         RenderPassConfig defConfigRenderPass;
-        defConfigRenderPass.addAttachment(colorFormat, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, AttachmentConfig::Role::Present)
-            .addAttachment(depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, AttachmentConfig::Role::Depth)
+        // Gbuffer for depth don't actually matter
+        defConfigRenderPass.addAttachment(AttachmentSource::Swapchain(), colorFormat, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, AttachmentConfig::Role::Present)
+            .addAttachment(AttachmentSource::GBuffer(0), depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, AttachmentConfig::Role::Depth)
             .addSubpass()
             .useColorAttachment(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
             .useDepthAttachment(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)

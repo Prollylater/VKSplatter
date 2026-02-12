@@ -102,6 +102,7 @@ public:
     // Camera object
     Camera camera;
     LightSystem lights;
+    ShadowSystem shadow;
     PipelineSetLayoutBuilder sceneLayout; // This should either become Api agnostic or be removed
 };
 

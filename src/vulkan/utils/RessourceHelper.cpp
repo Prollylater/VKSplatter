@@ -125,7 +125,7 @@ namespace vkUtils
             if (allocator != VK_NULL_HANDLE)
             {
                 VmaAllocationCreateInfo allocInfo{};
-                //Todo: should be usage and we decide if it's auto
+                // Todo: should be usage and we decide if it's auto
                 allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
                 if (vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, outAlloc, nullptr) != VK_SUCCESS)
                 {
@@ -512,6 +512,39 @@ namespace vkUtils
             }
             return sampler;
         }
+
+        VkSampler createSampler(const ImageSamplerConfig &cfg)
+        {
+            VkSamplerCreateInfo samplerInfo{};
+            samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+
+            samplerInfo.magFilter = cfg.filter;
+            samplerInfo.minFilter = cfg.filter;
+
+            samplerInfo.addressModeU = cfg.addressMode;
+            samplerInfo.addressModeV = cfg.addressMode;
+            samplerInfo.addressModeW = cfg.addressMode;
+
+            samplerInfo.mipmapMode = cfg.useMipmaps
+                                     ? VK_SAMPLER_MIPMAP_MODE_LINEAR
+                                     : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+
+            samplerInfo.minLod = cfg.minLod;
+            samplerInfo.maxLod = cfg.useMipmaps ? cfg.maxLod : cfg.maxLod ;
+            samplerInfo.mipLodBias = cfg.lodBias;
+
+            samplerInfo.anisotropyEnable = cfg.enableAnisotropy;
+            samplerInfo.maxAnisotropy = cfg.enableAnisotropy ? 1.0f : 1.0f;
+
+            samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+            samplerInfo.unnormalizedCoordinates = VK_FALSE;
+            samplerInfo.compareEnable = VK_FALSE;
+
+            VkSampler sampler{};
+            vkCreateSampler(cfg.device, &samplerInfo, nullptr, &sampler);
+            return sampler;
+        }
+
     }
 }
 
@@ -647,22 +680,26 @@ namespace vkUtils
         }
 
         void uploadBufferDirect(VkDevice device, VkDeviceMemory memory,
-                                const void *data, VkDeviceSize size, VkDeviceSize offset )
+                                const void *data, VkDeviceSize size, VkDeviceSize offset)
         {
             void *mapped = nullptr;
-            if (vkMapMemory(device, memory, offset, size, 0, &mapped) != VK_SUCCESS){
-                throw std::runtime_error("Failed to map Vulkan buffer memory!");}
+            if (vkMapMemory(device, memory, offset, size, 0, &mapped) != VK_SUCCESS)
+            {
+                throw std::runtime_error("Failed to map Vulkan buffer memory!");
+            }
 
             std::memcpy(static_cast<char *>(mapped), data, static_cast<size_t>(size));
             vkUnmapMemory(device, memory);
         }
 
         void uploadBufferVMA(VmaAllocator allocator, VmaAllocation allocation,
-                             const void *data, VkDeviceSize size, VkDeviceSize offset )
+                             const void *data, VkDeviceSize size, VkDeviceSize offset)
         {
             void *mapped = nullptr;
-            if (vmaMapMemory(allocator, allocation, &mapped) != VK_SUCCESS){
-                throw std::runtime_error("Failed to map VMA buffer memory!");}
+            if (vmaMapMemory(allocator, allocation, &mapped) != VK_SUCCESS)
+            {
+                throw std::runtime_error("Failed to map VMA buffer memory!");
+            }
 
             std::memcpy(static_cast<char *>(mapped) + offset, data, static_cast<size_t>(size));
             vmaUnmapMemory(allocator, allocation);

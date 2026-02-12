@@ -70,7 +70,7 @@ struct GPUBufferRef
         }
 
         */
-        if (!buffer || offset + stride > size || stride == 0 || stride)
+        if (!buffer || offset + stride > size || stride == 0)
         {
             return;
         }

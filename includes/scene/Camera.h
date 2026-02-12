@@ -10,14 +10,23 @@ public:
     Camera();
 
     Camera(glm::vec3 position, glm::vec3 worldUp, float yaw, float pitch, float fov, float aspect, float nearPlane, float farPlane);
-    
+
     glm::mat4 getViewMatrix() const;
     glm::mat4 getProjectionMatrix() const;
     float getFov() const;
     float getAspect() const;
     glm::vec3 getFront() const;
     glm::vec4 getEye() const;
+    
+    float getNearPlane() const
+    {
+        return nearPlane;
+    }
 
+    float getFarPlane() const
+    {
+        return farPlane;
+    }
     void processKeyboardMovement(float deltaTime, bool forward, bool backward, bool left, bool right, bool up, bool down);
     void processMouseMovement(float xoffset, float yoffset);
     void processMouseScroll(float yoffset);
@@ -28,13 +37,14 @@ public:
         updateCameraVectors();
     }
 
-    float getMvmtSpd() {
+    float getMvmtSpd()
+    {
         return movementSpeed;
     };
     void setMvmtSpd(float newSpeed);
-    float getMouseSns() {
-                return mouseSensitivity;
-
+    float getMouseSns()
+    {
+        return mouseSensitivity;
     };
     void setMouseSensitivity(float newSensitivity);
 

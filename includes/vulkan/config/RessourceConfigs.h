@@ -61,10 +61,22 @@ namespace vkUtils
             VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
         };
 
+        struct ImageSamplerConfig
+        {
+            VkDevice device = VK_NULL_HANDLE;
+            VkFilter filter = VK_FILTER_LINEAR;
+            VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+
+            bool useMipmaps = false;
+            bool enableAnisotropy = false;
+
+            float minLod = 0.0f;
+            float maxLod = 1.0f;
+            float lodBias = 0.0f;
+        };
+
     }
 } // namespace vkUtils::Texture
-
-
 
 namespace vkUtils
 {
