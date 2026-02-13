@@ -43,6 +43,14 @@ struct LightPacket
     static constexpr uint32_t pointLightSize = sizeof(PointLight);
 };
 
+struct ShadowPacket
+{
+    std::vector<std::array<Cascade, LightSystem::MAX_CASCADES>> cascades;
+    uint32_t shadowCount;
+
+    static constexpr uint32_t shadowSize = sizeof(Cascade);
+};
+
 // Skip if GPU culling ?
 struct VisibleObject
 {
@@ -77,9 +85,11 @@ struct VisibilityFrame
     LightPacket lightData;
 };
 
-
-
-// Temporary
+// Notes:
+//  Scene do need to be more complete and perhaps the main vector of change
+//  Due to pipeline Layout
+//  I am considering making Scene a base class interface
+//
 class Scene
 {
 public:
@@ -95,14 +105,16 @@ public:
     Camera &getCamera();
     SceneData getSceneData() const;
     LightPacket getLightPacket() const;
+    ShadowPacket getShadowPacket() const;
+
+    void updateLights(float deltaTime);
+    void updateShadows();
 
     // Todo: Something about rebuild when an Asset become invalid
     std::vector<SceneNode> nodes;
     Extents sceneBB;
-    // Camera object
     Camera camera;
     LightSystem lights;
-    ShadowSystem shadow;
     PipelineSetLayoutBuilder sceneLayout; // This should either become Api agnostic or be removed
 };
 

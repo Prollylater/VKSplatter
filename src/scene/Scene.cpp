@@ -1,5 +1,7 @@
 #include "Scene.h"
 #include <unordered_set>
+
+// Todo:: Add user function to handle this 
 Scene::Scene()
 {
     sceneLayout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -11,8 +13,8 @@ Scene::Scene()
 
     sceneLayout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SceneData));
 
-    lights.addDirLight({glm::vec4(0.5, 1.0, 0.0, 0.0), glm::vec4(1.0, 1.0, 1.0, 0.0), 1.0});
-    lights.setMatchingShadow(0, true, shadow.getCascadeShadows().createDirectionalShadow(0));
+    uint32_t lastLight = lights.addDirLight({glm::vec4(0.5, 1.0, 0.0, 0.0), glm::vec4(1.0, 1.0, 1.0, 0.0), 1.0});
+    lights.enableShadow(lastLight);
     // lights.addDirLight({glm::vec4(0.5, -1.0, 0.0, 0.0), glm::vec4(0.2, 0.0, 1.0, 0.0), 1.0});
     // lights.addPointLight({glm::vec4(0.0, 1.0, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 1.5, 1.5});
     // lights.addPointLight({glm::vec4(-0.0, 0.0, 0.5, 0.0), glm::vec4(0.0, 1.0, 1.0, 0.0), 0.5, 0.5});
@@ -29,7 +31,6 @@ Scene::Scene(int compute)
     sceneLayout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SceneData));
 };
 
-// Todo: &&
 void Scene::addNode(SceneNode node)
 {
     /*
@@ -82,7 +83,59 @@ SceneData Scene::getSceneData() const
 
 LightPacket Scene::getLightPacket() const
 {
-    return {lights.getDirLights(), lights.dirLightCount(), lights.getPointLights(), lights.pointLightCount()};
+
+    const auto &dirInstances = lights.getDirLights();
+
+    std::vector<DirectionalLight> directionalLights;
+    directionalLights.reserve(dirInstances.size());
+
+    for (const auto &inst : dirInstances)
+    {
+        directionalLights.push_back(inst.light);
+    };
+
+    const auto &ptInstances = lights.getPointLights();
+
+    std::vector<PointLight> ptLights;
+    ptLights.reserve(ptInstances.size());
+
+    for (const auto &inst : ptInstances)
+    {
+        ptLights.push_back(inst.light);
+    };
+
+    return {directionalLights, lights.dirLightCount(), ptLights, lights.pointLightCount()};
+}
+
+ShadowPacket Scene::getShadowPacket() const
+{
+
+    const auto &dirLights = lights.getDirLights();
+
+    std::vector<std::array<Cascade, LightSystem::MAX_CASCADES>> cascades;
+    for (const auto &inst : dirLights)
+    {
+        if (!inst.shadow.has_value())
+        {
+            continue;
+        }
+
+        cascades.push_back(inst.shadow->cascades);
+    }
+
+    return {cascades, cascades.size()};
+}
+
+void Scene::updateLights(float deltaTime)
+{
+    lights.update(deltaTime);
+    updateShadows();
+}
+
+void Scene::updateShadows()
+{
+    const Camera &cam = camera;
+    updateCascadeShadows(lights, cam);
 }
 
 // Should only use on a valid scene
