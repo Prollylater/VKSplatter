@@ -40,20 +40,15 @@ private:
 // RenderPassManager should join this ? Or not ?
 struct PassBackend
 {
-
-    RenderConfigType type = RenderConfigType::Dynamic;
-
-    RenderTargetConfig dynamicConfig;
-    DynamicPassInfo dynamicInfo{};
-
-    // TODOl    Check for remnant of the old pattern
-    RenderPassManager renderPassLegacy; // Shouldn't handle Pass type granularity anymore
+    RenderPassConfig config;
+    DynamicPassInfo dynamicInfo;
+    RenderPassManager renderPassLegacy;
 
     SwapChainResources frameBuffers;
-
     RenderPassFrame frames; // drawables per frame
 
-    bool isDynamic() const { return type == RenderConfigType::Dynamic; }
+    VkExtent2D extent{}; // A passes is going to have one extent
+    bool isDynamic() const { return config.mType == RenderConfigType::Dynamic; }
 };
 
 class RenderPassHandler
@@ -69,10 +64,9 @@ public:
         mFrameHandler = &frameHandler;
     }
 
-    void addPass(RenderPassType type, RenderPassConfig legacyCfg)
+    void addPass(RenderPassType type, RenderPassConfig passesCfg)
     {
         auto &backend = mPasses[(size_t)type];
-        backend.type = RenderConfigType::LegacyRenderPass;
         std::cout << "Init Render Infrastructure" << std::endl;
 
         const auto &mLogDeviceM = mContext->getLDevice();
@@ -81,57 +75,173 @@ public:
 
         const VkDevice &device = mLogDeviceM.getLogicalDevice();
 
-        const VkFormat depthFormat = mPhysDeviceM.findDepthFormat();
-
         // Onward is just hardcoded stuff not meant to be dynamic yet
-        const VmaAllocator &allocator = mLogDeviceM.getVmaAllocator();
-
-        backend.renderPassLegacy.createRenderPass(device, 0, legacyCfg);
-
-        for (int i = 0; i < mContext->mSwapChainM.GetSwapChainImageViews().size(); i++)
+        if (passesCfg.mType == RenderConfigType::LegacyRenderPass)
         {
-            std::vector<VkImageView> FBViews;
-            std::vector<VkImageView> colorViews;
-            VkImageView depthView;
+            backend.renderPassLegacy.createRenderPass(device, 0, passesCfg);
+            backend.config = passesCfg;
 
-            for (const auto &binding : legacyCfg.attachments)
+            for (int i = 0; i < mContext->mSwapChainM.GetSwapChainImageViews().size(); i++)
             {
-                VkImageView view = resolveAttachment(binding.source);
-                switch (binding.config.role)
+                std::vector<VkImageView> FBViews;
+                std::vector<VkImageView> colorViews;
+                VkImageView depthView;
+
+                for (const auto &binding : passesCfg.attachments)
                 {
-                case AttachmentConfig::Role::Present:
-                    FBViews.push_back(view);
-                    break;
+                    VkImageView view = resolveAttachment(binding.source);
+                    switch (binding.config.role)
+                    {
+                    case AttachmentConfig::Role::Present:
+                        FBViews.push_back(view);
+                        break;
 
-                case AttachmentConfig::Role::Color:
-                    colorViews.push_back(view);
-                    break;
+                    case AttachmentConfig::Role::Color:
+                        colorViews.push_back(view);
+                        break;
 
-                case AttachmentConfig::Role::Depth:
-                    depthView = view;
-                    break;
+                    case AttachmentConfig::Role::Depth:
+                        depthView = view;
+                        break;
+                    }
                 }
+
+                // Then regular colors
+                FBViews.insert(
+                    FBViews.end(),
+                    colorViews.begin(),
+                    colorViews.end());
+                // Multiple FrameBUffer might be the same
+                backend.frameBuffers.createFrameBuffer(device, backend.renderPassLegacy.getRenderPass(0), FBViews,
+                                                       mContext->getSwapChainManager().getSwapChainExtent(), i);
             }
-
-            // Then regular colors
-            FBViews.insert(
-                FBViews.end(),
-                colorViews.begin(),
-                colorViews.end());
-            // Multiple FrameBUffer might be the same
-            backend.frameBuffers.createFrameBuffer(device, backend.renderPassLegacy.getRenderPass(0), FBViews,
-                                                   mContext->getSwapChainManager().getSwapChainExtent(), i);
         }
-    }
-
-    void addPass(RenderPassType type, RenderTargetConfig dynConfig)
-    {
-        auto &backend = mPasses[(size_t)type];
-        backend.type = RenderConfigType::Dynamic;
-        backend.dynamicConfig = dynConfig;
+        else
+        {
+            backend.config = passesCfg;
+        }
+        resolvePassExtent(backend);
     }
 
     PassBackend &getBackend(RenderPassType type) { return mPasses[(size_t)type]; }
+
+    void RenderPassHandler::beginPass(RenderPassType type, VkCommandBuffer cmd)
+    {
+        auto &backend = mPasses[(size_t)type];
+
+        VkExtent2D extent = mContext->getSwapChainManager().getSwapChainExtent();
+
+        if (backend.isDynamic())
+        {
+            transitionAttachmentsForBegin(backend, cmd);
+
+            updateDynamicRenderingInfo(type, extent);
+
+            vkCmdBeginRendering(cmd, &backend.dynamicInfo.info);
+        }
+        else
+        {
+            backend.renderPassLegacy.startPass(
+                0, cmd,
+                backend.frameBuffers.getFramebuffers(mFrameHandler->getCurrentFrameIndex()),
+                extent);
+        }
+    }
+
+    void endPass(RenderPassType type, VkCommandBuffer cmd)
+    {
+        auto &backend = mPasses[(size_t)type];
+
+        if (backend.isDynamic())
+        {
+            vkCmdEndRendering(cmd);
+
+            transitionAttachmentsForEnd(backend, cmd);
+        }
+        else
+        {
+            backend.renderPassLegacy.endPass(cmd);
+        }
+    }
+
+    void transitionAttachmentsForBegin(PassBackend &backend,
+                                       VkCommandBuffer cmd)
+    {
+        for (const auto &binding : backend.config.attachments)
+        {
+            VkImage image = resolveImage(binding.source);
+
+            VkImageLayout targetLayout =
+                (binding.config.role == AttachmentConfig::Role::Depth)
+                    ? VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
+                    : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+            auto barrier = vkUtils::Texture::makeTransition(
+                image,
+                binding.config.initialLayout,
+                targetLayout,
+                aspectFromRole(binding.config.role));
+
+            barrier.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            barrier.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+            /*
+                //Ideally we could just loop going from subpass then only adress the relevant attachment
+                //This should also be the way in udpateFramesRendering instead of rebuilding from inpit
+                //using subpasses we define all our transition
+              defConfigRenderPass.addAttachment(AttachmentSource::Swapchain(), colorFormat, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, AttachmentConfig::Role::Present)
+            .addAttachment(AttachmentSource::GBuffer(0), depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, AttachmentConfig::Role::Depth)
+            .addSubpass() // This is chained
+            .useColorAttachment(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+            .useDepthAttachment(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+            .addDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+            
+            */
+            vkUtils::Texture::recordImageMemoryBarrier(cmd, barrier);
+        }
+
+        // Todo: This should be customizable for some effect
+        VkViewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = static_cast<float>(backend.extent.width);
+        viewport.height = static_cast<float>(backend.extent.height);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+        VkRect2D scissor{};
+        scissor.offset = {0, 0};
+        scissor.extent = backend.extent;
+        vkCmdSetScissor(cmd, 0, 1, &scissor);
+    }
+
+    void transitionAttachmentsForEnd(PassBackend &backend,
+                                     VkCommandBuffer cmd)
+    {
+        for (const auto &binding : backend.config.attachments)
+        {
+            VkImage image = resolveImage(binding.source);
+
+            VkImageLayout currentLayout =
+                (binding.config.role == AttachmentConfig::Role::Depth)
+                    ? VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
+                    : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+            auto barrier = vkUtils::Texture::makeTransition(
+                image,
+                currentLayout,
+                binding.config.finalLayout,
+                aspectFromRole(binding.config.role));
+
+            barrier.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            barrier.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+            vkUtils::Texture::recordImageMemoryBarrier(cmd, barrier);
+        }
+    }
 
     void updateDynamicRenderingInfo(
         RenderPassType type,
@@ -149,7 +259,7 @@ public:
 
         colorInfos.clear();
 
-        for (const auto &binding : backend.dynamicConfig.attachments)
+        for (const auto &binding : backend.config.attachments)
         {
             VkImageView view = resolveAttachment(binding.source);
 
@@ -211,7 +321,7 @@ public:
     {
         for (auto &pass : mPasses)
         {
-            if (pass.type == RenderConfigType::LegacyRenderPass)
+            if (pass.isDynamic())
             {
                 pass.renderPassLegacy.destroyAll(device);
                 for (int i = 0; i < mContext->mSwapChainM.GetSwapChainImageViews().size(); i++)
@@ -250,12 +360,83 @@ private:
         case AttachmentSource::Type::FrameLocal:
             // TODO: Convenience
             // FrameHandler ought to be redesigned, and FrameLocal should be replace by GPURegistry
-            //return mFrameHandler->getCurrentFrameData().cascadePoolArray.getView();
-            return mFrameHandler->getCurrentFrameData().depthView[0]; 
+            // return mFrameHandler->getCurrentFrameData().cascadePoolArray.getView();
+            return mFrameHandler->getCurrentFrameData().depthView[0];
         case AttachmentSource::Type::External:
             // return  could fetch from GPU Registry but wouldn't work if local
         default:
             return VK_NULL_HANDLE;
+        }
+    }
+
+    VkImage resolveImage(const AttachmentSource &src)
+    {
+        switch (src.type)
+        {
+        case AttachmentSource::Type::Swapchain:
+            return mContext->getSwapChainManager().GetSwapChainImages()[mFrameHandler->getCurrentFrameIndex()];
+        case AttachmentSource::Type::GBuffer:
+            // TODO: Convenience
+            if (src.id == UINT32_MAX) // THis currently imply our src is depth
+            {
+                return mGBuffers->getDepthImage();
+            }
+            return mGBuffers->getColorImage(src.id);
+            // Ideally Depth would not be separated in GBuffers anymore
+        case AttachmentSource::Type::FrameLocal:
+            // TODO: Convenience
+            // FrameHandler ought to be redesigned, and FrameLocal should be replace by GPURegistry
+            // return mFrameHandler->getCurrentFrameData().cascadePoolArray.getView();
+            return mFrameHandler->getCurrentFrameData().cascadePoolArray.getImage();
+        case AttachmentSource::Type::External:
+            // return  could fetch from GPU Registry but wouldn't work if local
+        default:
+            return VK_NULL_HANDLE;
+        }
+    }
+
+    VkImageAspectFlags aspectFromRole(AttachmentConfig::Role role)
+    {
+        switch (role)
+        {
+        case AttachmentConfig::Role::Depth:
+            return VK_IMAGE_ASPECT_DEPTH_BIT;
+
+        case AttachmentConfig::Role::Present:
+        case AttachmentConfig::Role::Color:
+        default:
+            return VK_IMAGE_ASPECT_COLOR_BIT;
+        }
+    }
+
+    VkExtent2D resolvePassExtent(const PassBackend &pass)
+    {
+        VkExtent2D result{0, 0};
+
+        for (const auto &binding : pass.config.attachments)
+        {
+            VkExtent2D attachmentExtent = resolveAttachmentExtent(binding.source);
+            result.width = std::max(result.width, attachmentExtent.width);
+            result.height = std::max(result.height, attachmentExtent.height);
+        }
+
+        return result;
+    }
+
+    VkExtent2D resolveAttachmentExtent(const AttachmentSource &src)
+    {
+        switch (src.type)
+        {
+        case AttachmentSource::Type::GBuffer:
+            // GBuffer all share one single size
+            return mGBuffers->getSize();
+        case AttachmentSource::Type::FrameLocal:
+            VkExtent3D extent3D = mFrameHandler->getCurrentFrameData().cascadePoolArray.getExtent();
+            return {extent3D.width, extent3D.height};
+        case AttachmentSource::Type::External:
+        case AttachmentSource::Type::Swapchain:
+        default:
+            return mContext->getSwapChainManager().getSwapChainExtent();
         }
     }
 };

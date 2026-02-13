@@ -40,17 +40,11 @@ public:
         mPassesHandler.init(context, mGBuffers, mFrameHandler);
     }
 
-    void addPass(RenderPassType type, RenderPassConfig legacyConfig)
+   
+    void addPass(RenderPassType type, RenderPassConfig config)
     {
-        mUseDynamic = false;
-        
-        mPassesHandler.addPass(type, legacyConfig);
-    }
-
-    void addPass(RenderPassType type, RenderTargetConfig dynConfig)
-    {
-        mUseDynamic = true;
-        mPassesHandler.addPass(type, dynConfig);
+        mUseDynamic = static_cast<bool>(config.mType);
+        mPassesHandler.addPass(type, config);
     }
 
     void beginFrame(const SceneData &sceneData, GLFWwindow *window);
@@ -98,7 +92,6 @@ private:
     PipelineManager mPipelineM;
 
     bool mUseDynamic = false;
-    void initRenderInfrastructure(RenderPassType type, const RenderTargetConfig &cfg);
     void initRenderInfrastructure(RenderPassType type, const RenderPassConfig &cfg);
 
     // Todo: Remove

@@ -18,12 +18,12 @@ public:
    
     VkRenderPass getRenderPass(uint32_t id) const;
     //VkRenderPass getRenderPass(RenderPassType id) const ;
-    const RenderPassConfig &getConfiguration(uint32_t id)  const;
+    //const RenderPassConfig &getConfiguration(uint32_t id)  const;
 private:
     VkDevice mDevice = VK_NULL_HANDLE;
     struct RenderPassEntry
     {
-        RenderPassConfig config;
+        //RenderPassConfig config;
         VkRenderPass pass;
     };
 

@@ -310,7 +310,7 @@ struct RenderTargetConfigCRTP
     //  The entire Attachement config is not that useful with dynamic rendering iirc
     std::vector<AttachmentBinding> attachments;
 
-    RenderConfigType type = RenderConfigType::Dynamic;
+    RenderConfigType mType = RenderConfigType::Dynamic;
 
     bool enableDepth = true;
     bool enableMSAA = false;
@@ -383,10 +383,7 @@ struct RenderTargetConfigCRTP
     const Derived &derived() const { return static_cast<const Derived &>(*this); }
 };
 
-struct RenderTargetConfig : RenderTargetConfigCRTP<RenderTargetConfig>
-{
-    RenderTargetConfig() { type = RenderConfigType::Dynamic; }
-};
+
 
 struct SubpassConfig
 {
@@ -407,8 +404,17 @@ struct RenderPassConfig : RenderTargetConfigCRTP<RenderPassConfig>
     std::vector<SubpassConfig> subpasses;
     std::vector<VkSubpassDependency> dependencies;
 
-    RenderPassConfig() { type = RenderConfigType::LegacyRenderPass; }
+    RenderPassConfig() = default;
 
+    RenderPassConfig &setRenderingType(RenderConfigType _type)
+    {
+        mType = _type;
+        return *this;
+    }
+
+    /// @brief Add a new passess/subpasses
+    /// Every .use*Attachements following an addSubpass belong to it
+    /// This wasn't built assuming more than one subpass
     RenderPassConfig &addSubpass()
     {
         subpasses.emplace_back();

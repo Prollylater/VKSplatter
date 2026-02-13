@@ -3,7 +3,6 @@
 #include "BaseVk.h"
 #include "QueueFam.h"
 
-class RenderTargetConfig;
 
 struct SwapChainSupportDetails
 {

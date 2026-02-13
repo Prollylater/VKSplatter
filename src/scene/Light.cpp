@@ -84,6 +84,8 @@ void updateCascadeShadows(LightSystem &lights, const Camera &camera)
     // Todo: Const_cast here !!
     // It probably mean this might be better in Update
     // Left as a remember to reread about this particular design
+
+    //Can skip this if light or camera haven't moved aka, introduce light camera dirty concept
     auto &dirLights = const_cast<std::vector<DirectionalLightInstance> &>(
         lights.getDirLights());
 

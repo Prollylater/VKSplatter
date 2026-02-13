@@ -298,11 +298,30 @@ void Renderer::endFrame(bool framebufferResized)
 
 void Renderer::beginPass(RenderPassType type)
 {
+  auto &frame = mFrameHandler.getCurrentFrameData();
+  VkCommandBuffer cmd = frame.mCommandPool.get();
+
+  mPassesHandler.beginPass(type, cmd);
+}
+
+void Renderer::endPass(RenderPassType type)
+{
+  auto &frame = mFrameHandler.getCurrentFrameData();
+  VkCommandBuffer cmd = frame.mCommandPool.get();
+
+  mPassesHandler.endPass(type, cmd);
+}
+
+void Renderer::beginPass(RenderPassType type)
+{
   VkExtent2D extent = mContext->mSwapChainM.getSwapChainExtent();
   FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
   VkCommandBuffer command = frameRess.mCommandPool.get();
   uint32_t renderPassIndex = static_cast<uint32_t>(type);
 
+  mPassesHandler.beginPass(type, command);
+
+  /*
   // Todo :  Handle the proper transition for each frame through passesHandler
   if (mUseDynamic)
   {
@@ -351,6 +370,12 @@ void Renderer::beginPass(RenderPassType type)
     pass.renderPassLegacy.startPass(0, command, pass.frameBuffers.getFramebuffers(mFrameHandler.getCurrentFrameIndex()), extent);
   }
 
+  if (type == RenderPassType::Shadow)
+  {
+    extent.height = 1024;
+    extent.width = 1024;
+  }
+
   // Setup viewport / scissor
   VkViewport viewport{};
   viewport.x = 0.0f;
@@ -364,12 +389,18 @@ void Renderer::beginPass(RenderPassType type)
   VkRect2D scissor{};
   scissor.extent = extent;
   vkCmdSetScissor(command, 0, 1, &scissor);
+    */
+
 };
 
 void Renderer::endPass(RenderPassType type)
 {
   FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
+  auto &commandPoolM = frameRess.mCommandPool;
+  const VkCommandBuffer command = commandPoolM.get();
 
+  mPassesHandler.endPass(type, command);
+  /*
   if (mUseDynamic)
   {
     FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
@@ -393,7 +424,7 @@ void Renderer::endPass(RenderPassType type)
   {
     auto &pass = mPassesHandler.getBackend(type);
     pass.renderPassLegacy.endPass(frameRess.mCommandPool.get());
-  }
+  }*/
 };
 
 // Handle non Material object

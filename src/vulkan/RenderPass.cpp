@@ -7,10 +7,10 @@
 
 VkRenderPass RenderPassManager::getRenderPass(uint32_t id) const { return mRenderPasses[id].pass; };
 //VkRenderPass RenderPassManager::getRenderPass(RenderPassType id) const { return mRenderPasses[static_cast<uint32_t>(id)].pass; };
-const RenderPassConfig &RenderPassManager::getConfiguration(uint32_t id) const
-{
-    return mRenderPasses[id].config;
-}
+//const RenderPassConfig &RenderPassManager::getConfiguration(uint32_t id) const
+//{
+//    return mRenderPasses[id].config;
+//}
 
 void RenderPassManager::createRenderPass(VkDevice device, int type, const RenderPassConfig &configStruct)
 {
@@ -84,7 +84,7 @@ void RenderPassManager::createRenderPass(VkDevice device, int type, const Render
     renderPassInfo.dependencyCount = configStruct.dependencies.size();
     renderPassInfo.pDependencies = configStruct.dependencies.data();
 
-    mRenderPasses[static_cast<uint32_t>(type)].config = configStruct;
+    //mRenderPasses[static_cast<uint32_t>(type)].config = configStruct;
     if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &mRenderPasses[static_cast<uint32_t>(type)].pass) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create render pass!");

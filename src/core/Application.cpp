@@ -88,7 +88,7 @@ void Application::initFramework()
     // TODO: This should come from configuration simplified for the user
     if (useDynamic)
     {
-        RenderTargetConfig defRenderPass;
+        RenderPassConfig defRenderPass;
         defRenderPass.addAttachment(AttachmentSource::Swapchain(),
                                     mContext->mSwapChainM.getSwapChainImageFormat().format,
                                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -104,7 +104,7 @@ void Application::initFramework()
         mRenderer->addPass(RenderPassType::Forward, defRenderPass);
 
         // Depth only passes
-        RenderTargetConfig defShadowPass;
+        RenderPassConfig defShadowPass;
         /*defShadowPass.addAttachment(AttachmentSource::FrameLocal(0),
                          mContext->mSwapChainM.getSwapChainImageFormat().format,
                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -124,6 +124,7 @@ void Application::initFramework()
         RenderPassConfig defConfigRenderPass = RenderPassConfig::defaultForward(
             mContext->mSwapChainM.getSwapChainImageFormat().format,
             mContext->mPhysDeviceM.findDepthFormat());
+        defConfigRenderPass.setRenderingType(RenderConfigType::LegacyRenderPass);
         mRenderer->addPass(RenderPassType::Forward, defConfigRenderPass);
 
         // Shadow pass not done here
