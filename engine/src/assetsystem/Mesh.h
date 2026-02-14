@@ -1,5 +1,4 @@
 #pragma once
-// #include "AssetTypes.h"
 #include "VertexDescriptions.h"
 #include "Material.h"
 #include "geometry/Extents.h"

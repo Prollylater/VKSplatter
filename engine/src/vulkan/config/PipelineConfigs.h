@@ -181,7 +181,7 @@ struct PipelineSetLayoutBuilder
     }
 };
 
-// Todo: SHould be directly in Material
+// Todo: SHould be directly in Material but i don't want Vulkan Stuff there
 // But hten Material would need to output it ?
 //  PipelineSetLayoutBuilder materialLayoutInfo;
 //  Introduce information too much tied to the Pipeline here

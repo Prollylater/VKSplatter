@@ -12,7 +12,8 @@ find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
 
 #Directories
-set(SOURCE_DIR src)
+set(SOURCE_DIR engine/src)
+set(USER_DIR application)
 set(INCLUDE_DIR includes)
 set(THIRD_PARTY thirdparty)
 
@@ -26,8 +27,8 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 
 # Source files
 set(SOURCES
-    ${SOURCE_DIR}/main.cpp
-    ${SOURCE_DIR}/HelloTriangle.cpp  
+    ${USER_DIR}/main.cpp
+    ${USER_DIR}/HelloTriangle.cpp  
 
     ${SOURCE_DIR}/assetsystem/AssetIO.cpp   
     ${SOURCE_DIR}/assetsystem/AssetRegistry.cpp   
@@ -95,6 +96,7 @@ target_include_directories(VulkanGLFWExample PRIVATE
 ${Vulkan_INCLUDE_DIRS} 
 ${GLFW_INCLUDE_DIRS}
 ${THIRD_PARTY}
+${USER_DIR}
 ${SOURCE_DIR}/vulkan
 ${SOURCE_DIR}/assetsystem
 ${SOURCE_DIR}/core
