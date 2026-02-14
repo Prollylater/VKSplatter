@@ -12,7 +12,7 @@ Camera::Camera()
       fov(45.0f),
       aspect(16.0f / 9.0f),
       nearPlane(0.1f),
-      farPlane(1000.0f)
+      farPlane(100.0f)
 {
     updateCameraVectors();
     //Read more on this convention

@@ -10,16 +10,24 @@
 #include "ResourceSystem.h"
 #include "MaterialSystem.h"
 #include "WindowVk.h"
+/*
 
-Application::Application()
-{
-    // Setup default paths
+Application::Application(){
+    mEngineSpec = ContextCreateInfo::Default();
+    mEngineSpec.selectionCriteria.requireGeometryShader = true;
+
     cico::fs::setRoot(std::filesystem::current_path());
     cico::fs::setShaders(cico::fs::root() / "ressources/shaders");
     cico::fs::setTextures(cico::fs::root() / "ressources/textures");
     cico::fs::setMeshes(cico::fs::root() / "ressources/models");
 }
-
+*/
+Application::Application(ContextCreateInfo& info) : mEngineSpec(info){
+    cico::fs::setRoot(std::filesystem::current_path());
+    cico::fs::setShaders(cico::fs::root() / "ressources/shaders");
+    cico::fs::setTextures(cico::fs::root() / "ressources/textures");
+    cico::fs::setMeshes(cico::fs::root() / "ressources/models");
+}
 void Application::setAssetRoot(const std::filesystem::path &root)
 {
     cico::fs::setRoot(root);
@@ -62,12 +70,9 @@ void Application::initFramework()
 
     _CINFO("Window initialized");
 
-    // TODO: This should come from configuration
-    ContextCreateInfo info = ContextCreateInfo::Default();
-    info.selectionCriteria.requireGeometryShader = true;
-
+  
     // Initialize Vulkan context
-    initVulkan(info);
+    initVulkan(mEngineSpec);
 
     // Initialize default systems
     mScene = std::make_unique<Scene>(); // Scene in Application ?
@@ -76,66 +81,10 @@ void Application::initFramework()
     mRenderer = std::make_unique<Renderer>();
     mRenderer->initialize(*mContext, mAssetSystem->registry());
 
-    // Also passes definition is not much "Frameworkey"
-
-    // TODO: This should come from configuration or user setup
-    mRenderer->initAllGbuffers({}, true);
-    mRenderer->createFramesData(info.MAX_FRAMES_IN_FLIGHT,
+    
+    mRenderer->createFramesData(mEngineSpec.MAX_FRAMES_IN_FLIGHT,
                                 mScene->sceneLayout.descriptorSetLayoutsBindings);
-    // Setup default render pass (TODO: make configurable)
 
-    constexpr bool useDynamic = true;
-    // TODO: This should come from configuration simplified for the user
-    if (useDynamic)
-    {
-
-        RenderPassConfig defRenderPass;
-        defRenderPass.addAttachment(AttachmentSource::Swapchain(),
-                                    mContext->mSwapChainM.getSwapChainImageFormat().format,
-                                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                                    VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                    VK_ATTACHMENT_STORE_OP_STORE,
-                                    AttachmentConfig::Role::Present)
-            .addAttachment(AttachmentSource::GBuffer(0),
-                           mContext->mPhysDeviceM.findDepthFormat(),
-                           VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                           VK_ATTACHMENT_LOAD_OP_CLEAR,
-                           VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                           AttachmentConfig::Role::Depth)
-            .addSubpass()
-            .useColorAttachment(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-            .useDepthAttachment(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-            .addDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-
-        mRenderer->addPass(RenderPassType::Forward, defRenderPass);
-        // Depth only passes
-        RenderPassConfig defShadowPass;
-        /*defShadowPass.addAttachment(AttachmentSource::FrameLocal(0),
-                         mContext->mSwapChainM.getSwapChainImageFormat().format,
-                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                         VK_ATTACHMENT_LOAD_OP_CLEAR,
-                         VK_ATTACHMENT_STORE_OP_STORE,
-                         AttachmentConfig::Role::Present)
-        defShadowPass.addAttachment(AttachmentSource::FrameLocal(0),
-                                    mContext->mPhysDeviceM.findDepthFormat(),
-                                    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                                    VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                    VK_ATTACHMENT_STORE_OP_STORE,
-                                    AttachmentConfig::Role::Depth);
-        mRenderer->addPass(RenderPassType::Shadow, defShadowPass);*/
-    }
-    else
-    {
-        RenderPassConfig defConfigRenderPass = RenderPassConfig::defaultForward(
-            mContext->mSwapChainM.getSwapChainImageFormat().format,
-            mContext->mPhysDeviceM.findDepthFormat());
-        defConfigRenderPass.setRenderingType(RenderConfigType::LegacyRenderPass);
-        mRenderer->addPass(RenderPassType::Forward, defConfigRenderPass);
-
-        // Shadow pass not done here
-    }
-
-    // Todo: This pattern is off
     auto &ctx = *mContext.get();
     mMaterialSystem = std::make_unique<MaterialSystem>(ctx, mAssetSystem->registry(), mRenderer->getGPURegistry());
 

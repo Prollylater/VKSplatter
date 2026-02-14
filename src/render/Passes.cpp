@@ -45,11 +45,11 @@ void SwapChainResources::createFrameBuffer(VkDevice device, VkRenderPass renderP
         mGBuffers = &gbuffers;
         mFrameHandler = &frameHandler;
     }
-
+    
+    //Todo: Recreating a pass and readding is UB
     void RenderPassHandler::addPass(RenderPassType type, RenderPassConfig passesCfg)
     {
         auto &backend = mPasses[(size_t)type];
-        std::cout << "Init Render Infrastructure" << std::endl;
 
         const auto &mLogDeviceM = mContext->getLDevice();
         const auto &mPhysDeviceM = mContext->getPDeviceM();
@@ -103,6 +103,7 @@ void SwapChainResources::createFrameBuffer(VkDevice device, VkRenderPass renderP
             backend.config = passesCfg;
         }
         backend.extent = resolvePassExtent(backend);
+        mExecutionOrder.push_back(type);
     }
 
     PassBackend & RenderPassHandler::getBackend(RenderPassType type) { return mPasses[(size_t)type]; }
@@ -165,8 +166,6 @@ void RenderPassHandler::setBeginPassTransition(PassBackend &backend, VkCommandBu
             colorRef.layout,
             VK_IMAGE_ASPECT_COLOR_BIT);
 
-        applyDependencyMasks(backend, barrier, 0);
-
         vkUtils::Texture::recordImageMemoryBarrier(cmd, barrier);
     }
 
@@ -182,8 +181,6 @@ void RenderPassHandler::setBeginPassTransition(PassBackend &backend, VkCommandBu
             binding.config.initialLayout,
             depthRef.layout,
             VK_IMAGE_ASPECT_DEPTH_BIT);
-
-        applyDependencyMasks(backend, barrier, 0);
 
         vkUtils::Texture::recordImageMemoryBarrier(cmd, barrier);
     }
@@ -222,8 +219,6 @@ void RenderPassHandler::setEndPassTransition(PassBackend &backend,
             binding.config.finalLayout,
             VK_IMAGE_ASPECT_COLOR_BIT);
 
-        applyDependencyMasks(backend, barrier, 0);
-
         vkUtils::Texture::recordImageMemoryBarrier(cmd, barrier);
     }
 
@@ -239,8 +234,6 @@ void RenderPassHandler::setEndPassTransition(PassBackend &backend,
             depthRef.layout,
             binding.config.finalLayout,
             VK_IMAGE_ASPECT_DEPTH_BIT);
-
-        applyDependencyMasks(backend, barrier, 0);
 
         vkUtils::Texture::recordImageMemoryBarrier(cmd, barrier);
     }
@@ -428,25 +421,4 @@ VkExtent2D RenderPassHandler::resolveAttachmentExtent(const AttachmentSource &sr
     default:
         return mContext->getSwapChainManager().getSwapChainExtent();
     }
-}
-
-void RenderPassHandler::applyDependencyMasks(PassBackend &backend, vkUtils::Texture::ImageTransition &barrier,
-                                             uint32_t subpassIndex)
-{
-    for (const auto &dep : backend.config.dependencies)
-    {
-        if (dep.dstSubpass == subpassIndex)
-        {
-            //TOdo: Not quite sure
-            barrier.srcStageMask = dep.srcStageMask;
-            barrier.dstStageMask = dep.dstStageMask;
-            barrier.srcAccessMask = dep.srcAccessMask;
-            barrier.dstAccessMask = dep.dstAccessMask;
-            return;
-        }
-    }
-
-    // Just in case
-    _CERROR("Default dependency mask was apply for subpass", subpassIndex, "at pass of code");
-    // Somehow get the correct type here
 }

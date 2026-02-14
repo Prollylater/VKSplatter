@@ -174,13 +174,94 @@ namespace vkUtils
         return VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
     if (access & VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
         return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    if (access & VK_ACCESS_SHADER_READ_BIT)
-        return VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 }
+//This pattern in case of non planned composite bit ?
 
-        */
+*/
+        // Notes:Both of the following should cover most of my use case for now
+        void deriveTransitionSrc(
+            VkImageLayout layout,
+            VkAccessFlags &srcaccess,
+            VkPipelineStageFlags &srcstage)
+        {
+            switch (layout)
+            {
+            case VK_IMAGE_LAYOUT_UNDEFINED:
+                srcaccess = 0;
+                srcstage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+                break;
 
+            case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+                srcaccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+                srcstage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                break;
+
+            case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+                srcaccess = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                srcstage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                           VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+                break;
+
+            case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+                srcaccess = VK_ACCESS_SHADER_READ_BIT;
+                srcstage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+                break;
+
+            case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+                srcaccess = 0;
+                srcstage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+                break;
+
+            case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+                srcaccess = VK_ACCESS_TRANSFER_WRITE_BIT;
+                srcstage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+                break;
+            default:
+                srcaccess = 0;
+                srcstage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+                break;
+            }
+        }
+
+        void deriveTransitionDst(
+            VkImageLayout layout,
+            VkAccessFlags &dstaccess,
+            VkPipelineStageFlags &dststage)
+        {
+            switch (layout)
+            {
+            case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+                dstaccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+                dststage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                break;
+            case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+                dstaccess = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                dststage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                           VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+                break;
+            case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+                dstaccess = VK_ACCESS_SHADER_READ_BIT;
+                dststage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+                break;
+            case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+                dstaccess = 0;
+                dststage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+                break;
+            case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+                dstaccess = VK_ACCESS_TRANSFER_WRITE_BIT;
+                dststage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+                break;
+            default:
+                dstaccess = 0;
+                dststage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+                break;
+            }
+        }
+
+        /// @brief Return an object defining barrier information
+        /// Valid for a number of Transition both in render and out
+        /// TODO: Transfer SRC ?
         ImageTransition makeTransition(VkImage image,
                                        VkImageLayout oldLayout,
                                        VkImageLayout newLayout,
@@ -201,33 +282,8 @@ namespace vkUtils
             transitionObject.subresourceRange.layerCount = layers;
 
             // Infer sensible defaults for common transitions
-            if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-            { // Staging image
-                transitionObject.srcAccessMask = 0;
-                transitionObject.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-                transitionObject.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-                transitionObject.dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            }
-            else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-            {
-                transitionObject.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-                transitionObject.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-                transitionObject.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-                transitionObject.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-            }
-            else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-            {
-                transitionObject.srcAccessMask = 0;
-                transitionObject.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-                                                 VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-                transitionObject.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-                transitionObject.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-            }
-            else
-            {
-                // throw std::invalid_argument("unsupported layout transition!");
-            }
-
+            deriveTransitionSrc(newLayout, transitionObject.srcAccessMask, transitionObject.srcStageMask);
+            deriveTransitionDst(newLayout, transitionObject.dstAccessMask, transitionObject.dstStageMask);
             return transitionObject;
         }
 
@@ -526,11 +582,11 @@ namespace vkUtils
             samplerInfo.addressModeW = cfg.addressMode;
 
             samplerInfo.mipmapMode = cfg.useMipmaps
-                                     ? VK_SAMPLER_MIPMAP_MODE_LINEAR
-                                     : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+                                         ? VK_SAMPLER_MIPMAP_MODE_LINEAR
+                                         : VK_SAMPLER_MIPMAP_MODE_NEAREST;
 
             samplerInfo.minLod = cfg.minLod;
-            samplerInfo.maxLod = cfg.useMipmaps ? cfg.maxLod : cfg.maxLod ;
+            samplerInfo.maxLod = cfg.useMipmaps ? cfg.maxLod : cfg.maxLod;
             samplerInfo.mipLodBias = cfg.lodBias;
 
             samplerInfo.anisotropyEnable = cfg.enableAnisotropy;

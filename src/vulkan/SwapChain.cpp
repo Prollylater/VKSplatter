@@ -63,7 +63,7 @@ VkSurfaceFormatKHR SwapChainManager::chooseSwapSurfaceFormat(const std::vector<V
       return availableFormat;
     }
   }
-  return availableFormats[0];
+  return availableFormats[1];
 }
 
 VkPresentModeKHR SwapChainManager::chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablModes, const std::vector<VkPresentModeKHR> &preferredModes)

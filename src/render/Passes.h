@@ -55,6 +55,10 @@ public:
     void addPass(RenderPassType type, RenderPassConfig passesCfg);
 
     PassBackend &getBackend(RenderPassType type);
+    const std::vector<RenderPassType>& getExecutions() const{
+        return mExecutionOrder;
+    };
+
 
     void beginPass(RenderPassType type, VkCommandBuffer cmd);
     void endPass(RenderPassType type, VkCommandBuffer cmd);
@@ -66,7 +70,9 @@ private:
     const GBuffers *mGBuffers;
     FrameHandler *mFrameHandler;
     std::array<PassBackend, (size_t)RenderPassType::Count> mPasses{};
+    std::vector<RenderPassType> mExecutionOrder;
 
+private:
     void setBeginPassTransition(PassBackend &backend, VkCommandBuffer cmd);
     void setEndPassTransition(PassBackend &backend, VkCommandBuffer cmd);
     void updateDynamicRenderingInfo(RenderPassType type,VkExtent2D extent);
@@ -77,7 +83,4 @@ private:
     VkImageAspectFlags aspectFromRole(AttachmentConfig::Role role);
     [[nodiscard]] VkExtent2D resolvePassExtent(const PassBackend &pass);
     VkExtent2D resolveAttachmentExtent(const AttachmentSource &src);
-
-     void applyDependencyMasks(PassBackend &backend, vkUtils::Texture::ImageTransition &barrier,
-                              uint32_t subpassIndex = 0);
 };

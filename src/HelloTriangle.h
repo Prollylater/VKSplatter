@@ -1,5 +1,4 @@
 #include "Application.h"
-
 /*
 As you'll see, the general pattern that object creation function parameters in Vulkan follow is:
 
@@ -15,7 +14,7 @@ Todo: Gp gems 4/6
 class HelloTriangleApplication : public Application
 {
 public:
-
+    HelloTriangleApplication(ContextCreateInfo & info) : Application(info){};
     void initScene();
     
     void setup() override;

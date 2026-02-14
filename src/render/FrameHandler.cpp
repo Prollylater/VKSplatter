@@ -59,7 +59,7 @@ void FrameHandler::createShadowTextures(LogicalDeviceManager &deviceM, VkPhysica
         depthConfig.width = LightSystem::TEXTURE_SIZE;
         depthConfig.format = VK_FORMAT_D32_SFLOAT;
         depthConfig.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        depthConfig.allocator = deviceM.getVmaAllocator();
+        //depthConfig.allocator = deviceM.getVmaAllocator();
         depthConfig.arrayLayers = MAX_SHDW_CASCADES;
         frameData.cascadePoolArray.createImage(depthConfig);
 
@@ -150,6 +150,14 @@ void FrameHandler::destroyFrameData(VkDevice device)
     frameData.mCameraBuffer.destroyBuffer(device);
     frameData.mPtLightsBuffer.destroyBuffer(device);
     frameData.mDirLightsBuffer.destroyBuffer(device);
+
+    for (auto &depth : frameData.depthView)
+    {
+        vkDestroyImageView(device, depth, nullptr);
+    }
+    frameData.cascadePoolArray.destroyImage(device);
+    frameData.mShadowBuffer.destroyBuffer(device);
+
 };
 
 // Todo: Remove this method

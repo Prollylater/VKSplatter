@@ -64,19 +64,32 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   int pipelineEntryIndex = 0;
   int pipelineEntryIndexShadow = 0;
 
+  // TODO: Important
+  const std::string vertPath = "./ressources/shaders/vert.spv";
+  const std::string fragPath = "./ressources/shaders/frag.spv";
+
   auto layout = MaterialLayoutRegistry::Get(MaterialType::PBR);
   {
     // resolve materials globally
     auto &matDescriptors = system.materialDescriptor();
     int matLayoutIdx = matDescriptors.getOrCreateSetLayout(device, layout.descriptorSetLayoutsBindings);
     sceneConfig.descriptorSetLayouts[1] = matDescriptors.getDescriptorLat(matLayoutIdx);
-    pipelineEntryIndex = requestPipeline(sceneConfig, vertPath, fragPath, RenderPassType::Forward);
-    // Nearly the same
-    auto shadowPath = cico::fs::shaders() / "shadowv.spv";
-    pipelineEntryIndexShadow = requestPipeline(sceneConfig, shadowPath, "", RenderPassType::Shadow);
+
+    for (const auto &passes : mPassesHandler.getExecutions())
+    {
+      if (passes == RenderPassType::Forward)
+      {
+        pipelineEntryIndex = requestPipeline(sceneConfig, vertPath, fragPath, passes);
+      }
+      else
+      {
+        auto shadowPath = cico::fs::shaders() / "shadowv.spv";
+        pipelineEntryIndexShadow = requestPipeline(sceneConfig, shadowPath, "", RenderPassType::Shadow);
+      }
+    }
   }
 
-  // Current state force the duplication of Instance per material which is a problematic but unforeseen thing
+  // Todo: Current state force the duplication of Instance per material which is a problematic but unforeseen thing
   for (auto &node : scene.nodes)
   {
     const auto &mesh = registry.get(node.mesh);
@@ -146,16 +159,10 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
 void Renderer::updateRenderingScene(const VisibilityFrame &vFrame, const AssetRegistry &registry, MaterialSystem &matSystem)
 {
   mRScene.updateFrameSync(*mContext, vFrame, mGpuRegistry, registry, matSystem, mFrameHandler.getCurrentFrameIndex());
-  // Shadow pass
+  for (const auto &passes : mPassesHandler.getExecutions())
   {
-    //auto &shadow = mPassesHandler.getBackend(RenderPassType::Shadow);
-    //shadow.frames.type = RenderPassType::Shadow;
-    //buildPassFrame(shadow.frames, mRScene, matSystem);
-  }
-  // Forward pass
-  {
-    auto &forward = mPassesHandler.getBackend(RenderPassType::Forward);
-    forward.frames.type = RenderPassType::Forward;
+    auto &forward = mPassesHandler.getBackend(passes);
+    forward.frames.type = passes;
     buildPassFrame(forward.frames, mRScene, matSystem);
   }
 }
@@ -191,25 +198,30 @@ int Renderer::requestPipeline(const PipelineLayoutConfig &config,
   builder.setShaders({vertexPath, fragmentPath})
       .setInputConfig({.vertexFormat = VertexFormatRegistry::getStandardFormat()});
 
-  if (mUseDynamic)
+  auto &pass = mPassesHandler.getBackend(type);
+  std::vector<VkFormat> colorFormats;
+  VkFormat depthFormat;
+  for (const auto &subpass : pass.config.subpasses)
   {
-    if (type != RenderPassType::Shadow)
-    {
-      // Hardcode,
-      // Here we fetch format instead of passing them
-      // getAllFormats is also a bad idea since it doesn't match what we actually want
-      // PassesHandler should handle
-      auto attachments = mGBuffers.getAllFormats();
-      attachments.insert(attachments.begin(), mContext->getSwapChainManager().getSwapChainImageFormat().format);
-      std::vector<VkFormat> clrAttach(attachments.begin(), attachments.end() - 1);
-      builder.setDynamicRenderPass(clrAttach, attachments.back());
-    }
-    else
-    {
-      auto attachments = mGBuffers.getAllFormats();
 
-      builder.setDynamicRenderPass({}, attachments.back());
+    for (const auto &colotAttachment : subpass.colorAttachments)
+    {
+      const auto &binding = pass.config.attachments[colotAttachment.index];
+      if (binding.config.role != AttachmentConfig::Role::Depth)
+      {
+        colorFormats.emplace_back(binding.config.format);
+      }
     }
+    if (subpass.depthAttachment.has_value())
+    {
+      depthFormat = pass.config.attachments[subpass.depthAttachment.value().index].config.format;
+      ;
+    }
+  }
+
+  if (pass.isDynamic())
+  {
+    builder.setDynamicRenderPass(colorFormats, depthFormat);
   }
   else
   {
@@ -301,7 +313,6 @@ void Renderer::beginPass(RenderPassType type)
   auto &frame = mFrameHandler.getCurrentFrameData();
   VkCommandBuffer cmd = frame.mCommandPool.get();
   mPassesHandler.beginPass(type, cmd);
- 
 };
 
 void Renderer::endPass(RenderPassType type)
@@ -309,7 +320,6 @@ void Renderer::endPass(RenderPassType type)
   auto &frame = mFrameHandler.getCurrentFrameData();
   VkCommandBuffer cmd = frame.mCommandPool.get();
   mPassesHandler.endPass(type, cmd);
- 
 };
 
 // Handle non Material object

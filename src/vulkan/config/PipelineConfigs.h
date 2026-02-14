@@ -13,6 +13,7 @@ enum class FragmentShaderType
 };
 
 // Renderpass
+//Todo: Remove this, 
 enum class RenderPassType : uint16_t
 {
     Shadow,

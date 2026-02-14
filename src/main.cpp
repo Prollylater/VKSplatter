@@ -2,7 +2,8 @@
 
 int main()
 {
-    HelloTriangleApplication app;
+    ContextCreateInfo info = ContextCreateInfo::Default();
+    HelloTriangleApplication app(info);
 
     try
     {

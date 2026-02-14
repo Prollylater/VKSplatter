@@ -19,13 +19,6 @@
 //Todo:Book https://vkguide.dev/docs/extra-chapter/intro_to_simd/ + https://vkguide.dev/docs/new_chapter_5/faster_draw/ + https://vkguide.dev/docs/gpudriven
 //Todo: Clean the includes in general
 //Todo: Multithreading https://vkguide.dev/docs/extra-chapter/multithreading/
-//Todo: Where this ? In Application ? Windows Class ?
-const uint32_t WIDTH = 800;
-const uint32_t HEIGHT = 600;
-
-// TODO: Important
-const std::string vertPath = "./ressources/shaders/vert.spv";
-const std::string fragPath = "./ressources/shaders/frag.spv";
 
 //const std::string MODEL_PATH = "./ressources/models/bmw.obj";
 //const std::string TEXTURE_PATH = "./ressources/models/bmw.png";

@@ -15,6 +15,60 @@ Pointer to the variable that stores the handle to the new object
 
 void HelloTriangleApplication::setup()
 {
+    getRenderer().initAllGbuffers({}, true);
+    constexpr bool useDynamic = true;
+
+    VkFormat swapChainFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    VkFormat depthFormat = VK_FORMAT_D32_SFLOAT;
+
+    if (useDynamic)
+    {
+        // Depth only passes
+        RenderPassConfig defShadowPass;
+        /*
+        defShadowPass.addAttachment(AttachmentSource::FrameLocal(0),
+                         mContext->mSwapChainM.getSwapChainImageFormat().format,
+                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                         VK_ATTACHMENT_LOAD_OP_CLEAR,
+                         VK_ATTACHMENT_STORE_OP_STORE,
+                         AttachmentConfig::Role::Present)*/
+        defShadowPass.addAttachment(AttachmentSource::FrameLocal(0),
+                                    depthFormat,
+                                    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                                    VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                    VK_ATTACHMENT_STORE_OP_STORE,
+                                    AttachmentConfig::Role::Depth);
+        getRenderer().addPass(RenderPassType::Shadow, defShadowPass);
+
+        RenderPassConfig defRenderPass;
+        defRenderPass.addAttachment(AttachmentSource::Swapchain(),
+                                    swapChainFormat,
+                                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                                    VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                    VK_ATTACHMENT_STORE_OP_STORE,
+                                    AttachmentConfig::Role::Present)
+            .addAttachment(AttachmentSource::GBuffer(0),
+                           depthFormat,
+                           VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                           VK_ATTACHMENT_LOAD_OP_CLEAR,
+                           VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                           AttachmentConfig::Role::Depth)
+            .addSubpass()
+            .useColorAttachment(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+            .useDepthAttachment(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+            .addDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
+        getRenderer().addPass(RenderPassType::Forward, defRenderPass);
+  
+    }
+    else
+    {
+        RenderPassConfig defConfigRenderPass = RenderPassConfig::defaultForward(
+            swapChainFormat, depthFormat);
+        defConfigRenderPass.setRenderingType(RenderConfigType::LegacyRenderPass);
+        getRenderer().addPass(RenderPassType::Forward, defConfigRenderPass);
+    }
+
     initScene();
     std::cout << "Init Scene" << std::endl;
 
@@ -44,24 +98,15 @@ void HelloTriangleApplication::initScene()
     node.layout = meshLayout;
 
     uint32_t i = node.addInstance();
-    node.getTransform(i).setPosition(glm::vec3(1, 0, 0));
-    setFieldU32(node, i, "id", 0);
-
-    /*
-    i = node.addInstance();
-    node.getTransform(i).setPosition(glm::vec3(-1, 0, 0));
-    setFieldU32(node, i, "id", 1);*/
-
+    node.getTransform(i).setPosition(glm::vec3(0, 0, 0));
     getScene().addNode(node);
 
     SceneNode nodeb{
         .mesh = assetMesh,
         .nodeExtents = meshAsset->bndbox};
-
-     i = nodeb.addInstance();
+    i = nodeb.addInstance();
     nodeb.getTransform(i).setPosition(glm::vec3(0.0, 0.0, 16.0));
     getScene().addNode(nodeb);
-
 }
 
 void HelloTriangleApplication::render()
@@ -75,13 +120,13 @@ void HelloTriangleApplication::render()
               << frameData.sceneData.eye[2] << " "
               << std::endl;
     renderer.beginFrame(frameData.sceneData, getWindow().getGLFWWindow());
-    //renderer.beginPass(RenderPassType::Shadow);
-    //renderer.drawFrame(RenderPassType::Shadow, frameData.sceneData, getMaterialSystem().materialDescriptor());
-    //renderer.endPass(RenderPassType::Shadow);
+    // renderer.beginPass(RenderPassType::Shadow);
+    // renderer.drawFrame(RenderPassType::Shadow, frameData.sceneData, getMaterialSystem().materialDescriptor());
+    // renderer.endPass(RenderPassType::Shadow);
     renderer.beginPass(RenderPassType::Forward);
     renderer.drawFrame(RenderPassType::Forward, frameData.sceneData, getMaterialSystem().materialDescriptor());
     renderer.endPass(RenderPassType::Forward);
-    
+
     renderer.endFrame(framebufferResized);
 }
 

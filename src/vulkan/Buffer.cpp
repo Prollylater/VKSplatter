@@ -97,6 +97,7 @@ void Buffer::destroyBuffer(VkDevice device, VmaAllocator allocator)
     {
         if (mBufferAllocation)
         {
+            unmap(allocator);
             vmaDestroyBuffer(allocator, mBuffer, mBufferAllocation);
         }
         else
@@ -107,6 +108,7 @@ void Buffer::destroyBuffer(VkDevice device, VmaAllocator allocator)
         mBuffer = VK_NULL_HANDLE;
         mMemory = VK_NULL_HANDLE;
         mBufferAllocation = VK_NULL_HANDLE;
+        mMapped = nullptr;
     }
 }
 

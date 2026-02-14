@@ -22,7 +22,8 @@ class VulkanContext;
 class Application
 {
 public:
-    Application();
+    Application() = delete;
+    Application(ContextCreateInfo& info);
     virtual ~Application();
 
     int run();
@@ -67,6 +68,7 @@ private:
     std::unique_ptr<MaterialSystem> mMaterialSystem;
 
     // Configuration
+    ContextCreateInfo mEngineSpec;
     std::string mWindowTitle = "Vulkan Application";
     int mWindowWidth = 800;
     int mWindowHeight = 600;
