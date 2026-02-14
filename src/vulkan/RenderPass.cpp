@@ -7,10 +7,6 @@
 
 VkRenderPass RenderPassManager::getRenderPass(uint32_t id) const { return mRenderPasses[id].pass; };
 //VkRenderPass RenderPassManager::getRenderPass(RenderPassType id) const { return mRenderPasses[static_cast<uint32_t>(id)].pass; };
-//const RenderPassConfig &RenderPassManager::getConfiguration(uint32_t id) const
-//{
-//    return mRenderPasses[id].config;
-//}
 
 void RenderPassManager::createRenderPass(VkDevice device, int type, const RenderPassConfig &configStruct)
 {

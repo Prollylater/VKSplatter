@@ -55,12 +55,12 @@ void FrameHandler::createShadowTextures(LogicalDeviceManager &deviceM, VkPhysica
         vkUtils::Texture::ImageCreateConfig depthConfig;
         depthConfig.device = deviceM.getLogicalDevice();
         depthConfig.physDevice = physDevice;
-        depthConfig.height = CascadedShadow::TEXTURE_SIZE;
-        depthConfig.width = CascadedShadow::TEXTURE_SIZE;
+        depthConfig.height = LightSystem::TEXTURE_SIZE;
+        depthConfig.width = LightSystem::TEXTURE_SIZE;
         depthConfig.format = VK_FORMAT_D32_SFLOAT;
         depthConfig.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         depthConfig.allocator = deviceM.getVmaAllocator();
-        depthConfig.arrayLayers = CascadedShadow::MAX_CASCADES;
+        depthConfig.arrayLayers = MAX_SHDW_CASCADES;
         frameData.cascadePoolArray.createImage(depthConfig);
 
         vkUtils::Texture::ImageViewCreateConfig config = {
@@ -82,7 +82,7 @@ void FrameHandler::createShadowTextures(LogicalDeviceManager &deviceM, VkPhysica
 
         frameData.cascadePoolArray.createImageSampler(depthConfig.device, depthConfig.physDevice);
 
-        for (uint32_t i = 0; i < CascadedShadow::MAX_CASCADES; i++)
+        for (uint32_t i = 0; i < MAX_SHDW_CASCADES; i++)
         {
             vkUtils::Texture::ImageViewCreateConfig depthViewConfig = {
                 .device = depthConfig.device,
@@ -117,7 +117,7 @@ void FrameHandler::createFrameData(VkDevice device, VkPhysicalDevice physDevice,
     VkDeviceSize bufferSize = sizeof(SceneData);
     VkDeviceSize plightBufferSize = 10 * sizeof(PointLight) + sizeof(uint32_t);
     VkDeviceSize dlightBufferSize = 10 * sizeof(DirectionalLight) + sizeof(uint32_t);
-    VkDeviceSize shadowBufferSize = CascadedShadow::MAX_CASCADES * sizeof(Cascade);
+    VkDeviceSize shadowBufferSize = MAX_SHDW_CASCADES * sizeof(Cascade);
 
     // Use VulkanContext here
     frameData.mCameraBuffer.createBuffer(device, physDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,

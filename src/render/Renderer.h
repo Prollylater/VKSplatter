@@ -33,7 +33,6 @@ public:
 
         auto device = context.getLDevice().getLogicalDevice();
 
-       // mUseDynamic = true;
         // Setup Pipeline Cache and Pool
         mPipelineM.initialize(device, "");
         mGpuRegistry.initDevice(context);
@@ -43,7 +42,7 @@ public:
    
     void addPass(RenderPassType type, RenderPassConfig config)
     {
-        mUseDynamic = static_cast<bool>(config.mType);
+        mUseDynamic = !(static_cast<bool>(config.mType));
         mPassesHandler.addPass(type, config);
     }
 
@@ -92,7 +91,6 @@ private:
     PipelineManager mPipelineM;
 
     bool mUseDynamic = false;
-    void initRenderInfrastructure(RenderPassType type, const RenderPassConfig &cfg);
 
     // Todo: Remove
     uint32_t mIndexImage{};

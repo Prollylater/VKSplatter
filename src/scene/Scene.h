@@ -45,7 +45,7 @@ struct LightPacket
 
 struct ShadowPacket
 {
-    std::vector<std::array<Cascade, LightSystem::MAX_CASCADES>> cascades;
+    std::vector<std::array<Cascade, MAX_SHDW_CASCADES>> cascades;
     uint32_t shadowCount;
 
     static constexpr uint32_t shadowSize = sizeof(Cascade);

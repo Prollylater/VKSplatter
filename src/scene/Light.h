@@ -37,10 +37,12 @@ struct alignas(16) Cascade
     float splitDepth;
 };
 
+static constexpr uint32_t MAX_SHDW_CASCADES = 3;
+
 struct DirectionalShadowData
 {
     uint32_t cascadeCount = 0;
-    std::array<Cascade, LightSystem::MAX_CASCADES> cascades;
+    std::array<Cascade, MAX_SHDW_CASCADES> cascades;
 };
 
 struct DLightBehavior
@@ -71,17 +73,16 @@ class LightSystem
 {
 public:
     static constexpr uint32_t MAX_DIR_LIGHT = 10;
-    static constexpr uint32_t MAX_CASCADES = 3;
     static constexpr uint32_t TEXTURE_SIZE = 1024;
 
     LightSystem() = default;
     ~LightSystem() = default;
 
-    [[noexcept]] uint32_t addDirLight(const DirectionalLight &light);
+    [[nodiscard]] uint32_t addDirLight(const DirectionalLight &light);
     void addDirLightBehavior(uint32_t dirLightIndex, DLightBehavior behavior);
-    [[noexcept]] uint32_t addPointLight(const PointLight &light);
+    [[nodiscard]] uint32_t addPointLight(const PointLight &light);
     void addPoinLighthBehavior(uint32_t ptLightIndex, PLightBehavior behavior);
-    void enableShadow(uint32_t dirLightIndex, uint32_t cascadeCount = MAX_CASCADES);
+    void enableShadow(uint32_t dirLightIndex, uint32_t cascadeCount = MAX_SHDW_CASCADES);
 
     const std::vector<DirectionalLightInstance> &getDirLights() const;
     const std::vector<PointLightInstance> &getPointLights() const;

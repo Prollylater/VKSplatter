@@ -88,10 +88,11 @@ void Application::initFramework()
     // TODO: This should come from configuration simplified for the user
     if (useDynamic)
     {
+
         RenderPassConfig defRenderPass;
         defRenderPass.addAttachment(AttachmentSource::Swapchain(),
                                     mContext->mSwapChainM.getSwapChainImageFormat().format,
-                                    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                                     VK_ATTACHMENT_LOAD_OP_CLEAR,
                                     VK_ATTACHMENT_STORE_OP_STORE,
                                     AttachmentConfig::Role::Present)
@@ -100,9 +101,13 @@ void Application::initFramework()
                            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                            VK_ATTACHMENT_LOAD_OP_CLEAR,
                            VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                           AttachmentConfig::Role::Depth);
-        mRenderer->addPass(RenderPassType::Forward, defRenderPass);
+                           AttachmentConfig::Role::Depth)
+            .addSubpass()
+            .useColorAttachment(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+            .useDepthAttachment(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+            .addDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 
+        mRenderer->addPass(RenderPassType::Forward, defRenderPass);
         // Depth only passes
         RenderPassConfig defShadowPass;
         /*defShadowPass.addAttachment(AttachmentSource::FrameLocal(0),
@@ -110,14 +115,14 @@ void Application::initFramework()
                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                          VK_ATTACHMENT_LOAD_OP_CLEAR,
                          VK_ATTACHMENT_STORE_OP_STORE,
-                         AttachmentConfig::Role::Present)*/
+                         AttachmentConfig::Role::Present)
         defShadowPass.addAttachment(AttachmentSource::FrameLocal(0),
                                     mContext->mPhysDeviceM.findDepthFormat(),
                                     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                                     VK_ATTACHMENT_LOAD_OP_CLEAR,
                                     VK_ATTACHMENT_STORE_OP_STORE,
                                     AttachmentConfig::Role::Depth);
-        mRenderer->addPass(RenderPassType::Shadow, defShadowPass);
+        mRenderer->addPass(RenderPassType::Shadow, defShadowPass);*/
     }
     else
     {

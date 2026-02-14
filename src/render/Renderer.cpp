@@ -148,9 +148,9 @@ void Renderer::updateRenderingScene(const VisibilityFrame &vFrame, const AssetRe
   mRScene.updateFrameSync(*mContext, vFrame, mGpuRegistry, registry, matSystem, mFrameHandler.getCurrentFrameIndex());
   // Shadow pass
   {
-    auto &shadow = mPassesHandler.getBackend(RenderPassType::Shadow);
-    shadow.frames.type = RenderPassType::Shadow;
-    buildPassFrame(shadow.frames, mRScene, matSystem);
+    //auto &shadow = mPassesHandler.getBackend(RenderPassType::Shadow);
+    //shadow.frames.type = RenderPassType::Shadow;
+    //buildPassFrame(shadow.frames, mRScene, matSystem);
   }
   // Forward pass
   {
@@ -300,27 +300,7 @@ void Renderer::beginPass(RenderPassType type)
 {
   auto &frame = mFrameHandler.getCurrentFrameData();
   VkCommandBuffer cmd = frame.mCommandPool.get();
-
   mPassesHandler.beginPass(type, cmd);
-}
-
-void Renderer::endPass(RenderPassType type)
-{
-  auto &frame = mFrameHandler.getCurrentFrameData();
-  VkCommandBuffer cmd = frame.mCommandPool.get();
-
-  mPassesHandler.endPass(type, cmd);
-}
-
-void Renderer::beginPass(RenderPassType type)
-{
-  VkExtent2D extent = mContext->mSwapChainM.getSwapChainExtent();
-  FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
-  VkCommandBuffer command = frameRess.mCommandPool.get();
-  uint32_t renderPassIndex = static_cast<uint32_t>(type);
-
-  mPassesHandler.beginPass(type, command);
-
   /*
   // Todo :  Handle the proper transition for each frame through passesHandler
   if (mUseDynamic)
@@ -395,11 +375,9 @@ void Renderer::beginPass(RenderPassType type)
 
 void Renderer::endPass(RenderPassType type)
 {
-  FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
-  auto &commandPoolM = frameRess.mCommandPool;
-  const VkCommandBuffer command = commandPoolM.get();
-
-  mPassesHandler.endPass(type, command);
+  auto &frame = mFrameHandler.getCurrentFrameData();
+  VkCommandBuffer cmd = frame.mCommandPool.get();
+  mPassesHandler.endPass(type, cmd);
   /*
   if (mUseDynamic)
   {

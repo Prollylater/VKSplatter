@@ -112,7 +112,7 @@ ShadowPacket Scene::getShadowPacket() const
 
     const auto &dirLights = lights.getDirLights();
 
-    std::vector<std::array<Cascade, LightSystem::MAX_CASCADES>> cascades;
+    std::vector<std::array<Cascade, MAX_SHDW_CASCADES>> cascades;
     for (const auto &inst : dirLights)
     {
         if (!inst.shadow.has_value())

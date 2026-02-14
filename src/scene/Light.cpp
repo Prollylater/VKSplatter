@@ -3,15 +3,13 @@
 
 uint32_t LightSystem::addDirLight(const DirectionalLight &light)
 {
-    DirectionalLightInstance instance;
-    instance.light = light;
-    directionalLights.push_back(instance);
+    directionalLights.push_back({light});
     return directionalLights.size() - 1;
 }
 
 uint32_t LightSystem::addPointLight(const PointLight &light)
 {
-    pointLights.emplace_back(light);
+    pointLights.push_back({light});
     return pointLights.size() - 1;
 }
 
@@ -23,7 +21,7 @@ void LightSystem::enableShadow(uint32_t index, uint32_t cascadeCount)
     }
 
     DirectionalShadowData shadow;
-    shadow.cascadeCount = std::min(cascadeCount, MAX_CASCADES);
+    shadow.cascadeCount = std::min(cascadeCount, MAX_SHDW_CASCADES);
 
     directionalLights[index].shadow = shadow;
 }

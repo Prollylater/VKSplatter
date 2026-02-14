@@ -353,7 +353,7 @@ struct RenderTargetConfigCRTP
     Derived &addAttachment(
         AttachmentSource source,
         VkFormat format,
-        VkImageLayout finalLayout,
+        VkImageLayout finalLayout, //Final layout is not that appropriate
         VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_STORE,
         AttachmentConfig::Role role = AttachmentConfig::Role::Color)
@@ -417,6 +417,10 @@ struct RenderPassConfig : RenderTargetConfigCRTP<RenderPassConfig>
     /// This wasn't built assuming more than one subpass
     RenderPassConfig &addSubpass()
     {
+        //if( subpasses.size() > 0 && mType == RenderConfigType::Dynamic){
+        //    return *this;
+        //}
+
         subpasses.emplace_back();
         return *this;
     }
@@ -452,6 +456,7 @@ struct RenderPassConfig : RenderTargetConfigCRTP<RenderPassConfig>
     {
         RenderPassConfig defConfigRenderPass;
         // Gbuffer for depth don't actually matter
+        //Reminder :  Double VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , stand for the last operation for the External pass
         defConfigRenderPass.addAttachment(AttachmentSource::Swapchain(), colorFormat, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, AttachmentConfig::Role::Present)
             .addAttachment(AttachmentSource::GBuffer(0), depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE, AttachmentConfig::Role::Depth)
             .addSubpass()
