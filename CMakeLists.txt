@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(VulkanGLFWExample)
 
-#Todo: Better handling of the CMake ?
 # Set the C++ standard
 set(CMAKE_CXX_STANDARD 17)
 
@@ -24,29 +23,27 @@ endif()
 
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 
+#Separation is fine but slightly pointless if everything is Public,
+#Todo: Figure out what user shouldn't be exposed to
 
-# Source files
-set(SOURCES
-    ${USER_DIR}/main.cpp
-    ${USER_DIR}/HelloTriangle.cpp  
-
-    ${SOURCE_DIR}/assetsystem/AssetIO.cpp   
-    ${SOURCE_DIR}/assetsystem/AssetRegistry.cpp   
-    ${SOURCE_DIR}/assetsystem/ResourceSystem.cpp 
-    ${SOURCE_DIR}/assetsystem/Material.cpp   
-    ${SOURCE_DIR}/assetsystem/Mesh.cpp   
-    
+# Core utilities
+add_library(engine_core
     ${SOURCE_DIR}/core/filesystem/Filesystem.cpp   
     ${SOURCE_DIR}/core/logging/Logger.cpp   
-        
-    ${SOURCE_DIR}/scene/Camera.cpp   
-    ${SOURCE_DIR}/scene/Drawable.cpp   
-    ${SOURCE_DIR}/scene/Scene.cpp   
-    ${SOURCE_DIR}/scene/Light.cpp   
-    #${SOURCE_DIR}/scene/geometry/Frustrum.cpp   
-    #${SOURCE_DIR}/scene/geometry/Extents.cpp   
-    ${SOURCE_DIR}/scene/Transform.cpp   
-    
+    ${SOURCE_DIR}/core/WindowVk.cpp
+    ${SOURCE_DIR}/core/Clock.cpp
+    #${SOURCE_DIR}/core/geometry/Frustrum.cpp   
+    #${SOURCE_DIR}/core/geometry/Extents.cpp 
+
+    ${THIRD_PARTY}/vkmaUsage.cpp #BaseVK
+)
+#core & engine/src for baseVk for now
+target_link_libraries(engine_core PUBLIC ${Vulkan_LIBRARIES} glfw)
+target_include_directories(engine_core PUBLIC ${GLFW_INCLUDE_DIRS} ${THIRD_PARTY} ${SOURCE_DIR}/core ${SOURCE_DIR})
+
+# RHI sort of 
+#Ideally this could go without engine_core
+add_library(api_abstraction
     ${SOURCE_DIR}/vulkan/Buffer.cpp   
     ${SOURCE_DIR}/vulkan/CommandPool.cpp   
     ${SOURCE_DIR}/vulkan/LogicalDevice.cpp   
@@ -61,7 +58,38 @@ set(SOURCES
     ${SOURCE_DIR}/vulkan/QueueFam.cpp   
     ${SOURCE_DIR}/vulkan/Descriptor.cpp   
     ${SOURCE_DIR}/vulkan/VulkanInstance.cpp
+    ${SOURCE_DIR}/vulkan/utils/RessourceHelper.cpp   
+    ${SOURCE_DIR}/vulkan/utils/PipelineHelper.cpp   
+    
+    ${THIRD_PARTY}/vkmaUsage.cpp #This is not properly reflected by public 
+    ${THIRD_PARTY}/stb_image_loader.cpp #To be safe as TextureC is the earliest we use it
+)
 
+target_link_libraries(api_abstraction PUBLIC ${Vulkan_LIBRARIES})
+target_include_directories(api_abstraction PUBLIC ${SOURCE_DIR}/vulkan 
+${THIRD_PARTY} 
+${SOURCE_DIR}
+${SOURCE_DIR}/assetsystem #assetsystem due to TextureC
+${Vulkan_INCLUDE_DIRS}
+)
+
+# Engine
+add_library(engine_render
+    ${SOURCE_DIR}/core/Application.cpp #Core but not quite
+    
+    ${SOURCE_DIR}/assetsystem/AssetIO.cpp   
+    ${SOURCE_DIR}/assetsystem/AssetRegistry.cpp   
+    ${SOURCE_DIR}/assetsystem/ResourceSystem.cpp 
+    ${SOURCE_DIR}/assetsystem/Material.cpp   
+    ${SOURCE_DIR}/assetsystem/Mesh.cpp   
+    
+
+    ${SOURCE_DIR}/scene/Camera.cpp   
+    ${SOURCE_DIR}/scene/Drawable.cpp   
+    ${SOURCE_DIR}/scene/Scene.cpp   
+    ${SOURCE_DIR}/scene/Light.cpp     
+    ${SOURCE_DIR}/scene/Transform.cpp   
+ 
     ${SOURCE_DIR}/render/FrameHandler.cpp  
     ${SOURCE_DIR}/render/GPUResourceSystem.cpp   
     ${SOURCE_DIR}/render/GPUResource.cpp   
@@ -69,18 +97,17 @@ set(SOURCES
     ${SOURCE_DIR}/render/MaterialSystem.cpp   
     ${SOURCE_DIR}/render/Renderer.cpp  
     ${SOURCE_DIR}/render/RenderScene.cpp  
-    ${SOURCE_DIR}/render/Passes.cpp  
+    ${SOURCE_DIR}/render/Passes.cpp  )
 
+target_link_libraries(engine_render PUBLIC api_abstraction engine_core)
+target_include_directories(engine_render PUBLIC ${SOURCE_DIR}/assetsystem
+${SOURCE_DIR}/scene
+${SOURCE_DIR}/render)
 
-    ${SOURCE_DIR}/vulkan/utils/RessourceHelper.cpp   
-    ${SOURCE_DIR}/vulkan/utils/PipelineHelper.cpp   
-
-    ${SOURCE_DIR}/core/WindowVk.cpp
-    ${SOURCE_DIR}/core/Application.cpp
-    ${SOURCE_DIR}/core/Clock.cpp
-    
-    ${THIRD_PARTY}/stb_image_loader.cpp
-    ${THIRD_PARTY}/vkmaUsage.cpp
+# Source files
+set(SOURCES
+    ${USER_DIR}/main.cpp
+    ${USER_DIR}/HelloTriangle.cpp  
 )
 
 
@@ -92,21 +119,10 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 
 # Include directories
 # This go a bit too deep in the directory to include
-target_include_directories(VulkanGLFWExample PRIVATE
-${Vulkan_INCLUDE_DIRS} 
-${GLFW_INCLUDE_DIRS}
-${THIRD_PARTY}
-${USER_DIR}
-${SOURCE_DIR}/vulkan
-${SOURCE_DIR}/assetsystem
-${SOURCE_DIR}/core
-${SOURCE_DIR}/scene
-${SOURCE_DIR}/render
-${SOURCE_DIR})
+target_include_directories(VulkanGLFWExample PRIVATE ${USER_DIR} ${SOURCE_DIR})
 
 # Link libraries
-target_link_libraries(${PROJECT_NAME} 
-${Vulkan_LIBRARIES} glfw)
+target_link_libraries(${PROJECT_NAME} PRIVATE engine_render)
 
 ##############################################
 ########################Testing

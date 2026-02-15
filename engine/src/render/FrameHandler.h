@@ -6,6 +6,7 @@
 #include "Buffer.h"
 #include "Texture.h"
 #include "config/PipelineConfigs.h"
+#include <glm/glm.hpp>
 
 struct FrameResources
 {

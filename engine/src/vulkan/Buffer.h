@@ -4,25 +4,26 @@
 
 struct Mesh;
 // A class for holding a buffer
-//Notes: This class is fine to use to create a Buffer
-//But so far it was dropped either for being not specific enough or too heavy
-//Turn this into helper only
+// Notes: This class is fine to use to create a Buffer
+// But so far it was dropped either for being not specific enough or too heavy
+// Turn this into helper only
 
-
-enum class BufferUpdatePolicy {
-    Immutable,      // device-local, uploaded once via staging then reject Update
-    Dynamic,        // persistently mapped  
-    StagingOnly     // Not CPU-visible, rarely bound directly
+enum class BufferUpdatePolicy
+{
+    Immutable,  // device-local, uploaded once via staging then reject Update
+    Dynamic,    // persistently mapped
+    StagingOnly // Not CPU-visible, rarely bound directly
 };
 
-//Memory flag should be guaranteed by Immutable, Dynamic and Staging only to some degree
-struct BufferDesc {
+// Memory flag should be guaranteed by Immutable, Dynamic and Staging only to some degree
+struct BufferDesc
+{
     VkDeviceSize size;
     VkBufferUsageFlags usage;
     BufferUpdatePolicy updatePolicy;
-    VkMemoryPropertyFlags memoryFlags;  
+    VkMemoryPropertyFlags memoryFlags;
     bool ssbo = false;
-    //VkDeviceSize stride = 0;
+    // VkDeviceSize stride = 0;
 };
 
 class Buffer
@@ -31,14 +32,13 @@ public:
     Buffer() = default;
     ~Buffer() = default;
 
-    //Todo:: Default Variable order + The soup should be directly replaced by Buffer Desc
+    // Todo:: Default Variable order + The soup should be directly replaced by Buffer Desc
     void createBuffer(VkDevice device,
                       VkPhysicalDevice physDevice,
                       VkDeviceSize data,
                       VkBufferUsageFlags usage,
-                      VkMemoryPropertyFlags properties,VmaAllocator alloc = VK_NULL_HANDLE,
-                      BufferUpdatePolicy updatePolicy = BufferUpdatePolicy::StagingOnly
-                      );
+                      VkMemoryPropertyFlags properties, VmaAllocator alloc = VK_NULL_HANDLE,
+                      BufferUpdatePolicy updatePolicy = BufferUpdatePolicy::StagingOnly);
 
     void destroyBuffer(VkDevice device, VmaAllocator allocator = VK_NULL_HANDLE);
 
@@ -66,7 +66,7 @@ public:
     VkBufferView createBufferView(VkFormat format, VkDeviceSize offset = 0, VkDeviceSize size = VK_WHOLE_SIZE);
 
     void *map(VmaAllocator allocator = VK_NULL_HANDLE);
-    void unmap(VmaAllocator allocator= VK_NULL_HANDLE);
+    void unmap(VmaAllocator allocator = VK_NULL_HANDLE);
 
     VkBuffer getBuffer() const { return mBuffer; }
     VkDeviceMemory getMemory() const { return mMemory; }
@@ -83,7 +83,7 @@ public:
     VkDeviceAddress getDeviceAdress(VkDevice device) const
     {
         VkBufferDeviceAddressInfo deviceAdressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = mBuffer};
-        //Would need to keep the usage flags which is arguably very useful
+        // Would need to keep the usage flags which is arguably very useful
         return vkGetBufferDeviceAddress(device, &deviceAdressInfo);
     }
 
@@ -100,19 +100,55 @@ private:
     // Stride + NB element ?
     void *mMapped = nullptr;
 
-    //Wrapper above this ?
+    // Wrapper above this ?
     BufferUpdatePolicy mUpdatePolicy = BufferUpdatePolicy::Immutable;
-public:
-    // Todo: Helper to move out
-    //Should be in an helper namespace or just free non member
-    void createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const std::vector<Mesh> &mesh,
-                                  const LogicalDeviceManager &deviceM, uint32_t indice);
 
-    //Todo: Reduce complexity by removing upload from those fucntion
-    void createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
-                             const LogicalDeviceManager &deviceM, uint32_t queueIndice, VmaAllocator alloc = VK_NULL_HANDLE, bool SSBO = false);
-    void createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
-                            const LogicalDeviceManager &deviceM, uint32_t queueIndice, VmaAllocator alloc = VK_NULL_HANDLE);
 };
 
-// TODO: Destroy scheme could be overhauled
+
+/*    void createVertexIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const std::vector<Mesh> &mesh,
+                                      const LogicalDeviceManager &deviceM, uint32_t indice);
+
+        //Todo: Reduce complexity by removing upload from those fucntion
+        void createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
+                                 const LogicalDeviceManager &deviceM, uint32_t queueIndice, VmaAllocator alloc = VK_NULL_HANDLE, bool SSBO = false);
+        void createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
+                                const LogicalDeviceManager &deviceM, uint32_t queueIndice, VmaAllocator alloc = VK_NULL_HANDLE);
+
+void Buffer::createVertexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
+                                 const LogicalDeviceManager &deviceM, uint32_t indice, VmaAllocator allocator, bool SSBO)
+{
+    // const VertexFormat &format = mesh.getFormat();
+    const VertexFormat &format = VertexFormatRegistry::getStandardFormat();
+
+    VertexBufferData vbd = buildInterleavedVertexBuffer(mesh, format);
+
+    const auto &data = vbd.mBuffers[0];
+    // SSBO VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+    // Todo: better handling of
+    if (SSBO)
+    {
+        createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
+    }
+    else
+    {
+        createBuffer(device, physDevice, data.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
+    }
+
+    uploadStaged(data.data(), data.size(), 0, physDevice, deviceM, indice, allocator);
+}
+
+void Buffer::createIndexBuffers(const VkDevice &device, const VkPhysicalDevice &physDevice, const Mesh &mesh,
+                                const LogicalDeviceManager &deviceM, uint32_t indice, VmaAllocator allocator)
+{
+    // const VertexFormat &format = mesh.getFormat();
+    const VertexFormat &format = VertexFormatRegistry::getStandardFormat();
+    const auto &indices = mesh.indices;
+
+    VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
+    createBuffer(device, physDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator);
+    uploadStaged(indices.data(), bufferSize, 0, physDevice, deviceM, indice, allocator);
+}*/

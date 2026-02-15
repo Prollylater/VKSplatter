@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
+#include "TextureC.h"
 
 class LogicalDeviceManager;
 
@@ -77,7 +78,6 @@ private:
 // Semantic Helper to create Texture
 
 
-#include "TextureC.h"
 //Notes: Currently this is more an helper to texture 2Sthan anything
 class Texture 
 {

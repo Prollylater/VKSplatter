@@ -1,8 +1,7 @@
 #pragma once
 #include "BaseVk.h"
 #include <optional>
-#include "VertexDescriptions.h" // Move this or Vertex Format ?
-
+#include <string>
 // Pipeline
 
 enum class FragmentShaderType

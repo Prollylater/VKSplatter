@@ -239,9 +239,64 @@ A frame in flight refers to a rendering operation that
 */
 
 
- //Todo: Not the best position
+ //Todo: Not the best position for everything below
 enum class MaterialType
 {
   PBR,
   None
+};
+
+enum VertexFlags : uint32_t
+{
+    Vertex_None = 0,
+    Vertex_Pos = 1 << 0,
+    Vertex_Normal = 1 << 1,
+    Vertex_UV = 1 << 2,
+    Vertex_Color = 1 << 3,
+};
+
+inline constexpr VertexFlags STANDARD_STATIC_FLAG = static_cast<VertexFlags>(Vertex_Pos | Vertex_Normal | Vertex_UV);
+
+
+// Namespace
+// Bindings: spacing between data and whether the data is per-vertex or per-instance (see instancing)
+
+inline VkVertexInputBindingDescription makeVtxInputBinding(
+    uint32_t binding, //"Opaque Index of a Buffer More or less"
+    uint32_t stride,  // In binded vertex, after how many data we reach next object
+    VkVertexInputRate inputRate = VK_VERTEX_INPUT_RATE_VERTEX){
+    VkVertexInputBindingDescription desc{};
+    desc.binding = binding;
+    desc.stride = stride;
+    desc.inputRate = inputRate;
+    return desc;
+}
+
+
+// Attribute descriptions: type of the attributes passed to the vertex shader,
+// which binding ("buffer") to load them from and at which offset
+inline VkVertexInputAttributeDescription makeVtxInputAttr(
+    uint32_t location,
+    uint32_t binding, // Design the buffer the Attributes is bound to
+    VkFormat format,
+    uint32_t offset)
+{
+    VkVertexInputAttributeDescription desc{};
+    desc.location = location;
+    desc.binding = binding;
+    desc.format = format;
+    desc.offset = offset;
+    return desc;
+}
+
+
+struct VertexFormat
+{
+    // Attributes and bindins may not always match in size if we use interleaved format
+    std::vector<VkVertexInputBindingDescription> bindings;
+    std::vector<VkVertexInputAttributeDescription> attributes;
+    bool mInterleaved = true;
+    VertexFlags mVertexFlags = STANDARD_STATIC_FLAG;
+
+    VkPipelineVertexInputStateCreateInfo toCreateInfo() const;
 };
