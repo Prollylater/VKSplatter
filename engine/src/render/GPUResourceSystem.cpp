@@ -12,183 +12,39 @@
 #include "VertexDescriptions.h"
 #include "utils/RessourceHelper.h"
 
-/////////////////////////////////////////////////////////////////
-
-// Todo: Rewrite this method
-// Descriptor writing is too much responsibility here
-/*
-GenericGPUBuffer GpuResourceUploader::createGPUBuffer(
-    uint32_t stride, uint32_t capacity, bool map, bool ssbo) const
-{
-    GenericGPUBuffer buf{};
-    buf.stride = stride;
-    buf.capacity = capacity;
-    buf.useSSBO = ssbo;
-    buf.count = 0;
-
-    const auto device = context.getLogicalDeviceManager().getLogicalDevice();
-    const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
-    const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
-
-    VkDeviceSize bufferSize = stride * capacity;
-
-    VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    // VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-    if (ssbo)
-    {
-        usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-    }
-
-    VkMemoryPropertyFlags memFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    if (map)
-        memFlags |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-    Buffer temp;
-    temp.createBuffer(device, physDevice, bufferSize, usage, memFlags, allocator);
-
-    buf.buffer = temp.getBuffer();
-    buf.allocation = temp.getVMAMemory();
-    buf.memory = temp.getMemory();
-    buf.mapped = map ? temp.map(allocator) : nullptr;
-
-    return buf;
-}
-
-void GpuResourceUploader::uploadToGPUBuffer(
-    GenericGPUBuffer &buf, uint32_t index, const void *data) const
-{
-    const auto device = context.getLogicalDeviceManager().getLogicalDevice();
-    const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
-    const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
-    const auto queueIndex = context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
-
-    if (index >= buf.capacity)
-    { // WIth some limit to growth
-        reallocateGPUBuffer(buf, buf.capacity * 2);
-    }
-
-    VkDeviceSize size = buf.stride;
-
-    if (buf.mapped)
-    {
-        memcpy(static_cast<uint8_t *>(buf.mapped) + index * buf.stride, data, size);
-    }
-    else
-    {
-        Buffer staging;
-        staging.createBuffer(device, physDevice, size,
-                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                             allocator);
-
-        staging.uploadStaged(data, size, 0, physDevice, context.getLogicalDeviceManager(),
-                             queueIndex, allocator);
-
-        staging.copyToBuffer(buf.buffer, size, context.getLogicalDeviceManager(), queueIndex);
-
-        staging.destroyBuffer(device, allocator);
-    }
-
-    // Out of order upload would look bad with this
-    if (index >= buf.count)
-    {
-        buf.count = index + 1;
-    }
-}
-
-void GpuResourceUploader::uploadFullGPUBuffer(GenericGPUBuffer &buf,
-                                              const void *data,
-                                              uint32_t elementCount) const
-{
-    assert(data != nullptr);
-
-    // Grow buffer if needed
-    if (elementCount > buf.capacity)
-        reallocateGPUBuffer(buf, elementCount);
-
-    VkDeviceSize size = elementCount * buf.stride;
-
-    if (buf.mapped)
-    {
-        memcpy(buf.mapped, data, size);
-    }
-    else
-    {
-        const auto device = context.getLogicalDeviceManager().getLogicalDevice();
-        const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
-        const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
-        const auto queueIndex = context.getPhysicalDeviceManager().getIndices().graphicsFamily.value();
-
-        Buffer staging;
-        staging.createBuffer(device, physDevice, size,
-                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                             allocator);
-
-        staging.uploadStaged(data, size, 0, physDevice,
-                             context.getLogicalDeviceManager(), queueIndex, allocator);
-
-        staging.copyToBuffer(buf.buffer, size, context.getLogicalDeviceManager(), queueIndex);
-        staging.destroyBuffer(device, allocator);
-    }
-
-    buf.count = elementCount;
-}
-
-void GpuResourceUploader::reallocateGPUBuffer(GenericGPUBuffer &buf, uint32_t newCapacity) const
-{
-    const auto device = context.getLogicalDeviceManager().getLogicalDevice();
-    const auto physDevice = context.getPhysicalDeviceManager().getPhysicalDevice();
-    const auto allocator = context.getLogicalDeviceManager().getVmaAllocator();
-
-    std::vector<uint8_t> oldData(buf.count * buf.stride);
-    if (buf.mapped)
-    {
-        memcpy(oldData.data(), buf.mapped, buf.count * buf.stride);
-    }
-    else
-    {
-        // Mapp then copy i guess.
-        _CCRITICAL("No Support for reallocating non mapped generic buffer");
-    }
-    buf.destroy(device, allocator);
-
-    GenericGPUBuffer newBuf = createGPUBuffer(buf.stride, newCapacity, buf.mapped != nullptr, buf.useSSBO);
-
-    // Copy old data
-    if (!oldData.empty())
-    {
-        uploadFullGPUBuffer(newBuf, oldData.data(), buf.count);
-    }
-
-    buf = std::move(newBuf);
-}
-*/
-//////////////////////////////
-
 // Returns a handle to a GPU buffer, possibly a suballocation of an existing one
 // @ cpuAsset:
 // Todo: Template this
 // Could and should be expanded a lot
 // Tracking unused buffer and refillling it/Reallocation, explicit offset etc...
 
+// Todo: Reverse the order, cpuAsset can be a variable
 BufferKey GPUResourceRegistry::addBuffer(
     AssetID<void> cpuAsset,
     const BufferDesc &desc)
 {
-    if (!cpuAsset.isValid())
+    if (!cpuAsset.isValid() && desc.name.empty())
     {
-        return BufferKey{};
+        return {};
     }
-    // Buffer Usage Policy should also define the key
-    // The Key depend of an asset ID so no multi buffer directly
-    BufferKey key{cpuAsset.getID(), desc.usage};
+
+    BufferKey key{};
+    if (!desc.name.empty())
+    {
+        // Use name hash
+        key.assetId = std::hash<std::string>{}(desc.name);
+    }
+    else
+    {
+        key.assetId = cpuAsset.getID();
+    }
+
     auto &record = acquireBufferRecord(desc, key);
 
     record.allocations.clear();
     record.usedSize = 0;
     record.refCount = 0;
-    return BufferKey{key.assetId, desc.usage};
+    return BufferKey{key.assetId};
 }
 
 uint32_t GPUResourceRegistry::allocateInBuffer(BufferKey bufferKey, const GPUResourceRegistry::BufferAllocation &alloc)
@@ -226,7 +82,18 @@ uint32_t GPUResourceRegistry::allocateInBuffer(BufferKey bufferKey, const GPURes
     return record.refCount++;
 }
 
-//Todo: Rename to getBufferAllocation
+GPUBufferRef GPUResourceRegistry::getBuffer(const AssetID<void> cpuAsset, int allocation = 0)
+{
+    BufferKey key{cpuAsset.getID()};
+    return getBuffer(key, allocation);
+};
+GPUBufferRef GPUResourceRegistry::getBuffer(const std::string &name, int allocation = 0)
+{
+    BufferKey key{std::hash<std::string>{}(name)};
+    return getBuffer(key, allocation);
+};
+
+// Todo: Rename to getBufferAllocation
 GPUBufferRef GPUResourceRegistry::getBuffer(const BufferKey &key, int allocation)
 {
     auto it = mBufferRecords.find(key);
@@ -242,7 +109,7 @@ GPUBufferRef GPUResourceRegistry::getBuffer(const BufferKey &key, int allocation
     return {};
 }
 
-bool GPUResourceRegistry::hasBuffer(const BufferKey& key) const
+bool GPUResourceRegistry::hasBuffer(const BufferKey &key) const
 {
     return mBufferRecords.find(key) != mBufferRecords.end();
 }

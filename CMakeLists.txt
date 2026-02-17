@@ -23,7 +23,7 @@ endif()
 
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 
-#Separation is fine but slightly pointless if everything is Public,
+#Separation in library is fine but slightly pointless if everything is Public,
 #Todo: Figure out what user shouldn't be exposed to
 
 # Core utilities

@@ -171,7 +171,6 @@ MaterialSystem::buildMaterialGPU(
     // Uniform buffer stuff
     BufferDesc descriptions;
     descriptions.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    descriptions.ssbo = false;
     descriptions.size = sizeof(Material::MaterialConstants);
     // Todo:
     // Could be immutable and be a big buffer, actually should

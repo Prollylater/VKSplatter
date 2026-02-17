@@ -31,7 +31,6 @@ private:
     std::array<VkFramebuffer, 3> mFFrameBuffer;
 };
 
-// RenderPassManager should join this ? Or not ?
 struct PassBackend
 {
     RenderPassConfig config;

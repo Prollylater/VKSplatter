@@ -83,7 +83,7 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
       }
       else
       {
-        auto shadowPath = cico::fs::shaders() / "shadowv.spv";
+        auto shadowPath = cico::fs::shaders() / "shadow.spv";
         pipelineEntryIndexShadow = requestPipeline(sceneConfig, shadowPath, "", RenderPassType::Shadow);
       }
     }
@@ -105,10 +105,15 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   // Get the light packet from the scene dynamically later
   // Todo: Result of Frames tied light
   LightPacket lights = scene.getLightPacket();
+  scene.updateShadows();
+  ShadowPacket shadow = scene.getShadowPacket();
+
   for (int i = 0; i < mFrameHandler.getFramesCount(); i++)
   {
     uint8_t *dirLightMapping = static_cast<uint8_t *>(mFrameHandler.getCurrentFrameData().mDirLightMapping);
     uint8_t *ptLightMapping = static_cast<uint8_t *>(mFrameHandler.getCurrentFrameData().mPtLightMapping);
+    uint8_t *shadowMapping = static_cast<uint8_t *>(mFrameHandler.getCurrentFrameData().mShadowMapping);
+    
     // lights.directionalCount
     int count = 10;
     if (lights.directionalCount > 0)
@@ -136,6 +141,17 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
     memcpy(ptLightMapping + (lights.pointLightSize * count),
            &lights.pointCount,
            sizeof(lights.pointCount));
+
+
+    if (shadow.shadowCount > 0)
+    {
+      memcpy(
+          shadowMapping,
+          shadow.cascades.data(),
+          shadow.shadowCount * shadow.shadowSize);
+      // lights.pointLightSize * count);
+    }
+    
 
     int frameIndex = mFrameHandler.getCurrentFrameIndex();
     auto istBufferRef = mGpuRegistry.getBuffer(mRScene.instanceBuffer, frameIndex);

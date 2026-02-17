@@ -43,7 +43,6 @@ void RenderScene::updateFrameSync(
             description.size = mesh->positions.size() * sizeof(glm::vec3) +
                                mesh->normals.size() * sizeof(glm::vec3) + mesh->uvs.size() * sizeof(glm::vec2);
             description.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-            description.ssbo = false;
 
             BufferKey vtxKeyTmp{rof.mesh.getID(), description.usage};
 

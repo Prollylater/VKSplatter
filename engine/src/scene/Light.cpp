@@ -91,6 +91,9 @@ void updateCascadeShadows(LightSystem &lights, const Camera &camera)
 
     glm::mat4 camView = camera.getViewMatrix();
     glm::mat4 camProj = camera.getProjectionMatrix();
+    //Match VUlkan scene
+    camProj[1][1] *= -1;
+
 
     float near = camera.getNearPlane();
     float far = camera.getFarPlane();
@@ -182,7 +185,8 @@ void updateCascadeShadows(LightSystem &lights, const Camera &camera)
             glm::vec3 maxExtents = glm::vec3(radius);
             glm::vec3 minExtents = -maxExtents;
             auto lightDir = glm::vec3(lightInstance.light.direction.x, lightInstance.light.direction.y, lightInstance.light.direction.z);
-            glm::mat4 lightViewMatrix = glm::lookAt(center - lightDir * -minExtents.z, center, glm::vec3(0.0f, 1.0f, 0.0f));
+            
+            glm::mat4 lightViewMatrix = glm::lookAt(center - lightDir * -minExtents.z, center, glm::vec3(0.0f, -1.0f, 0.0f));
             glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f, maxExtents.z - minExtents.z);
 
             // Store split distance and matrix in cascade

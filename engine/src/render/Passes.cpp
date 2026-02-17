@@ -298,7 +298,7 @@ void RenderPassHandler::updateDynamicRenderingInfo(
 
     renderInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-        .renderArea = {.offset = {0, 0}, .extent = extent},
+        .renderArea = {.offset = {0, 0}, .extent = backend.extent},
         .layerCount = 1,
         .colorAttachmentCount = static_cast<uint32_t>(colorInfos.size()),
         .pColorAttachments = colorInfos.data(),

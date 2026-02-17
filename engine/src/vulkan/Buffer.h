@@ -22,8 +22,7 @@ struct BufferDesc
     VkBufferUsageFlags usage;
     BufferUpdatePolicy updatePolicy;
     VkMemoryPropertyFlags memoryFlags;
-    bool ssbo = false;
-    // VkDeviceSize stride = 0;
+    std::string name; 
 };
 
 class Buffer

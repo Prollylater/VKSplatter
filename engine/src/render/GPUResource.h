@@ -92,12 +92,11 @@ struct GPUBufferRef
 struct BufferKey
 {
     uint64_t assetId = INVALID_ASSET_ID;         // AssetID of CPU object or anything else
-    VkBufferUsageFlags usage = 0; // Optional further disambiguation
+// VkBufferUsageFlags usage = 0; // Optional further disambiguation
 
     bool operator==(const BufferKey &other) const
     {
-        return assetId == other.assetId &&
-               usage == other.usage;
+        return assetId == other.assetId ;
     }
 };
 
@@ -109,8 +108,8 @@ namespace std
         std::size_t operator()(const BufferKey &k) const noexcept
         {
             size_t h1 = std::hash<uint64_t>{}(k.assetId);
-            size_t h2 = std::hash<uint64_t>{}(static_cast<uint64_t>(k.usage));
-            return h1 ^ (h2 << 1);
+            //size_t h2 = std::hash<uint64_t>{}(static_cast<uint64_t>(k.usage));
+            return h1;// ^ (h2 << 1);
         }
     };
 } //

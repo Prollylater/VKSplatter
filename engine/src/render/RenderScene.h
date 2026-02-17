@@ -38,7 +38,6 @@ public:
     description.memoryFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     description.size = bufferSize * MAX_FRAMES_IN_FLIGHT ;
     description.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-    description.ssbo = true;
     //description.stride = sizeof(InstanceTransform);
     AssetID<void> instanceBufferId(TRANSFORM_BUFFER_KEY);
     // RenderScene might as well own this

@@ -13,8 +13,11 @@ Scene::Scene()
 
     sceneLayout.addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SceneData));
 
-    uint32_t lastLight = lights.addDirLight({glm::vec4(0.5, 1.0, 0.0, 0.0), glm::vec4(1.0, 1.0, 1.0, 0.0), 1.0});
+    glm::vec3 lightDir = (glm::vec3(-1.5f, 1.0f, 4.3f));
+
+    uint32_t lastLight = lights.addDirLight({glm::vec4(lightDir, 0.0), glm::vec4(1.0, 1.0, 1.0, 0.0), 1.0});
     lights.enableShadow(lastLight);
+    
     // lights.addDirLight({glm::vec4(0.5, -1.0, 0.0, 0.0), glm::vec4(0.2, 0.0, 1.0, 0.0), 1.0});
     // lights.addPointLight({glm::vec4(0.0, 1.0, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 1.5, 1.5});
     // lights.addPointLight({glm::vec4(-0.0, 0.0, 0.5, 0.0), glm::vec4(0.0, 1.0, 1.0, 0.0), 0.5, 0.5});

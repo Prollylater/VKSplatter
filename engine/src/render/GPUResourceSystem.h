@@ -41,7 +41,10 @@ public:
     BufferKey addBuffer(AssetID<void> cpuAsset, const BufferDesc &desc);
     uint32_t allocateInBuffer(BufferKey bufferKey, const BufferAllocation &alloc);
 
+    GPUBufferRef getBuffer(const AssetID<void> cpuAsset, int allocation = 0);
+    GPUBufferRef getBuffer(const std::string &name, int allocation = 0);
     GPUBufferRef getBuffer(const BufferKey &key, int allocation = 0);
+    
     bool hasBuffer(const BufferKey& key) const;
     bool isEmpty(const BufferKey &key);
     void releaseBuffer(const BufferKey &key);

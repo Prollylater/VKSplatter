@@ -25,20 +25,14 @@ void HelloTriangleApplication::setup()
     {
         // Depth only passes
         RenderPassConfig defShadowPass;
-        /*
-        defShadowPass.addAttachment(AttachmentSource::FrameLocal(0),
-                         mContext->mSwapChainM.getSwapChainImageFormat().format,
-                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                         VK_ATTACHMENT_LOAD_OP_CLEAR,
-                         VK_ATTACHMENT_STORE_OP_STORE,
-                         AttachmentConfig::Role::Present)*/
         defShadowPass.addAttachment(AttachmentSource::FrameLocal(0),
                                     depthFormat,
                                     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                                     VK_ATTACHMENT_LOAD_OP_CLEAR,
                                     VK_ATTACHMENT_STORE_OP_STORE,
-                                    AttachmentConfig::Role::Depth);
-        getRenderer().addPass(RenderPassType::Shadow, defShadowPass);
+                                    AttachmentConfig::Role::Depth)
+            .addSubpass()
+            .useDepthAttachment(0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
         RenderPassConfig defRenderPass;
         defRenderPass.addAttachment(AttachmentSource::Swapchain(),
@@ -55,11 +49,10 @@ void HelloTriangleApplication::setup()
                            AttachmentConfig::Role::Depth)
             .addSubpass()
             .useColorAttachment(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-            .useDepthAttachment(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-            .addDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+            .useDepthAttachment(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
+        getRenderer().addPass(RenderPassType::Shadow, defShadowPass);
         getRenderer().addPass(RenderPassType::Forward, defRenderPass);
-  
     }
     else
     {
@@ -119,10 +112,13 @@ void HelloTriangleApplication::render()
               << frameData.sceneData.eye[1] << " "
               << frameData.sceneData.eye[2] << " "
               << std::endl;
+  
     renderer.beginFrame(frameData.sceneData, getWindow().getGLFWWindow());
-    // renderer.beginPass(RenderPassType::Shadow);
-    // renderer.drawFrame(RenderPassType::Shadow, frameData.sceneData, getMaterialSystem().materialDescriptor());
-    // renderer.endPass(RenderPassType::Shadow);
+    
+    renderer.beginPass(RenderPassType::Shadow);
+    renderer.drawFrame(RenderPassType::Shadow, frameData.sceneData, getMaterialSystem().materialDescriptor());
+    renderer.endPass(RenderPassType::Shadow);
+
     renderer.beginPass(RenderPassType::Forward);
     renderer.drawFrame(RenderPassType::Forward, frameData.sceneData, getMaterialSystem().materialDescriptor());
     renderer.endPass(RenderPassType::Forward);
@@ -186,6 +182,9 @@ void HelloTriangleApplication::update(float dt)
         cam.processMouseMovement(currentXY[0] - prevXY[0], currentXY[1] - prevXY[1]);
         mainLoopMouseState.prevXY = mainLoopMouseState.XY;
     }
+
+    getScene().updateLights(dt);
+    getScene().updateShadows();
 }
 
 void HelloTriangleApplication::onEvent(Event &event)
