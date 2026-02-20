@@ -191,7 +191,7 @@ MaterialSystem::buildMaterialGPU(
 
     // ---- Descriptor
     auto layout = MaterialLayoutRegistry::Get(MaterialType::PBR);
-    int matLayoutIdx = mDescriptorManager.getOrCreateSetLayout(device, layout.descriptorSetLayoutsBindings);
+    int matLayoutIdx = mDescriptorManager.getOrCreateSetLayout(device, layout.bindings);
     gpu.descriptorIndex =
         mDescriptorManager.allocateDescriptorSet(device, matLayoutIdx);
 

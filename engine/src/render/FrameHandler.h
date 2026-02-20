@@ -14,18 +14,6 @@ struct FrameResources
     FrameSyncObjects mSyncObjects;
     DescriptorManager mDescriptor;
 
-    //Notes: This currently avoid the use of memory manager but make "assumption"
-    //I need to reevaluate whether or not this scheme is fine
-    Buffer mCameraBuffer;
-    void *mCameraMapping;
-
-    //Hold a Light Packet
-    Buffer mPtLightsBuffer;
-    void *mPtLightMapping;
-
-    Buffer mDirLightsBuffer;
-    void *mDirLightMapping;
-
     Buffer mShadowBuffer;
     void *mShadowMapping;
 
@@ -49,8 +37,8 @@ public:
 
     // void addFramesDescriptorSet(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding> &layouts);
     void createFramesDescriptorSet(VkDevice device, const std::vector<std::vector<VkDescriptorSetLayoutBinding>> &layouts);
+    void createFrameDescriptor(VkDevice device, std::vector<VkDescriptorSetLayoutBinding> &layouts, uint32_t frameIndex , uint32_t setIndex);
 
-    void updateUniformBuffers(glm::mat4 data);
     void writeFramesDescriptors(VkDevice device, int setIndex);
 
     void destroyFramesData(VkDevice device);

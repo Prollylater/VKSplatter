@@ -49,7 +49,7 @@ struct GPUBufferRef
     //Range upload from the first element of the allocation
     void uploadData(VulkanContext &context, const void *src, VkDeviceSize dataSize)
     {
-        if (!buffer || offset + dataSize > size)
+        if (!buffer || dataSize < size)
         {
             return;
         }
@@ -63,8 +63,8 @@ struct GPUBufferRef
     void updateElement(VulkanContext &ctx, const void *data, uint32_t index, VkDeviceSize stride)
     {
         /* Previously we passed dataSize and not size. DataSize was passed to control stride as the feature was halfbaked
-        Still need to be reconsidarated
-        if (!buffer || offset + stride > size || stride == 0 || stride != dataSize)
+        Still need to be reconsiderated
+        if (!buffer || stride < size || stride == 0 || stride != dataSize)
         {
             return;
         }

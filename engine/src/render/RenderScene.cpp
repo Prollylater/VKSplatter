@@ -44,7 +44,7 @@ void RenderScene::updateFrameSync(
                                mesh->normals.size() * sizeof(glm::vec3) + mesh->uvs.size() * sizeof(glm::vec2);
             description.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
-            BufferKey vtxKeyTmp{rof.mesh.getID(), description.usage};
+            BufferKey vtxKeyTmp{rof.mesh.getID()};
 
             // This is temporary hopefully
             if (!registry.hasBuffer(vtxKeyTmp))
@@ -59,7 +59,10 @@ void RenderScene::updateFrameSync(
 
                 description.size = mesh->indices.size() * sizeof(uint32_t);
                 description.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-
+                
+                //"Cheat", now that usage doesn't define the key buy key remain widely used
+                //Le
+                query.id++;
                 idxKey = registry.addBuffer(query, description);
                 allocation.size = description.size;
                 registry.allocateInBuffer(idxKey, allocation);
@@ -70,7 +73,7 @@ void RenderScene::updateFrameSync(
             {
 
                 vtxKey = vtxKeyTmp;
-                idxKey = BufferKey{rof.mesh.getID(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT};
+                idxKey = BufferKey{rof.mesh.getID()+1};
             }
         }
         

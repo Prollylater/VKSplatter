@@ -19,6 +19,13 @@ class VulkanContext;
 // Todo: Renderer might be too "FrontEndy + BackEndy"
 // Either the whole Class might just become RendererVulkan e
 
+// Todo: Is it reusable enough to warrant a whole class
+struct ResourceLink
+{
+    uint32_t binding;      // The '0', '1', '2' from your layout
+    BufferDesc descriptor; // The 'what' (size, usage, name)
+};
+
 class Renderer
 {
 public:
@@ -39,7 +46,6 @@ public:
         mPassesHandler.init(context, mGBuffers, mFrameHandler);
     }
 
-   
     void addPass(RenderPassType type, RenderPassConfig config)
     {
         mUseDynamic = !(static_cast<bool>(config.mType));
@@ -48,18 +54,19 @@ public:
 
     void beginFrame(const SceneData &sceneData, GLFWwindow *window);
     void beginPass(RenderPassType type);
-    //Type shouldn't be necessary at this point
-    void drawFrame( RenderPassType type, const SceneData &sceneData, const DescriptorManager &materialDescriptor);
+    // Type shouldn't be necessary at this point
+    void drawFrame(RenderPassType type, const SceneData &sceneData, const DescriptorManager &materialDescriptor);
 
     void endPass(RenderPassType type);
     void endFrame(bool framebufferResized);
 
     // SetUp Function
     void initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth);
-    void initRenderingRessources(Scene &scene, const AssetRegistry &registry, MaterialSystem &system);
+    void initRenderingRessources(Scene &scene, const AssetRegistry &registry, MaterialSystem &system, std::vector<VkPushConstantRange> pushConstants);
+    
     void updateRenderingScene(const VisibilityFrame &vFrame, const AssetRegistry &registry, MaterialSystem &matSystem);
     void deinitSceneRessources();
-    void createFramesData(uint32_t framesInFlightCount, const std::vector<VkDescriptorSetLayoutBinding> &bindings);
+    void createFramesData(uint32_t framesInFlightCount);
 
     const GBuffers &getDepthResources() const { return mGBuffers; }
     GBuffers &getDepthResources() { return mGBuffers; }
@@ -70,6 +77,13 @@ public:
     int requestPipeline(const PipelineLayoutConfig &config,
                         const std::string &vertexPath,
                         const std::string &fragmentPath, RenderPassType type);
+
+    void createDescriptorSet(DescriptorScope scope, std::vector<VkDescriptorSetLayoutBinding> &bindings);
+   
+    void setDescriptorSet(DescriptorScope scope, std::vector<ResourceLink> &links);
+
+    void updateBuffer(const std::string &name, const void *data, size_t size);
+ 
 
 private:
     // Todo: Typically all  that here is really specific too Vulkan which make this Renderer not really Api Agnostic

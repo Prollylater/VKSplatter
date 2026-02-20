@@ -21,6 +21,38 @@ void HelloTriangleApplication::setup()
     VkFormat swapChainFormat = VK_FORMAT_B8G8R8A8_SRGB;
     VkFormat depthFormat = VK_FORMAT_D32_SFLOAT;
 
+    // Descriptor definition
+    PipelineSetLayoutBuilder frameLayout;
+    // Notes: Could have a default
+    frameLayout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+        .addDescriptor(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .addDescriptor(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .addDescriptor(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .addDescriptor(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+        .addPushConstant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SceneData));
+
+    // Init Frame Descriptor set of Scene instance Buffer
+    PipelineSetLayoutBuilder instanceSSBOLayout;
+    instanceSSBOLayout.addDescriptor(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+
+    // Backing buffer
+    BufferDesc cameraDesc{sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, BufferUpdatePolicy::Dynamic, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "CameraUBO"};
+    BufferDesc dLightBuffDesc{(10 * sizeof(DirectionalLight) + sizeof(uint32_t)), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, BufferUpdatePolicy::Dynamic, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "DirLghtUBO"};
+    BufferDesc ptLightBuffDesc{(10 * sizeof(PointLight) + sizeof(uint32_t)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferUpdatePolicy::Dynamic, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "PtLghtSSBO"};
+    BufferDesc shdwBuffDesc{(MAX_SHDW_CASCADES * sizeof(Cascade)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferUpdatePolicy::Dynamic, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "ShdwSSBO"};
+
+    std::vector<ResourceLink> globalResources = {{0, cameraDesc}, {1, dLightBuffDesc}, {2, ptLightBuffDesc}, {4, shdwBuffDesc}};
+
+    // 4. Resolve and Allocate
+    getRenderer().createFramesData(mEngineSpec.MAX_FRAMES_IN_FLIGHT);
+
+    getRenderer().createDescriptorSet(DescriptorScope::Global, frameLayout.bindings);
+    getRenderer().createDescriptorSet(DescriptorScope::Instances, instanceSSBOLayout.bindings);
+
+    getRenderer().setDescriptorSet(DescriptorScope::Global, globalResources);
+    // getRenderer().setDescriptorSet(DescriptorScope::Instances, );
+
+    // Render Passes
     if (useDynamic)
     {
         // Depth only passes
@@ -65,7 +97,7 @@ void HelloTriangleApplication::setup()
     initScene();
     std::cout << "Init Scene" << std::endl;
 
-    getRenderer().initRenderingRessources(getScene(), getAssetSystem().registry(), getMaterialSystem());
+    getRenderer().initRenderingRessources(getScene(), getAssetSystem().registry(), getMaterialSystem(), frameLayout.pushConstants);
 
     fitCameraToBoundingBox(getScene().getCamera(), getScene().sceneBB);
 };
@@ -112,9 +144,9 @@ void HelloTriangleApplication::render()
               << frameData.sceneData.eye[1] << " "
               << frameData.sceneData.eye[2] << " "
               << std::endl;
-  
+
     renderer.beginFrame(frameData.sceneData, getWindow().getGLFWWindow());
-    
+
     renderer.beginPass(RenderPassType::Shadow);
     renderer.drawFrame(RenderPassType::Shadow, frameData.sceneData, getMaterialSystem().materialDescriptor());
     renderer.endPass(RenderPassType::Shadow);
@@ -183,8 +215,20 @@ void HelloTriangleApplication::update(float dt)
         mainLoopMouseState.prevXY = mainLoopMouseState.XY;
     }
 
+    //Update descritpor buffer
     getScene().updateLights(dt);
     getScene().updateShadows();
+
+    LightPacket lights = getScene().getLightPacket();
+    ShadowPacket shadow = getScene().getShadowPacket();
+
+    const auto sceneData = getScene().getSceneData();
+    getRenderer().updateBuffer("CameraUBO", &sceneData, sizeof(SceneData));
+    const size_t sizeDirLght = lights.directionalCount * lights.dirLigthSize + sizeof(lights.directionalCount);
+    const size_t sizePtLght = lights.pointCount * lights.pointLightSize + sizeof(lights.pointCount);
+    getRenderer().updateBuffer("DirLghtUBO", &lights, sizeDirLght);
+    getRenderer().updateBuffer("PtLghtSSBO", &lights + sizeDirLght, sizePtLght);
+    //getRenderer().updateBuffer("ShdwSSBO", );
 }
 
 void HelloTriangleApplication::onEvent(Event &event)

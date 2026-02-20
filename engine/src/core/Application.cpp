@@ -81,10 +81,6 @@ void Application::initFramework()
     mRenderer = std::make_unique<Renderer>();
     mRenderer->initialize(*mContext, mAssetSystem->registry());
 
-    
-    mRenderer->createFramesData(mEngineSpec.MAX_FRAMES_IN_FLIGHT,
-                                mScene->sceneLayout.descriptorSetLayoutsBindings);
-
     auto &ctx = *mContext.get();
     mMaterialSystem = std::make_unique<MaterialSystem>(ctx, mAssetSystem->registry(), mRenderer->getGPURegistry());
 

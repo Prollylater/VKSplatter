@@ -127,7 +127,8 @@ void Buffer::uploadStaged(const void *data, VkDeviceSize dataSize, VkDeviceSize 
     stagingBuffer.createBuffer(device, physDevice, dataSize,
                                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, allocator);
-
+    //TODO/Notes: Using vkFlushMappedMemoryRanges can replace VK_MEMORY_PROPERTY_HOST_COHERENT_BIT                               
+    //https://github.com/SaschaWillems/Vulkan/blob/master/examples/dynamicuniformbuffer/README.md
     if (allocator && mBufferAllocation)
     {
 

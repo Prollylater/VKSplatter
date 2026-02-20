@@ -24,7 +24,7 @@ uint32_t getInstanceID(InstanceIDAllocator &allocator, uint64_t key);
 // Todo: Move it somewhere else close to Vertex maybe in a common Tpes
 // Todo: Handle more visibility, typically light visible object
 // Something
-struct SceneData
+struct alignas(16) SceneData
 {
     glm::mat4 viewproj;
     glm::vec4 eye;
@@ -32,7 +32,7 @@ struct SceneData
 };
 
 // Todo: Alignment
-struct LightPacket
+struct alignas(16) LightPacket
 {
     std::vector<DirectionalLight> directionalLights;
     uint32_t directionalCount;
@@ -94,8 +94,6 @@ class Scene
 {
 public:
     Scene();
-    explicit Scene(int compute);
-
     ~Scene() = default;
 
     void addNode(SceneNode node);
@@ -115,7 +113,6 @@ public:
     Extents sceneBB;
     Camera camera;
     LightSystem lights;
-    PipelineSetLayoutBuilder sceneLayout; // This should either become Api agnostic or be removed
 };
 
 void fitCameraToBoundingBox(Camera &camera, const Extents &box);

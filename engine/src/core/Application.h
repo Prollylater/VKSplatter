@@ -58,6 +58,7 @@ protected:
     // Notes: Unimplemented
     // void setCustomAssetSystem(std::unique_ptr<AssetSystem> system);
     // void setCustomRenderer(std::unique_ptr<Renderer> renderer);
+    ContextCreateInfo mEngineSpec;
 
 private:
     std::unique_ptr<VulkanWindow> mWindow;
@@ -68,7 +69,6 @@ private:
     std::unique_ptr<MaterialSystem> mMaterialSystem;
 
     // Configuration
-    ContextCreateInfo mEngineSpec;
     std::string mWindowTitle = "Vulkan Application";
     int mWindowWidth = 800;
     int mWindowHeight = 600;

@@ -39,11 +39,8 @@ BufferKey GPUResourceRegistry::addBuffer(
         key.assetId = cpuAsset.getID();
     }
 
-    auto &record = acquireBufferRecord(desc, key);
 
-    record.allocations.clear();
-    record.usedSize = 0;
-    record.refCount = 0;
+    auto &record = acquireBufferRecord(desc, key);
     return BufferKey{key.assetId};
 }
 
@@ -79,15 +76,16 @@ uint32_t GPUResourceRegistry::allocateInBuffer(BufferKey bufferKey, const GPURes
     record.usedSize = allocOffset + alloc.size;
     record.allocations.push_back({allocOffset, alloc.size});
 
+    //Todo: Pretty sure i have no rason to return this
     return record.refCount++;
 }
 
-GPUBufferRef GPUResourceRegistry::getBuffer(const AssetID<void> cpuAsset, int allocation = 0)
+GPUBufferRef GPUResourceRegistry::getBuffer(const AssetID<void> cpuAsset, int allocation)
 {
     BufferKey key{cpuAsset.getID()};
     return getBuffer(key, allocation);
 };
-GPUBufferRef GPUResourceRegistry::getBuffer(const std::string &name, int allocation = 0)
+GPUBufferRef GPUResourceRegistry::getBuffer(const std::string &name, int allocation)
 {
     BufferKey key{std::hash<std::string>{}(name)};
     return getBuffer(key, allocation);
@@ -227,7 +225,7 @@ GPUResourceRegistry::BufferRecord &GPUResourceRegistry::acquireBufferRecord(cons
     }
 
     auto buffer = std::make_unique<Buffer>(mContext->createBuffer(desc));
-    auto [insertIt, inserted] = mBufferRecords.emplace(key, BufferRecord{std::move(buffer), {}, 0, 1});
+    auto [insertIt, inserted] = mBufferRecords.emplace(key, BufferRecord{std::move(buffer), {}, 0, 0});
     return insertIt->second;
 }
 

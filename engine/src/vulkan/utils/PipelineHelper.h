@@ -3,29 +3,6 @@
 #include "config/PipelineConfigs.h"
 
 // Pipeline
-/*
-
-struct PipelineKey {
-    std::string vertShader;        
-    std::string fragShader;
-    uint32_t DescriptorIdentifie;  
-};
-
-Todo: Later Implement Hashing for creating Pipeline instead of handtracking it
-*/
-// TOdo: Not quite sure where the builder stay
-/*
-//Todo: Rethink this
-struct PipelineKey {
-    size_t shaderHash;
-    size_t layoutHash;
-    size_t rasterHash;
-    size_t vertexFormatHash;
-    bool dynamicRender;
-    bool enableAlphaBlend;
-    bool enableDepthTest;
-};
-*/
 class PipelineBuilder
 {
 public:
@@ -150,6 +127,13 @@ namespace vkUtils
         }
 
     }
+};
+
+enum class DescriptorScope  : uint8_t{
+    Global = 0,
+    Passes,
+    Material,
+    Instances
 };
 
 // Render Pass

@@ -22,7 +22,7 @@ struct BufferDesc
     VkBufferUsageFlags usage;
     BufferUpdatePolicy updatePolicy;
     VkMemoryPropertyFlags memoryFlags;
-    std::string name; 
+    std::string name;  //Make this first
 };
 
 class Buffer

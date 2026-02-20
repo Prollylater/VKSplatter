@@ -9,7 +9,7 @@ Thing not implementend:
 Cleaning Image/Depth Stencil/Manually clean attachements
 */
 
-void Renderer::createFramesData(uint32_t framesInFlightCount, const std::vector<VkDescriptorSetLayoutBinding> &bindings)
+void Renderer::createFramesData(uint32_t framesInFlightCount)
 {
   auto logicalDevice = mContext->getLDevice().getLogicalDevice();
   auto physicalDevice = mContext->getPDeviceM().getPhysicalDevice();
@@ -17,15 +17,7 @@ void Renderer::createFramesData(uint32_t framesInFlightCount, const std::vector<
 
   mFrameHandler.createFramesData(logicalDevice, physicalDevice, graphicsFamilyIndex, framesInFlightCount);
 
-  // Init Frame Descriptor set of Scene instance Buffer
-  PipelineSetLayoutBuilder meshSSBO;
-  meshSSBO.addDescriptor(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-
-  std::vector<std::vector<VkDescriptorSetLayoutBinding>> layoutBindings = {bindings, meshSSBO.descriptorSetLayoutsBindings};
-  mFrameHandler.createFramesDescriptorSet(logicalDevice, layoutBindings);
   mFrameHandler.createShadowTextures(mContext->getLDevice(), physicalDevice, graphicsFamilyIndex);
-  // Update/Store UBO
-  mFrameHandler.writeFramesDescriptors(logicalDevice, 0);
 }
 
 void Renderer::initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth)
@@ -49,7 +41,7 @@ void Renderer::initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth)
 
 // All the rest are frame ressourees
 // Todo: This iss uploading which should be reworked once scene managment is redone
-void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &registry, MaterialSystem &system)
+void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &registry, MaterialSystem &system, std::vector<VkPushConstantRange> pushConstants)
 {
   const VkDevice &device = mContext->getLDevice().getLogicalDevice();
   const VkPhysicalDevice &physDevice = mContext->getPDeviceM().getPhysicalDevice();
@@ -60,7 +52,8 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   // Todo: automatically resolve this kind of stuff
   auto vf = VertexFormatRegistry::getStandardFormat();
 
-  PipelineLayoutConfig sceneConfig{{mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0), {}, mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(1)}, scene.sceneLayout.pushConstants};
+  PipelineLayoutConfig sceneConfig{{mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0), {}, mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(1)}, pushConstants};
+
   int pipelineEntryIndex = 0;
   int pipelineEntryIndexShadow = 0;
 
@@ -72,7 +65,7 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   {
     // resolve materials globally
     auto &matDescriptors = system.materialDescriptor();
-    int matLayoutIdx = matDescriptors.getOrCreateSetLayout(device, layout.descriptorSetLayoutsBindings);
+    int matLayoutIdx = matDescriptors.getOrCreateSetLayout(device, layout.bindings);
     sceneConfig.descriptorSetLayouts[1] = matDescriptors.getDescriptorLat(matLayoutIdx);
 
     for (const auto &passes : mPassesHandler.getExecutions())
@@ -110,48 +103,8 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
 
   for (int i = 0; i < mFrameHandler.getFramesCount(); i++)
   {
-    uint8_t *dirLightMapping = static_cast<uint8_t *>(mFrameHandler.getCurrentFrameData().mDirLightMapping);
-    uint8_t *ptLightMapping = static_cast<uint8_t *>(mFrameHandler.getCurrentFrameData().mPtLightMapping);
+
     uint8_t *shadowMapping = static_cast<uint8_t *>(mFrameHandler.getCurrentFrameData().mShadowMapping);
-    
-    // lights.directionalCount
-    int count = 10;
-    if (lights.directionalCount > 0)
-    {
-      memcpy(
-          dirLightMapping,
-          lights.directionalLights.data(),
-          lights.directionalCount * lights.dirLigthSize);
-      // lights.dirLigthSize * count);
-    }
-
-    memcpy(dirLightMapping + (lights.dirLigthSize * count),
-           &lights.directionalCount,
-           sizeof(lights.directionalCount));
-
-    if (lights.pointLightSize > 0)
-    {
-      memcpy(
-          ptLightMapping,
-          lights.pointLights.data(),
-          lights.pointCount * lights.pointLightSize);
-      // lights.pointLightSize * count);
-    }
-
-    memcpy(ptLightMapping + (lights.pointLightSize * count),
-           &lights.pointCount,
-           sizeof(lights.pointCount));
-
-
-    if (shadow.shadowCount > 0)
-    {
-      memcpy(
-          shadowMapping,
-          shadow.cascades.data(),
-          shadow.shadowCount * shadow.shadowSize);
-      // lights.pointLightSize * count);
-    }
-    
 
     int frameIndex = mFrameHandler.getCurrentFrameIndex();
     auto istBufferRef = mGpuRegistry.getBuffer(mRScene.instanceBuffer, frameIndex);
@@ -171,6 +124,123 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   std::cout << "Ressourcess uploaded" << std::endl;
   std::cout << "Scene Ressources Initialized" << std::endl;
 };
+
+void Renderer::createDescriptorSet(DescriptorScope scope, std::vector<VkDescriptorSetLayoutBinding> &bindings)
+{
+
+  const auto device = mContext->getLDevice().getLogicalDevice();
+  for (int i = 0; i < mFrameHandler.getFramesCount(); i++)
+  {
+    switch (scope)
+    {
+    case DescriptorScope::Global:
+    {
+      mFrameHandler.createFrameDescriptor(device, bindings, mFrameHandler.getCurrentFrameIndex(), 0);
+      break;
+    }
+    case DescriptorScope::Instances:
+    {
+      mFrameHandler.createFrameDescriptor(device, bindings, mFrameHandler.getCurrentFrameIndex(), 1);
+      break;
+    }
+    default:
+      break;
+    }
+    mFrameHandler.advanceFrame();
+  }
+}
+
+void Renderer::setDescriptorSet(DescriptorScope scope, std::vector<ResourceLink> &links)
+{
+  const auto device = mContext->getLDevice().getLogicalDevice();
+  uint32_t framesCount = mFrameHandler.getFramesCount();
+
+  // We ensure the Registry has one big buffer for each link's name which force some alignment stuff
+  //Ideally, i should figure out a way to always have struct alignas(64) here 64 is the mniALignemnt
+
+  VkPhysicalDeviceProperties props;
+  vkGetPhysicalDeviceProperties(mContext->getPDeviceM().getPhysicalDevice(), &props);
+
+  size_t minUboAlign = props.limits.minUniformBufferOffsetAlignment;
+  size_t minSsboAlign = props.limits.minStorageBufferOffsetAlignment;
+
+  auto alignUp = [](size_t value, size_t alignment) -> size_t
+  {
+    return (value + alignment - 1) & ~(alignment - 1);
+  };
+
+  // Loop over all links and create aligned big buffers
+  for (auto &[binding, desc] : links)
+  {
+    size_t baseSize = desc.size; // size of one object/frame
+
+    // Decide proper alignment for this buffer
+    size_t requiredAlignment = (desc.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) ? minSsboAlign : minUboAlign;
+    size_t alignedSize = alignUp(baseSize, requiredAlignment);
+    desc.size = alignedSize * framesCount;
+
+    auto bufferKey = mGpuRegistry.addBuffer(AssetID<void>{}, desc);
+
+    for (int i = 0; i < framesCount; i++)
+    {
+      GPUResourceRegistry::BufferAllocation allocation{
+          .offset = i * alignedSize, 
+          .size = baseSize           
+      };
+
+      mGpuRegistry.allocateInBuffer(bufferKey, allocation);
+    }
+  }
+  
+  for (int i = 0; i < mFrameHandler.getFramesCount(); i++)
+  {
+    auto &frameData = mFrameHandler.getCurrentFrameData();
+    const auto frameNum = mFrameHandler.getCurrentFrameIndex();
+
+    std::vector<VkWriteDescriptorSet> writes;
+    std::vector<VkDescriptorBufferInfo> bufferInfos;
+
+    writes.reserve(links.size());
+    bufferInfos.reserve(links.size());
+
+    int usedSet = 0;
+    switch (scope)
+    {
+    case DescriptorScope::Global:
+      usedSet = 0;
+      break;
+    case DescriptorScope::Instances:
+      usedSet = 1;
+      break;
+    default:
+      break;
+    }
+
+    for (auto &[binding, desc] : links)
+    {
+      auto info = mGpuRegistry.getBuffer(desc.name, frameNum);
+
+      bufferInfos.push_back(info.getDescriptor());
+      VkDescriptorType type = (desc.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+                                  ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+                                  : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+      writes.push_back(vkUtils::Descriptor::
+                           makeWriteDescriptor(frameData.mDescriptor.getSet(usedSet), binding,
+                                               type, &bufferInfos.back()));
+    }
+
+    frameData.mDescriptor.updateDescriptorSet(device, writes);
+    mFrameHandler.advanceFrame();
+  }
+}
+
+void Renderer::updateBuffer(const std::string &name, const void *data, size_t size)
+{
+  uint32_t currentFrame = mFrameHandler.getCurrentFrameIndex();
+
+  auto info = mGpuRegistry.getBuffer(name, currentFrame);
+  info.uploadData(*mContext, data, size);
+}
 
 void Renderer::updateRenderingScene(const VisibilityFrame &vFrame, const AssetRegistry &registry, MaterialSystem &matSystem)
 {
@@ -281,10 +351,6 @@ void Renderer::beginFrame(const SceneData &sceneData, GLFWwindow *window)
   }
 
   frameRess.mSyncObjects.resetFence(device);
-
-  // Update Camera and global UBO
-  // mFrameHandler.updateUniformBuffers(sceneData.viewproj);
-  memcpy(mFrameHandler.getCurrentFrameData().mCameraMapping, &sceneData, sizeof(SceneData));
 
   // Handle fetching
   // Todo: Not sure about exposing this

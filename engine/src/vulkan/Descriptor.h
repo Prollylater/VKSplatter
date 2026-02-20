@@ -8,8 +8,7 @@
 
 size_t hashBindings(const std::vector<VkDescriptorSetLayoutBinding> &bindings);
 
-//Todo: Investigate refactoring toward a better managment of dynamic resources
-//Gzen2
+
 class DescriptorManager
 {
 public:
@@ -50,6 +49,5 @@ private:
     std::unordered_map<size_t, int> mLayoutHashToIndex;
     std::vector<VkDescriptorSetLayout> mDescriptorSetLayouts;
 
-    // std::vector<VkDescriptorSetLayout> mDescriptorSetLayouts;
     std::vector<VkDescriptorSet> mDescriptorSets;
 };

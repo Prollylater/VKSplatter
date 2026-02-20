@@ -165,18 +165,20 @@ struct PipelineConfig
 struct PipelineSetLayoutBuilder
 {
     // Bad name
-    std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutsBindings;
+    std::vector<VkDescriptorSetLayoutBinding> bindings;
     std::vector<VkPushConstantRange> pushConstants;
 
-    void addDescriptor(uint32_t location, VkDescriptorType type, VkShaderStageFlags stageFlag, uint32_t count = 1,
+    PipelineSetLayoutBuilder& addDescriptor(uint32_t location, VkDescriptorType type, VkShaderStageFlags stageFlag, uint32_t count = 1,
                        const VkSampler *sampler = nullptr)
     {
-        descriptorSetLayoutsBindings.push_back({location, type, count, stageFlag, sampler});
+        bindings.push_back({location, type, count, stageFlag, sampler});
+        return *this;
     }
 
-    void addPushConstant(VkShaderStageFlags stageFlag, uint32_t offset, uint32_t size)
+    PipelineSetLayoutBuilder& addPushConstant(VkShaderStageFlags stageFlag, uint32_t offset, uint32_t size)
     {
         pushConstants.push_back({stageFlag, offset, size});
+        return *this;
     }
 };
 
