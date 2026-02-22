@@ -14,6 +14,10 @@ FrameResources &FrameHandler::getCurrentFrameData() // const
     return mFramesData[currentFrame];
 }
 
+const FrameResources &FrameHandler::getFrameData(int index) const {
+    return mFramesData[index];
+};
+
 uint32_t FrameHandler::getFramesCount() const
 {
     return mFramesData.size();
@@ -149,7 +153,7 @@ void FrameHandler::createFramesDescriptorSet(VkDevice device, const std::vector<
     }
 };
 
-void FrameHandler::createFrameDescriptor(VkDevice device, std::vector<VkDescriptorSetLayoutBinding> &layout, uint32_t frameIndex , uint32_t setIndex)
+void FrameHandler::createFrameDescriptor(VkDevice device, std::vector<VkDescriptorSetLayoutBinding> &layout, uint32_t frameIndex, uint32_t setIndex)
 {
     auto &descriptor = mFramesData[frameIndex].mDescriptor;
     descriptor.getOrCreateSetLayout(device, layout);

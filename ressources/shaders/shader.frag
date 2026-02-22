@@ -17,7 +17,7 @@ layout(set = 0, binding = 0) uniform SceneData{
 	vec4 ambientColor;
 } sceneUBO;
 
-
+//Todo: Alignemnt and quantize lights structure ?
 struct DirectionalLight {
     vec4 direction; 
     vec4 color;     
@@ -25,7 +25,7 @@ struct DirectionalLight {
 };
 
 layout(std140,set = 0, binding = 1) uniform DirLightsUBO {
-    DirectionalLight lights[10]; 
+    DirectionalLight lights[10]; //[] is not supported by glsl for unform
     uint count;
 } dirLightsUBO ;
 
@@ -38,11 +38,21 @@ struct PointLight {
 };
 
 layout(std430,set = 0,  binding = 2) buffer PointLightsBuffer {
-    PointLight lights[10]; //[] is not supported by glsl
+    PointLight lights[10]; 
     uint count;
 } ptLightsBuffer;
 
-layout(set = 1, binding = 0) uniform MaterialUBO{   
+
+layout(set = 0, binding = 3) uniform sampler2DArray cShadowMaps; 
+
+layout(std140, set = 0, binding = 4) uniform CascadedShadowUBO {
+    mat4 cascadeVP[];
+    //float cascadeSplits[];
+    int MAX_CASCADES;
+} cascadeUBO;
+
+
+layout(set = 2, binding = 0) uniform MaterialUBO{   
 	vec4 albedoColor;
 	vec4 emissive;
 	float metallic;
@@ -51,11 +61,11 @@ layout(set = 1, binding = 0) uniform MaterialUBO{
 	uint flags;
 } materialUBO;
 
-layout(set = 1, binding = 1) uniform sampler2D albedoSampler;
-layout(set = 1, binding = 2) uniform sampler2D normalSampler;
-layout(set = 1, binding = 3) uniform sampler2D metallicSampler;
-layout(set = 1, binding = 4) uniform sampler2D roughnessSampler;
-layout(set = 1, binding = 5) uniform sampler2D emissiveSampler;
+layout(set = 2, binding = 1) uniform sampler2D albedoSampler;
+layout(set = 2, binding = 2) uniform sampler2D normalSampler;
+layout(set = 2, binding = 3) uniform sampler2D metallicSampler;
+layout(set = 2, binding = 4) uniform sampler2D roughnessSampler;
+layout(set = 2, binding = 5) uniform sampler2D emissiveSampler;
 
 layout(location = 0) out vec4 outColor;
 

@@ -49,7 +49,7 @@ struct GPUBufferRef
     //Range upload from the first element of the allocation
     void uploadData(VulkanContext &context, const void *src, VkDeviceSize dataSize)
     {
-        if (!buffer || dataSize < size)
+        if (!buffer || dataSize > size)
         {
             return;
         }

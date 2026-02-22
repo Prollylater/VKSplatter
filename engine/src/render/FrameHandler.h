@@ -28,6 +28,8 @@ class FrameHandler
 public:
     // Frame Data
     FrameResources &getCurrentFrameData();
+    const FrameResources &getFrameData(int index) const;
+
     uint32_t getCurrentFrameIndex() const;
     uint32_t getFramesCount() const;
 

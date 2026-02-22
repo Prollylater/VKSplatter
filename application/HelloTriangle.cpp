@@ -49,7 +49,7 @@ void HelloTriangleApplication::setup()
     getRenderer().createDescriptorSet(DescriptorScope::Global, frameLayout.bindings);
     getRenderer().createDescriptorSet(DescriptorScope::Instances, instanceSSBOLayout.bindings);
 
-    getRenderer().setDescriptorSet(DescriptorScope::Global, globalResources);
+    getRenderer().setupFramesDescriptor(DescriptorScope::Global, globalResources);
     // getRenderer().setDescriptorSet(DescriptorScope::Instances, );
 
     // Render Passes
@@ -84,7 +84,17 @@ void HelloTriangleApplication::setup()
             .useDepthAttachment(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
         getRenderer().addPass(RenderPassType::Shadow, defShadowPass);
+        getRenderer().linkPassSet(RenderPassType::Shadow, DescriptorScope::Global);
+        getRenderer().linkPassSet(RenderPassType::Shadow, DescriptorScope::Instances);
+        getRenderer().linkPassSet(RenderPassType::Shadow, DescriptorScope::Material);
+
+
         getRenderer().addPass(RenderPassType::Forward, defRenderPass);
+        getRenderer().linkPassSet(RenderPassType::Forward, DescriptorScope::Global);
+        getRenderer().linkPassSet(RenderPassType::Forward, DescriptorScope::Instances);
+        getRenderer().linkPassSet(RenderPassType::Forward, DescriptorScope::Material);
+
+
     }
     else
     {

@@ -10,18 +10,7 @@
 #include "ResourceSystem.h"
 #include "MaterialSystem.h"
 #include "WindowVk.h"
-/*
 
-Application::Application(){
-    mEngineSpec = ContextCreateInfo::Default();
-    mEngineSpec.selectionCriteria.requireGeometryShader = true;
-
-    cico::fs::setRoot(std::filesystem::current_path());
-    cico::fs::setShaders(cico::fs::root() / "ressources/shaders");
-    cico::fs::setTextures(cico::fs::root() / "ressources/textures");
-    cico::fs::setMeshes(cico::fs::root() / "ressources/models");
-}
-*/
 Application::Application(ContextCreateInfo& info) : mEngineSpec(info){
     cico::fs::setRoot(std::filesystem::current_path());
     cico::fs::setShaders(cico::fs::root() / "ressources/shaders");

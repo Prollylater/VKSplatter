@@ -52,7 +52,7 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   // Todo: automatically resolve this kind of stuff
   auto vf = VertexFormatRegistry::getStandardFormat();
 
-  PipelineLayoutConfig sceneConfig{{mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0), {}, mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(1)}, pushConstants};
+  PipelineLayoutConfig sceneConfig{{mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0), mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(1)}, pushConstants};
 
   int pipelineEntryIndex = 0;
   int pipelineEntryIndexShadow = 0;
@@ -66,7 +66,7 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
     // resolve materials globally
     auto &matDescriptors = system.materialDescriptor();
     int matLayoutIdx = matDescriptors.getOrCreateSetLayout(device, layout.bindings);
-    sceneConfig.descriptorSetLayouts[1] = matDescriptors.getDescriptorLat(matLayoutIdx);
+    sceneConfig.descriptorSetLayouts.push_back(matDescriptors.getDescriptorLat(matLayoutIdx));
 
     for (const auto &passes : mPassesHandler.getExecutions())
     {
@@ -150,13 +150,19 @@ void Renderer::createDescriptorSet(DescriptorScope scope, std::vector<VkDescript
   }
 }
 
-void Renderer::setDescriptorSet(DescriptorScope scope, std::vector<ResourceLink> &links)
+// TODO: Better name to reflect it only work with some of the DescriptorScope
+void Renderer::setupFramesDescriptor(DescriptorScope scope, std::vector<ResourceLink> &links)
 {
   const auto device = mContext->getLDevice().getLogicalDevice();
   uint32_t framesCount = mFrameHandler.getFramesCount();
+  int usedSet = static_cast<uint32_t>(scope);
 
+  if (usedSet > 1)
+  { // Passes or Material Descriptor
+    return;
+  }
   // We ensure the Registry has one big buffer for each link's name which force some alignment stuff
-  //Ideally, i should figure out a way to always have struct alignas(64) here 64 is the mniALignemnt
+  // Ideally, i should figure out a way to always have struct alignas(64) here 64 is the mniALignemnt
 
   VkPhysicalDeviceProperties props;
   vkGetPhysicalDeviceProperties(mContext->getPDeviceM().getPhysicalDevice(), &props);
@@ -184,14 +190,13 @@ void Renderer::setDescriptorSet(DescriptorScope scope, std::vector<ResourceLink>
     for (int i = 0; i < framesCount; i++)
     {
       GPUResourceRegistry::BufferAllocation allocation{
-          .offset = i * alignedSize, 
-          .size = baseSize           
-      };
+          .offset = i * alignedSize,
+          .size = baseSize};
 
       mGpuRegistry.allocateInBuffer(bufferKey, allocation);
     }
   }
-  
+
   for (int i = 0; i < mFrameHandler.getFramesCount(); i++)
   {
     auto &frameData = mFrameHandler.getCurrentFrameData();
@@ -202,19 +207,6 @@ void Renderer::setDescriptorSet(DescriptorScope scope, std::vector<ResourceLink>
 
     writes.reserve(links.size());
     bufferInfos.reserve(links.size());
-
-    int usedSet = 0;
-    switch (scope)
-    {
-    case DescriptorScope::Global:
-      usedSet = 0;
-      break;
-    case DescriptorScope::Instances:
-      usedSet = 1;
-      break;
-    default:
-      break;
-    }
 
     for (auto &[binding, desc] : links)
     {
@@ -412,30 +404,14 @@ void Renderer::drawFrame(RenderPassType type, const SceneData &sceneData, const 
   instanceCount: Used for instanced rendering, use 1 if you're not doing that.
   firstVertex: Used as an offset into the vertex buffer, defines the lowest value of gl_VertexIndex.
   firstInstance: Used as an offset for instanced rendering, defines the lowest value of gl_InstanceIndex.
-
-  for each view {
-bind global resourcees          // set 0
-
-for each shader {
-  bind shader pipeline
-  for each material {
-    bind material resources  // sets 1 maybe 2
-  }
-}
-}
   */
-
-  // 0 is not quite right
-  // I m also not quite sure how location is determined, just through the attributes description
-  // 1 interleaved buffer here
-
-  // MESH DRAWING
 
   FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
   VkCommandBuffer cmd = frameRess.mCommandPool.get();
 
   // Draw all queues
   auto &pass = mPassesHandler.getBackend(type);
+  auto& currentFrameSets = pass.scopedSets[mFrameHandler.getCurrentFrameIndex()];
   for (const PassQueue &queue : pass.frames.queues)
   {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineM.getPipeline(queue.pipelineIndex));
@@ -447,14 +423,20 @@ for each shader {
       auto *materialGpu = mGpuRegistry.getMaterial(draw->materialGPU);
 
       // Bind descriptors
-      std::vector<VkDescriptorSet> sets = {
-          frameRess.mDescriptor.getSet(0),
-          materialDescriptor.getSet(materialGpu->descriptorIndex),
-          frameRess.mDescriptor.getSet(1)};
+      std::array<VkDescriptorSet, 4> sets;
+      uint32_t count = 0;
+
+      // We check the pass's mask to see which slots to fill
+      
+          
+      if (pass.activeScopesMask & (1 << 0)) sets[count++] = frameRess.mDescriptor.getSet(0);
+      if (pass.activeScopesMask & (1 << 1)) sets[count++] = frameRess.mDescriptor.getSet(1);
+      if (pass.activeScopesMask & (1 << 2)) sets[count++] = materialDescriptor.getSet(materialGpu->descriptorIndex);
+      if (pass.activeScopesMask & (1 << 3)) sets[count++] = mPassesHandler.getDescriptors().getSet(pass.descriptorSetIndex);
 
       vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                               mPipelineM.getPipelineLayout(queue.pipelineIndex), 0,
-                              sets.size(), sets.data(),
+                              count, sets.data(),
                               0, nullptr);
 
       // Bind vertex
@@ -464,8 +446,6 @@ for each shader {
 
       vkCmdBindVertexBuffers(cmd, 0, 1, &vtxBuffer, offsets);
       vkCmdBindIndexBuffer(cmd, idxBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-      // Push constants
       vkCmdPushConstants(cmd, mPipelineM.getPipelineLayout(queue.pipelineIndex),
                          VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &sceneData.viewproj);
 
@@ -475,13 +455,5 @@ for each shader {
         vkCmdDrawIndexed(cmd, draw->indexCount, instRange.count, draw->indexOffset, 0, instRange.first);
       }
     }
-
-    // Fake multi Viewport is basically this
-    /*
-    viewport.width = static_cast<float>(frameExtent.width);
-    viewport.height = static_cast<float>(frameExtent.height/2);
-    vkCmdSetViewport(command, 0, 1, &viewport);
-    vkCmdDrawIndexed(command, static_cast<uint32_t>(bufferSize), 1, 0, 0, 0);
-    */
   }
 };

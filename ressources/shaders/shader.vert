@@ -21,7 +21,7 @@ struct InstanceData {
 };
 
 
-layout(set = 2, binding = 0) buffer instancesBuffer{
+layout(set = 1, binding = 0) buffer instancesBuffer{
  InstanceData data[];
 } instancesData;
 

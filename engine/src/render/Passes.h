@@ -7,7 +7,6 @@
 #include "GBuffers.h"
 #include "FrameHandler.h"
 #include "logging/Logger.h"
-// The local
 
 struct DynamicPassInfo
 {
@@ -42,40 +41,68 @@ struct PassBackend
 
     VkExtent2D extent{}; // A passes is going to have one extent
     bool isDynamic() const { return config.mType == RenderConfigType::Dynamic; }
+
+    // Descriptor related
+    uint8_t activeScopesMask = 0;
+    uint8_t descriptorSetIndex = UINT8_MAX;
+
+    // Notes: Material is ignored this should be reflected
+    VkDescriptorSet scopedSets[3][static_cast<size_t>(DescriptorScope::Count)] = {};
+    void activateSet(DescriptorScope scope)
+    {
+        uint32_t scopeIdx = static_cast<uint32_t>(scope);
+        activeScopesMask |= (1 << scopeIdx);
+    }
+    void linkSet(DescriptorScope scope, uint32_t frameIndex, VkDescriptorSet set)
+    {
+        uint32_t scopeIdx = static_cast<uint32_t>(scope);
+        activeScopesMask |= (1 << scopeIdx);
+        scopedSets[frameIndex][scopeIdx] = set;
+    }
 };
 
 class RenderPassHandler
 {
 public:
     RenderPassHandler() = default;
-    ~RenderPassHandler() = default;
+    ~RenderPassHandler()
+    {
+        auto device = mContext->getLDevice().getLogicalDevice();
+        mDescriptorManager.destroyDescriptorLayout(device);
+        mDescriptorManager.destroyDescriptorPool(device);
+    };
 
     void init(VulkanContext &ctx, GBuffers &gbuffers, FrameHandler &frameHandler);
     void addPass(RenderPassType type, RenderPassConfig passesCfg);
 
     PassBackend &getBackend(RenderPassType type);
-    const std::vector<RenderPassType>& getExecutions() const{
+    const std::vector<RenderPassType> &getExecutions() const
+    {
         return mExecutionOrder;
     };
 
-
     void beginPass(RenderPassType type, VkCommandBuffer cmd);
     void endPass(RenderPassType type, VkCommandBuffer cmd);
-   
+
     // Todo: Handle reload mecanism
     void destroyRessources(VkDevice device);
+    DescriptorManager &getDescriptors()
+    {
+        return mDescriptorManager;
+    }
+
 private:
     const VulkanContext *mContext;
     const GBuffers *mGBuffers;
-    FrameHandler *mFrameHandler;
+    FrameHandler *mFrameHandler; // This might be an undesirable dependencies
     std::array<PassBackend, (size_t)RenderPassType::Count> mPasses{};
     std::vector<RenderPassType> mExecutionOrder;
+    DescriptorManager mDescriptorManager;
 
 private:
     void setBeginPassTransition(PassBackend &backend, VkCommandBuffer cmd);
     void setEndPassTransition(PassBackend &backend, VkCommandBuffer cmd);
-    void updateDynamicRenderingInfo(RenderPassType type,VkExtent2D extent);
-
+    void updateDynamicRenderingInfo(RenderPassType type, VkExtent2D extent);
 
     VkImageView resolveAttachment(const AttachmentSource &src);
     VkImage resolveImage(const AttachmentSource &src);

@@ -131,9 +131,10 @@ namespace vkUtils
 
 enum class DescriptorScope  : uint8_t{
     Global = 0,
-    Passes,
+    Instances,
     Material,
-    Instances
+    Passes,
+    Count
 };
 
 // Render Pass

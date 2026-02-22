@@ -52,6 +52,32 @@ public:
         mPassesHandler.addPass(type, config);
     }
 
+    void linkPassSet(RenderPassType type, DescriptorScope scope, std::vector<VkDescriptorSetLayoutBinding> *customBindings = nullptr)
+    {
+        auto &pass = mPassesHandler.getBackend(type);
+
+        // So ideally, i want user to manually link everything by Scope
+        const auto device = mContext->getLDevice().getLogicalDevice();
+        if (scope == DescriptorScope::Global || scope == DescriptorScope::Instances)
+        {
+            for (int i = 0; i < mFrameHandler.getFramesCount(); i++)
+            {
+                const auto &set = mFrameHandler.getFrameData(i).mDescriptor.getSet(static_cast<uint32_t>(type));
+                pass.linkSet(scope, i, set);
+            }
+        }
+        else if (scope == DescriptorScope::Passes || scope == DescriptorScope::Material)
+        {
+            auto &descriptorM = mPassesHandler.getDescriptors();
+            if (customBindings && pass.descriptorSetIndex == UINT8_MAX)
+            {
+                pass.descriptorSetIndex = descriptorM.getOrCreateSetLayout(mContext->getLDevice().getLogicalDevice(), *customBindings);
+                descriptorM.allocateDescriptorSet(device, pass.descriptorSetIndex);
+            }
+            pass.activateSet(scope);
+        }
+    }
+
     void beginFrame(const SceneData &sceneData, GLFWwindow *window);
     void beginPass(RenderPassType type);
     // Type shouldn't be necessary at this point
@@ -63,7 +89,7 @@ public:
     // SetUp Function
     void initAllGbuffers(std::vector<VkFormat> gbufferFormats, bool depth);
     void initRenderingRessources(Scene &scene, const AssetRegistry &registry, MaterialSystem &system, std::vector<VkPushConstantRange> pushConstants);
-    
+
     void updateRenderingScene(const VisibilityFrame &vFrame, const AssetRegistry &registry, MaterialSystem &matSystem);
     void deinitSceneRessources();
     void createFramesData(uint32_t framesInFlightCount);
@@ -79,11 +105,10 @@ public:
                         const std::string &fragmentPath, RenderPassType type);
 
     void createDescriptorSet(DescriptorScope scope, std::vector<VkDescriptorSetLayoutBinding> &bindings);
-   
-    void setDescriptorSet(DescriptorScope scope, std::vector<ResourceLink> &links);
+
+    void setupFramesDescriptor(DescriptorScope scope, std::vector<ResourceLink> &links);
 
     void updateBuffer(const std::string &name, const void *data, size_t size);
- 
 
 private:
     // Todo: Typically all  that here is really specific too Vulkan which make this Renderer not really Api Agnostic

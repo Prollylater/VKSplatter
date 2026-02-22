@@ -38,117 +38,114 @@ void SwapChainResources::createFrameBuffer(VkDevice device, VkRenderPass renderP
     }
 }
 
+void RenderPassHandler::init(VulkanContext &ctx, GBuffers &gbuffers, FrameHandler &frameHandler)
+{
+    mContext = &ctx;
+    mGBuffers = &gbuffers;
+    mFrameHandler = &frameHandler;
+    mDescriptorManager.createDescriptorPool(mContext->getLDevice().getLogicalDevice(), 50, {});
+}
 
-    void RenderPassHandler::init(VulkanContext &ctx, GBuffers &gbuffers, FrameHandler &frameHandler)
+// Todo: Recreating a pass and readding is UB
+void RenderPassHandler::addPass(RenderPassType type, RenderPassConfig passesCfg)
+{
+    auto &backend = mPasses[(size_t)type];
+
+    const auto &mLogDeviceM = mContext->getLDevice();
+    const auto &mPhysDeviceM = mContext->getPDeviceM();
+    const auto &mSwapChainM = mContext->getSwapChainManager();
+
+    const VkDevice &device = mLogDeviceM.getLogicalDevice();
+
+    // Onward is just hardcoded stuff not meant to be dynamic yet
+    if (passesCfg.mType == RenderConfigType::LegacyRenderPass)
     {
-        mContext = &ctx;
-        mGBuffers = &gbuffers;
-        mFrameHandler = &frameHandler;
-    }
-    
-    //Todo: Recreating a pass and readding is UB
-    void RenderPassHandler::addPass(RenderPassType type, RenderPassConfig passesCfg)
-    {
-        auto &backend = mPasses[(size_t)type];
+        backend.renderPassLegacy.createRenderPass(device, 0, passesCfg);
+        backend.config = passesCfg;
 
-        const auto &mLogDeviceM = mContext->getLDevice();
-        const auto &mPhysDeviceM = mContext->getPDeviceM();
-        const auto &mSwapChainM = mContext->getSwapChainManager();
-
-        const VkDevice &device = mLogDeviceM.getLogicalDevice();
-
-        // Onward is just hardcoded stuff not meant to be dynamic yet
-        if (passesCfg.mType == RenderConfigType::LegacyRenderPass)
+        for (int i = 0; i < mContext->mSwapChainM.GetSwapChainImageViews().size(); i++)
         {
-            backend.renderPassLegacy.createRenderPass(device, 0, passesCfg);
-            backend.config = passesCfg;
+            std::vector<VkImageView> FBViews;
+            std::vector<VkImageView> colorViews;
+            VkImageView depthView;
 
-            for (int i = 0; i < mContext->mSwapChainM.GetSwapChainImageViews().size(); i++)
+            for (const auto &binding : passesCfg.attachments)
             {
-                std::vector<VkImageView> FBViews;
-                std::vector<VkImageView> colorViews;
-                VkImageView depthView;
-
-                for (const auto &binding : passesCfg.attachments)
+                VkImageView view = resolveAttachment(binding.source);
+                switch (binding.config.role)
                 {
-                    VkImageView view = resolveAttachment(binding.source);
-                    switch (binding.config.role)
-                    {
-                    case AttachmentConfig::Role::Present:
-                        FBViews.push_back(view);
-                        break;
+                case AttachmentConfig::Role::Present:
+                    FBViews.push_back(view);
+                    break;
 
-                    case AttachmentConfig::Role::Color:
-                        colorViews.push_back(view);
-                        break;
+                case AttachmentConfig::Role::Color:
+                    colorViews.push_back(view);
+                    break;
 
-                    case AttachmentConfig::Role::Depth:
-                        depthView = view;
-                        break;
-                    }
+                case AttachmentConfig::Role::Depth:
+                    depthView = view;
+                    break;
                 }
-
-                // Then regular colors
-                FBViews.insert(
-                    FBViews.end(),
-                    colorViews.begin(),
-                    colorViews.end());
-                // Multiple FrameBUffer might be the same
-                backend.frameBuffers.createFrameBuffer(device, backend.renderPassLegacy.getRenderPass(0), FBViews,
-                                                       mContext->getSwapChainManager().getSwapChainExtent(), i);
             }
+
+            // Then regular colors
+            FBViews.insert(
+                FBViews.end(),
+                colorViews.begin(),
+                colorViews.end());
+            // Multiple FrameBUffer might be the same
+            backend.frameBuffers.createFrameBuffer(device, backend.renderPassLegacy.getRenderPass(0), FBViews,
+                                                   mContext->getSwapChainManager().getSwapChainExtent(), i);
         }
-        else
-        {
-            backend.config = passesCfg;
-        }
-        backend.extent = resolvePassExtent(backend);
-        mExecutionOrder.push_back(type);
     }
-
-    PassBackend & RenderPassHandler::getBackend(RenderPassType type) { return mPasses[(size_t)type]; }
-
-    void RenderPassHandler::beginPass(RenderPassType type, VkCommandBuffer cmd)
+    else
     {
-        auto &backend = mPasses[(size_t)type];
-
-        VkExtent2D extent = mContext->getSwapChainManager().getSwapChainExtent();
-
-        if (backend.isDynamic())
-        {
-            setBeginPassTransition(backend, cmd);
-
-            updateDynamicRenderingInfo(type, extent);
-
-            vkCmdBeginRendering(cmd, &backend.dynamicInfo.info);
-        }
-        else
-        {
-            backend.renderPassLegacy.startPass(
-                0, cmd,
-                backend.frameBuffers.getFramebuffers(mFrameHandler->getCurrentFrameIndex()),
-                extent);
-        }
+        backend.config = passesCfg;
     }
+    backend.extent = resolvePassExtent(backend);
+    mExecutionOrder.push_back(type);
+}
 
-    void RenderPassHandler::endPass(RenderPassType type, VkCommandBuffer cmd)
+PassBackend &RenderPassHandler::getBackend(RenderPassType type) { return mPasses[(size_t)type]; }
+
+void RenderPassHandler::beginPass(RenderPassType type, VkCommandBuffer cmd)
+{
+    auto &backend = mPasses[(size_t)type];
+
+    VkExtent2D extent = mContext->getSwapChainManager().getSwapChainExtent();
+
+    if (backend.isDynamic())
     {
-        auto &backend = mPasses[(size_t)type];
+        setBeginPassTransition(backend, cmd);
 
-        if (backend.isDynamic())
-        {
-            vkCmdEndRendering(cmd);
+        updateDynamicRenderingInfo(type, extent);
 
-            setEndPassTransition(backend, cmd);
-        }
-        else
-        {
-            backend.renderPassLegacy.endPass(cmd);
-        }
+        vkCmdBeginRendering(cmd, &backend.dynamicInfo.info);
     }
+    else
+    {
+        backend.renderPassLegacy.startPass(
+            0, cmd,
+            backend.frameBuffers.getFramebuffers(mFrameHandler->getCurrentFrameIndex()),
+            extent);
+    }
+}
 
-   
+void RenderPassHandler::endPass(RenderPassType type, VkCommandBuffer cmd)
+{
+    auto &backend = mPasses[(size_t)type];
 
+    if (backend.isDynamic())
+    {
+        vkCmdEndRendering(cmd);
+
+        setEndPassTransition(backend, cmd);
+    }
+    else
+    {
+        backend.renderPassLegacy.endPass(cmd);
+    }
+}
 
 void RenderPassHandler::setBeginPassTransition(PassBackend &backend, VkCommandBuffer cmd)
 {
@@ -271,7 +268,6 @@ void RenderPassHandler::updateDynamicRenderingInfo(
         if (binding.config.role == AttachmentConfig::Role::Present)
         {
             info.clearValue.color = {0.2f, 0.2f, 0.2f, 1.0f};
-            ;
         }
         else
         {
@@ -413,9 +409,11 @@ VkExtent2D RenderPassHandler::resolveAttachmentExtent(const AttachmentSource &sr
     case AttachmentSource::Type::GBuffer:
         // GBuffer all share one single size
         return mGBuffers->getSize();
-    case AttachmentSource::Type::FrameLocal:{
+    case AttachmentSource::Type::FrameLocal:
+    {
         VkExtent3D extent3D = mFrameHandler->getCurrentFrameData().cascadePoolArray.getExtent();
-        return {extent3D.width, extent3D.height};}
+        return {extent3D.width, extent3D.height};
+    }
     case AttachmentSource::Type::External:
     case AttachmentSource::Type::Swapchain:
     default:
