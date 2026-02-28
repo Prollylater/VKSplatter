@@ -4,9 +4,35 @@
 
 // Todo: Some grip with this  being here
 // Notes: I should take the time to draw the entire architecture at some point
+// RenderGraph might actually be simpler to work with to some degree
 #include "GBuffers.h"
 #include "FrameHandler.h"
 #include "logging/Logger.h"
+
+struct RenderContext
+{
+    VkCommandBuffer cmd;
+    uint32_t frameIndex;
+
+    // Internal Engine Refs forward
+    class PassBackend &backend;
+    class GPUResourceRegistry &registry;
+    class PipelineManager &pipelines;
+    const class DescriptorManager &materialDescriptors;
+    const class DescriptorManager &passDescriptors;
+    const struct FrameResources &frameRess;
+
+    // --- Granular Helpers (Power User API) ---
+
+    // Automatically resolves and binds sets based on the activeScopesMask
+    void bindDescriptorSets(uint32_t pipelineIndex, uint32_t materialIndex) const;
+
+    void bindGeometry(BufferKey vtxHandle, BufferKey idxHandle) const;
+
+    void pushConstants(uint32_t pipelineIndex, VkShaderStageFlags stageFlags, const void *data, uint32_t size) const;
+    void drawIndexed(const struct Drawable *draw) const;
+    void drawDefaultQueues() const;
+};
 
 struct DynamicPassInfo
 {
@@ -29,6 +55,7 @@ public:
 private:
     std::array<VkFramebuffer, 3> mFFrameBuffer;
 };
+using PassExecuteFn = std::function<void(const RenderContext &)>;
 
 struct PassBackend
 {
@@ -59,19 +86,20 @@ struct PassBackend
         activeScopesMask |= (1 << scopeIdx);
         scopedSets[frameIndex][scopeIdx] = set;
     }
+
+    PassExecuteFn execute = nullptr;
+
+    void setExecuteCallback(PassExecuteFn callback)
+    {
+        execute = std::move(callback);
+    }
 };
 
 class RenderPassHandler
 {
 public:
     RenderPassHandler() = default;
-    ~RenderPassHandler()
-    {
-        auto device = mContext->getLDevice().getLogicalDevice();
-        mDescriptorManager.destroyDescriptorLayout(device);
-        mDescriptorManager.destroyDescriptorPool(device);
-    };
-
+    ~RenderPassHandler() = default;
     void init(VulkanContext &ctx, GBuffers &gbuffers, FrameHandler &frameHandler);
     void addPass(RenderPassType type, RenderPassConfig passesCfg);
 

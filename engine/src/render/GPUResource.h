@@ -47,20 +47,25 @@ struct GPUBufferRef
     }
 
     //Range upload from the first element of the allocation
-    void uploadData(VulkanContext &context, const void *src, VkDeviceSize dataSize)
+    
+
+    /// @brief Update data a rande of data in a bufferss
+    /// @param[in] dataSize size of the data uploaded
+    /// @param[in] additionalOffset An additionnal offset added on the base offset of the allocation this GPUBuffer Ref references
+    void uploadData(VulkanContext &context, const void *src, size_t dataSize, size_t additionalOffset = 0 )
     {
-        if (!buffer || dataSize > size)
+        if (!buffer || dataSize + additionalOffset > size)
         {
             return;
         }
-        context.updateBuffer(*buffer, src, dataSize, offset);
+        context.updateBuffer(*buffer, src, dataSize, offset + additionalOffset);
     }
 
     //Single element update
     //Assume the object correspon to stride
     //Notes:
     //Todo: Store stride by adding it in description then in allocation ?
-    void updateElement(VulkanContext &ctx, const void *data, uint32_t index, VkDeviceSize stride)
+    void updateElement(VulkanContext &ctx, const void *data, uint32_t index, size_t dataSize)
     {
         /* Previously we passed dataSize and not size. DataSize was passed to control stride as the feature was halfbaked
         Still need to be reconsiderated
@@ -70,14 +75,15 @@ struct GPUBufferRef
         }
 
         */
-        if (!buffer || offset + stride > size || stride == 0)
+        //Guard rail for out of bound acces too
+        if (!buffer || dataSize == 0 || dataSize > size )
         {
             return;
         }
 
-        VkDeviceSize dstOffset = offset + index * stride;
+        VkDeviceSize dstOffset = offset + index * dataSize;
 
-        ctx.updateBuffer(*buffer, data, stride, dstOffset);
+        ctx.updateBuffer(*buffer, data, dataSize, dstOffset);
     }
 
 

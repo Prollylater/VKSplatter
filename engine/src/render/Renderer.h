@@ -78,9 +78,15 @@ public:
         }
     }
 
+    void setPassCallback(RenderPassType type, PassExecuteFn callback)
+    {
+        mPassesHandler.getBackend(type).setExecuteCallback(std::move(callback));
+    };
+
+
     void beginFrame(const SceneData &sceneData, GLFWwindow *window);
     void beginPass(RenderPassType type);
-    // Type shouldn't be necessary at this point
+    void execute(RenderPassType type, const DescriptorManager &materialDescriptor);
     void drawFrame(RenderPassType type, const SceneData &sceneData, const DescriptorManager &materialDescriptor);
 
     void endPass(RenderPassType type);
@@ -108,7 +114,7 @@ public:
 
     void setupFramesDescriptor(DescriptorScope scope, std::vector<ResourceLink> &links);
 
-    void updateBuffer(const std::string &name, const void *data, size_t size);
+    void updateBuffer(const std::string &name, const void *data, size_t size, size_t offset = 0);
 
 private:
     // Todo: Typically all  that here is really specific too Vulkan which make this Renderer not really Api Agnostic

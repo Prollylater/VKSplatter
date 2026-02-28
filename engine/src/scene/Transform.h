@@ -9,7 +9,7 @@
 class Transform
 {
 public:
-    Transform();
+    Transform() = default;
     Transform(const glm::vec3& position);
     Transform(const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale);
 
@@ -37,17 +37,17 @@ private:
     void updateWorldMatrix();
 
 private:
-    glm::vec3 position;
-    glm::quat rotation;
-    glm::vec3 scale;
+    glm::vec3 position = {0,0,0};
+    glm::quat rotation = {1,0,0,0};
+    glm::vec3 scale = {1,1,1};;
 
     glm::mat4 localMatrix;
     glm::mat4 worldMatrix;
 
-    bool localDirty;
-    bool worldDirty;
+    bool localDirty = true;
+    bool worldDirty = true;
 
-    Transform* parent;
+    Transform* parent =  nullptr;
     std::vector<Transform*> children;
 };
 

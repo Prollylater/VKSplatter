@@ -24,8 +24,8 @@ struct DirectionalLight {
     float intensity; 
 };
 
-layout(std140,set = 0, binding = 1) uniform DirLightsUBO {
-    DirectionalLight lights[10]; //[] is not supported by glsl for unform
+layout(std430,set = 0, binding = 1) buffer DirLightsUBO {
+    DirectionalLight lights[5]; 
     uint count;
 } dirLightsUBO ;
 
@@ -37,19 +37,22 @@ struct PointLight {
     float radius;     
 };
 
-layout(std430,set = 0,  binding = 2) buffer PointLightsBuffer {
-    PointLight lights[10]; 
+layout(std430,set = 0,  binding = 2) buffer PointLightsBuffer { 
+    PointLight lights[5];
     uint count;
 } ptLightsBuffer;
 
 
 layout(set = 0, binding = 3) uniform sampler2DArray cShadowMaps; 
 
-layout(std140, set = 0, binding = 4) uniform CascadedShadowUBO {
-    mat4 cascadeVP[];
-    //float cascadeSplits[];
-    int MAX_CASCADES;
-} cascadeUBO;
+struct Cascade {
+    mat4 cascadeVP;
+    float cascadeSplits;   
+};
+
+layout(std430, set = 0, binding = 4) buffer CascadedShadowUBO {
+    Cascade cascades[3];
+} cascadeSSBO;
 
 
 layout(set = 2, binding = 0) uniform MaterialUBO{   
@@ -100,6 +103,54 @@ vec3 computeDirectionalLight(vec3 N, vec3 V, DirectionalLight light) {
     return diffuse + specular;
 }
 
+float computeCascadeShadow(vec3 fragPosWorld, vec3 normal, vec3 lightDir)
+{
+
+    vec4 fragPosView = sceneUBO.viewproj * vec4(fragPosWorld, 1.0);
+    float depth = abs(fragPosView.z);
+
+
+    int cascadeIndex = 0;
+    for (int i = 0; i < 3; ++i)
+    {
+        if (depth < cascadeSSBO.cascades[i].cascadeSplits)
+        {
+            cascadeIndex = i;
+            break;
+        }
+    }
+
+    Cascade cascade = cascadeSSBO.cascades[cascadeIndex];
+
+
+    vec4 fragPosLightSpace = cascade.cascadeVP * vec4(fragPosWorld, 1.0);
+
+    // Perspective divide
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+
+    // Transform to [0,1]
+    projCoords = projCoords * 0.5 + 0.5;
+
+    // Outside shadow map
+    if (projCoords.z > 1.0)
+        return 1.0;
+
+    // Bias (important to avoid shadow acne)
+    float bias = max(0.0005 * (1.0 - dot(normal, -lightDir)), 0.00005);
+    return bias;
+    float shadowDepth = texture(
+        cShadowMaps,
+        vec3(projCoords.xy, cascadeIndex)
+    ).r;
+
+    float currentDepth = projCoords.z;
+
+
+    float shadow = currentDepth - bias > shadowDepth ? 0.0 : 1.0;
+
+    return shadow;
+}
+
 void main() {
     vec3 N = normalize(fragNormal);
     vec3 V = normalize(sceneUBO.eye.xyz - fragPos);
@@ -111,11 +162,18 @@ void main() {
     
 vec3 finalColor = sceneUBO.ambientColor.rgb * albedoColor.rgb;
 
-    for (int i = 0; i < dirLightsUBO.count; ++i) {
-        DirectionalLight dirLight = dirLightsUBO.lights[i];
-        finalColor += computeDirectionalLight(N, V, dirLight) * albedoColor.xyz;
-    }
+    for (int i = 0; i < dirLightsUBO.count; ++i)
+	{
+	    DirectionalLight dirLight = dirLightsUBO.lights[i];
 
+	    vec3 L = normalize(-dirLight.direction.xyz);
+
+	    float shadow = computeCascadeShadow(fragPos, N, L);
+
+	    finalColor += computeDirectionalLight(N, V, dirLight)
+		          * albedoColor.xyz;
+		          //* shadow;
+	}
        for (int i = 0; i < ptLightsBuffer.count; ++i) {
           PointLight ptLight = ptLightsBuffer.lights[i];
           finalColor += computePointLight(fragPos, N, ptLight)* albedoColor.xyz;

@@ -25,7 +25,7 @@ void HelloTriangleApplication::setup()
     PipelineSetLayoutBuilder frameLayout;
     // Notes: Could have a default
     frameLayout.addDescriptor(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-        .addDescriptor(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .addDescriptor(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .addDescriptor(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .addDescriptor(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .addDescriptor(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -37,8 +37,8 @@ void HelloTriangleApplication::setup()
 
     // Backing buffer
     BufferDesc cameraDesc{sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, BufferUpdatePolicy::Dynamic, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "CameraUBO"};
-    BufferDesc dLightBuffDesc{(10 * sizeof(DirectionalLight) + sizeof(uint32_t)), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, BufferUpdatePolicy::Dynamic, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "DirLghtUBO"};
-    BufferDesc ptLightBuffDesc{(10 * sizeof(PointLight) + sizeof(uint32_t)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferUpdatePolicy::Dynamic, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "PtLghtSSBO"};
+    BufferDesc dLightBuffDesc{(5 * sizeof(DirectionalLight) + sizeof(uint32_t)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferUpdatePolicy::Dynamic, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "DirLghtUBO"};
+    BufferDesc ptLightBuffDesc{(5 * sizeof(PointLight) + sizeof(uint32_t)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferUpdatePolicy::Dynamic, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "PtLghtSSBO"};
     BufferDesc shdwBuffDesc{(MAX_SHDW_CASCADES * sizeof(Cascade)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferUpdatePolicy::Dynamic, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, "ShdwSSBO"};
 
     std::vector<ResourceLink> globalResources = {{0, cameraDesc}, {1, dLightBuffDesc}, {2, ptLightBuffDesc}, {4, shdwBuffDesc}};
@@ -50,7 +50,6 @@ void HelloTriangleApplication::setup()
     getRenderer().createDescriptorSet(DescriptorScope::Instances, instanceSSBOLayout.bindings);
 
     getRenderer().setupFramesDescriptor(DescriptorScope::Global, globalResources);
-    // getRenderer().setDescriptorSet(DescriptorScope::Instances, );
 
     // Render Passes
     if (useDynamic)
@@ -88,13 +87,10 @@ void HelloTriangleApplication::setup()
         getRenderer().linkPassSet(RenderPassType::Shadow, DescriptorScope::Instances);
         getRenderer().linkPassSet(RenderPassType::Shadow, DescriptorScope::Material);
 
-
         getRenderer().addPass(RenderPassType::Forward, defRenderPass);
         getRenderer().linkPassSet(RenderPassType::Forward, DescriptorScope::Global);
         getRenderer().linkPassSet(RenderPassType::Forward, DescriptorScope::Instances);
         getRenderer().linkPassSet(RenderPassType::Forward, DescriptorScope::Material);
-
-
     }
     else
     {
@@ -112,9 +108,8 @@ void HelloTriangleApplication::setup()
     fitCameraToBoundingBox(getScene().getCamera(), getScene().sceneBB);
 };
 
-// const std::string MODEL_PATH = "hearthspring.obj";
-const std::string MODEL_PATH = "sibenik.obj";
-const std::string MODEL_PATH2 = "bmw.obj";
+const std::string MODEL_PATH = "sponza.obj";
+// const std::string MODEL_PATH = "sibenik.obj";
 
 void HelloTriangleApplication::initScene()
 {
@@ -134,38 +129,51 @@ void HelloTriangleApplication::initScene()
 
     uint32_t i = node.addInstance();
     node.getTransform(i).setPosition(glm::vec3(0, 0, 0));
+
+  
+    const int gridSize = 0;
+    const float spacing = 1.0f;
+
+    for (int x = 0; x < gridSize; ++x)
+    {
+        for (int z = 0; z < gridSize; ++z)
+        {
+            uint32_t index = node.addInstance();
+
+            node.getTransform(index).setPosition(
+                glm::vec3(
+                    x * spacing,
+                    x == z ? x/2.0f : 0.0f,
+                    z * spacing));
+        }
+    }
+
     getScene().addNode(node);
 
-    SceneNode nodeb{
-        .mesh = assetMesh,
-        .nodeExtents = meshAsset->bndbox};
-    i = nodeb.addInstance();
-    nodeb.getTransform(i).setPosition(glm::vec3(0.0, 0.0, 16.0));
-    getScene().addNode(nodeb);
 }
 
 void HelloTriangleApplication::render()
 {
-    auto &renderer = getRenderer();
+
     VisibilityFrame frameData = extractRenderFrame(getScene(), getAssetSystem().registry());
-    renderer.updateRenderingScene(frameData, getAssetSystem().registry(), getMaterialSystem());
+    getRenderer().updateRenderingScene(frameData, getAssetSystem().registry(), getMaterialSystem());
 
     std::cout << "Camera Position" << frameData.sceneData.eye[0] << " "
               << frameData.sceneData.eye[1] << " "
               << frameData.sceneData.eye[2] << " "
               << std::endl;
 
-    renderer.beginFrame(frameData.sceneData, getWindow().getGLFWWindow());
+    getRenderer().beginFrame(frameData.sceneData, getWindow().getGLFWWindow());
 
-    renderer.beginPass(RenderPassType::Shadow);
-    renderer.drawFrame(RenderPassType::Shadow, frameData.sceneData, getMaterialSystem().materialDescriptor());
-    renderer.endPass(RenderPassType::Shadow);
+    getRenderer().beginPass(RenderPassType::Shadow);
+    getRenderer().execute(RenderPassType::Shadow, getMaterialSystem().materialDescriptor());
+    getRenderer().endPass(RenderPassType::Shadow);
 
-    renderer.beginPass(RenderPassType::Forward);
-    renderer.drawFrame(RenderPassType::Forward, frameData.sceneData, getMaterialSystem().materialDescriptor());
-    renderer.endPass(RenderPassType::Forward);
+    getRenderer().beginPass(RenderPassType::Forward);
+    getRenderer().execute(RenderPassType::Forward, getMaterialSystem().materialDescriptor());
+    getRenderer().endPass(RenderPassType::Forward);
 
-    renderer.endFrame(framebufferResized);
+    getRenderer().endFrame(framebufferResized);
 }
 
 // Revise the separation between event dispatching and inputing
@@ -225,7 +233,7 @@ void HelloTriangleApplication::update(float dt)
         mainLoopMouseState.prevXY = mainLoopMouseState.XY;
     }
 
-    //Update descritpor buffer
+    // Update descritpor buffer
     getScene().updateLights(dt);
     getScene().updateShadows();
 
@@ -234,11 +242,19 @@ void HelloTriangleApplication::update(float dt)
 
     const auto sceneData = getScene().getSceneData();
     getRenderer().updateBuffer("CameraUBO", &sceneData, sizeof(SceneData));
-    const size_t sizeDirLght = lights.directionalCount * lights.dirLigthSize + sizeof(lights.directionalCount);
-    const size_t sizePtLght = lights.pointCount * lights.pointLightSize + sizeof(lights.pointCount);
-    getRenderer().updateBuffer("DirLghtUBO", &lights, sizeDirLght);
-    getRenderer().updateBuffer("PtLghtSSBO", &lights + sizeDirLght, sizePtLght);
-    //getRenderer().updateBuffer("ShdwSSBO", );
+    const size_t sizeDirLght = 5 * lights.dirLigthSize + sizeof(uint32_t);
+    const size_t sizePtLght = 5 * lights.pointLightSize + sizeof(uint32_t);
+    const size_t sizeCascade = sizeof(Cascade) * MAX_SHDW_CASCADES;
+
+    if (lights.directionalCount > 0)
+    {
+        getRenderer().updateBuffer("DirLghtUBO", &lights, sizeDirLght);
+    }
+    if (lights.pointCount > 0)
+    {
+        getRenderer().updateBuffer("PtLghtSSBO", &lights + sizeDirLght, sizePtLght);
+    }
+    getRenderer().updateBuffer("ShdwSSBO", shadow.cascades.data(), sizeCascade);
 }
 
 void HelloTriangleApplication::onEvent(Event &event)

@@ -54,7 +54,10 @@ struct Mesh : AssetBase
         uint32_t indexCount;
         uint32_t vertexOffset;
         uint32_t materialId;
+        //Remove ?  Use Sphere ?
+        Extents subBbox;
     };
+
     std::vector<Submesh> submeshes;
     std::vector<AssetID<Material>> materialIds;
 

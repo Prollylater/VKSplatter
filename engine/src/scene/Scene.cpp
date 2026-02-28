@@ -1,14 +1,13 @@
 #include "Scene.h"
 #include <unordered_set>
 
-// Todo:: Add user function to handle this 
+// Todo:: Add user function to handle this
 Scene::Scene()
 {
-    glm::vec3 lightDir = (glm::vec3(-1.5f, 1.0f, 4.3f));
-
+    glm::vec3 lightDir = (glm::vec3(0.8f, -0.5f, 1.0f));
     uint32_t lastLight = lights.addDirLight({glm::vec4(lightDir, 0.0), glm::vec4(1.0, 1.0, 1.0, 0.0), 1.0});
     lights.enableShadow(lastLight);
-    
+
     // lights.addDirLight({glm::vec4(0.5, -1.0, 0.0, 0.0), glm::vec4(0.2, 0.0, 1.0, 0.0), 1.0});
     // lights.addPointLight({glm::vec4(0.0, 1.0, 0.5, 0.0), glm::vec4(1.0, 1.0, 0.0, 0.0), 1.5, 1.5});
     // lights.addPointLight({glm::vec4(-0.0, 0.0, 0.5, 0.0), glm::vec4(0.0, 1.0, 1.0, 0.0), 0.5, 0.5});
@@ -89,26 +88,38 @@ LightPacket Scene::getLightPacket() const
         ptLights.push_back(inst.light);
     };
 
-    return {directionalLights, lights.dirLightCount(), ptLights, lights.pointLightCount()};
+    LightPacket packet{};
+    packet.directionalCount = static_cast<uint32_t>(directionalLights.size());
+    std::memcpy(packet.directionalLights, directionalLights.data(),
+                packet.directionalCount * sizeof(DirectionalLight));
+
+    packet.pointCount = static_cast<uint32_t>(ptLights.size());
+    std::memcpy(packet.pointLights, ptLights.data(),
+                packet.pointCount * sizeof(PointLight));
+
+    return packet;
 }
 
 ShadowPacket Scene::getShadowPacket() const
 {
-
     const auto &dirLights = lights.getDirLights();
+    ShadowPacket packet;
 
-    std::vector<std::array<Cascade, MAX_SHDW_CASCADES>> cascades;
     for (const auto &inst : dirLights)
     {
         if (!inst.shadow.has_value())
-        {
             continue;
-        }
 
-        cascades.push_back(inst.shadow->cascades);
+        const auto &lightCascades = inst.shadow->cascades;
+        packet.cascades.insert(packet.cascades.end(),
+                               lightCascades.begin(),
+                               lightCascades.end());
+        packet.cascadeOffsets.push_back(packet.cascades.size());
+        packet.cascadeCounts.push_back(lightCascades.size());
+        // MAX_SHDW_CASCADES
     }
 
-    return {cascades, cascades.size()};
+    return packet;
 }
 
 void Scene::updateLights(float deltaTime)
@@ -151,6 +162,7 @@ VisibilityFrame extractRenderFrame(const Scene &scene,
     //  Notes: We woudl flatten SceneNodes into RenderObjectFrames if we had hierarchy
     for (auto &node : scene.nodes)
     {
+        const auto &mesh = registry.get(node.mesh);
         if (!node.visible || node.instanceNb() == 0)
         {
             // We might still want to upload first timer actually
@@ -161,6 +173,7 @@ VisibilityFrame extractRenderFrame(const Scene &scene,
         std::vector<VisibleObject::VisibleInstance> visibleInstances;
         for (uint32_t instIdx = 0; instIdx < node.instanceNb(); ++instIdx)
         {
+            // Should be a bit more than that
             glm::vec3 worldPos = node.getTransform(instIdx).getPosition();
             Extents worldExtents = node.nodeExtents;
             worldExtents.translate(worldPos);
@@ -177,10 +190,21 @@ VisibilityFrame extractRenderFrame(const Scene &scene,
             data.instanceKey = key;
             // Todo: Always dirty until i handle scene update
             data.transformDirty = true;
+
+            for (int i = 0; i < mesh->submeshes.size(); i++)
+            {
+                const auto& submesh = mesh->submeshes[i];
+                Extents subExtents = node.nodeExtents;
+                subExtents.translate(worldPos);
+
+                if (testAgainstFrustum(frame.sceneData.viewproj, submesh.subBbox))
+                {
+                    data.visibleSubmesh.push_back(i);
+                }
+            }
             visibleInstances.push_back(data);
         }
 
-        const auto &mesh = registry.get(node.mesh);
 
         // Create one RenderObjectFrame per submesh, sharing visibleInstances
         // Notes: Ideally visibile instance array wouldn'( be duplicated)
@@ -191,9 +215,6 @@ VisibilityFrame extractRenderFrame(const Scene &scene,
         // rof.vertexOffset = 0;
         rof.visibleInstances = visibleInstances;
         frame.objects.push_back(std::move(rof));
-        // rof.instanceData = node.getGenericData(instIdx);
-        //  rof.worldExtents = node.nodeExtents;
-        // rof.layout = node.layout;
     }
 
     return frame;

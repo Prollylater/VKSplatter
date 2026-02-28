@@ -59,9 +59,9 @@ void RenderScene::updateFrameSync(
 
                 description.size = mesh->indices.size() * sizeof(uint32_t);
                 description.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-                
+
                 //"Cheat", now that usage doesn't define the key buy key remain widely used
-                //Le
+                // Le
                 query.id++;
                 idxKey = registry.addBuffer(query, description);
                 allocation.size = description.size;
@@ -73,44 +73,67 @@ void RenderScene::updateFrameSync(
             {
 
                 vtxKey = vtxKeyTmp;
-                idxKey = BufferKey{rof.mesh.getID()+1};
+                idxKey = BufferKey{rof.mesh.getID() + 1};
             }
         }
-        
-        for (uint32_t submeshIdx = 0; submeshIdx < mesh->submeshes.size(); submeshIdx++)
+
+        std::vector<std::vector<uint32_t>> buckets;
+        buckets.resize(mesh->submeshes.size());
+
+        for (uint32_t submeshIdx = 0;
+             submeshIdx < mesh->submeshes.size();
+             ++submeshIdx)
         {
-            uint64_t drawableKey = (uint64_t(rof.mesh.getID()) << 32 | submeshIdx);
+            uint64_t drawableKey =
+                (uint64_t(rof.mesh.getID()) << 32 | submeshIdx);
+
             Drawable &drawable = drawables[drawableKey];
 
-            // Upload Material if it doesn't exist
-            auto materialID = mesh->materialIds[mesh->submeshes[submeshIdx].materialId];
+            auto materialID =
+                mesh->materialIds[mesh->submeshes[submeshIdx].materialId];
+
             drawable.vtxBuffer = vtxKey;
             drawable.idxBuffer = idxKey;
             drawable.materialGPU = matSystem.requestMaterial(materialID);
             drawable.indexOffset = mesh->submeshes[submeshIdx].indexOffset;
             drawable.indexCount = mesh->submeshes[submeshIdx].indexCount;
 
-            uint32_t firstInstance = UINT32_MAX;
+            drawable.instanceRanges.clear();
+            buckets.reserve(rof.visibleInstances.size());
+        }
 
-            // Query valid instance and update if needed
-            std::vector<uint32_t> instanceIDs;
-            instanceIDs.reserve(rof.visibleInstances.size());
-            for (const auto &inst : rof.visibleInstances)
+        for (const auto &inst : rof.visibleInstances)
+        {
+            uint32_t instanceID = getOrAssignInstance(inst.instanceKey);
+
+            if (inst.transformDirty)
             {
-                uint32_t instanceID = getOrAssignInstance(inst.instanceKey);
-
-                if (inst.transformDirty)
-                {
-                    istBufferRef.updateElement(ctx, &inst.transform, instanceID, sizeof(InstanceTransform));
-                }
-
-                instanceIDs.push_back(instanceID);
+                istBufferRef.updateElement(
+                    ctx,
+                    &inst.transform,
+                    instanceID,
+                    sizeof(InstanceTransform));
             }
+
+            for (const auto submeshIdx : inst.visibleSubmesh)
+            {
+                buckets[submeshIdx].push_back(instanceID);
+            }
+        }
+
+        for (uint32_t submeshIdx = 0;
+             submeshIdx < mesh->submeshes.size();
+             ++submeshIdx)
+        {
+            auto &instanceIDs = buckets[submeshIdx];
 
             if (instanceIDs.empty())
-            {
                 continue;
-            }
+
+            uint64_t drawableKey =
+                (uint64_t(rof.mesh.getID()) << 32 | submeshIdx);
+
+            Drawable &drawable = drawables[drawableKey];
 
             // Sort & build ranges
             std::sort(instanceIDs.begin(), instanceIDs.end());
@@ -132,10 +155,6 @@ void RenderScene::updateFrameSync(
             }
 
             drawable.instanceRanges.push_back({start, count});
-
-            // Drawable are one instance of a submesh
-            // This put it in instances [all submeshes] order
-            // submeshe [all instances] would be pre grouped to some degree
         }
     }
 }

@@ -92,7 +92,7 @@ void updateCascadeShadows(LightSystem &lights, const Camera &camera)
     glm::mat4 camView = camera.getViewMatrix();
     glm::mat4 camProj = camera.getProjectionMatrix();
     //Match VUlkan scene
-    camProj[1][1] *= -1;
+    //camProj[1][1] *= -1;
 
 
     float near = camera.getNearPlane();

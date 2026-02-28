@@ -34,10 +34,12 @@ struct alignas(16) SceneData
 // Todo: Alignment
 struct alignas(16) LightPacket
 {
-    std::vector<DirectionalLight> directionalLights;
+    DirectionalLight directionalLights[5] = {}; 
     uint32_t directionalCount;
-    std::vector<PointLight> pointLights;
+
+    PointLight pointLights[5] = {};            
     uint32_t pointCount;
+
 
     static constexpr uint32_t dirLigthSize = sizeof(DirectionalLight);
     static constexpr uint32_t pointLightSize = sizeof(PointLight);
@@ -45,10 +47,9 @@ struct alignas(16) LightPacket
 
 struct ShadowPacket
 {
-    std::vector<std::array<Cascade, MAX_SHDW_CASCADES>> cascades;
-    uint32_t shadowCount;
-
-    static constexpr uint32_t shadowSize = sizeof(Cascade);
+    std::vector<Cascade> cascades; 
+    std::vector<uint32_t> cascadeOffsets;  
+    std::vector<uint32_t> cascadeCounts;  
 };
 
 // Skip if GPU culling ?
@@ -60,27 +61,17 @@ struct VisibleObject
         uint64_t instanceKey;
         InstanceTransform transform; // only filled if needsUpload
         bool transformDirty;
+
+        std::vector<uint32_t> visibleSubmesh;
     };
 
     std::vector<VisibleInstance> visibleInstances;
-
-    /*
-    InstanceLayout layout;
-    std::vector<uint8_t> instanceData;
-*/
-    // Gpu Culling
-    // Extents worldExtents;
-
-    // For sorting
-    // uint32_t pipelineIndex = 0;
 };
 
 // Todo:  Better name
 struct VisibilityFrame
 {
     std::vector<VisibleObject> objects;
-    // Visibility perqueue here too maybe
-    //  Notes: Could be per pass
     SceneData sceneData;
     LightPacket lightData;
 };

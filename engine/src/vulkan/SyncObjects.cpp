@@ -56,6 +56,7 @@ void FrameSyncObjects::waitFenceSignal(VkDevice device) const
 {
     uint64_t timeout = UINT64_MAX;
     VkResult result = vkWaitForFences(device, 1, &inFlightFences, VK_TRUE, timeout);
+
     if (VK_SUCCESS != result)
     {
         throw std::runtime_error("Waiting on fence failed!");
@@ -65,6 +66,7 @@ void FrameSyncObjects::waitFenceSignal(VkDevice device) const
 void FrameSyncObjects::resetFence(VkDevice device) const
 {
     VkResult result = vkResetFences(device, 1, &inFlightFences);
+    
     if (VK_SUCCESS != result)
     {
         throw std::runtime_error("Reseting fence failed!");

@@ -12,12 +12,12 @@ Camera::Camera()
       fov(45.0f),
       aspect(16.0f / 9.0f),
       nearPlane(0.1f),
-      farPlane(100.0f)
+      farPlane(10000.0f)
 {
     updateCameraVectors();
     //Read more on this convention
     //perspectiveRH_ZO
-  //  projection = glm::perspective(glm::radians(fov), aspect, nearPlane, farPlane);
+    //projection = glm::perspective(glm::radians(fov), aspect, nearPlane, farPlane);
     projection = glm::perspective(glm::radians(fov), aspect, nearPlane, farPlane);
 
 }

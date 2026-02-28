@@ -6,10 +6,6 @@ layout(set = 0, binding = 0) uniform SceneData{
 	vec4 ambientColor;
 } sceneUBO;
 
-layout(push_constant) uniform UniformBufferObjectB {
-    mat4 viewproj;
-} uboB;
-
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec2 inTexCoord;
@@ -77,13 +73,14 @@ mat4 worldMatrix(vec3 pos, float scale, vec4 quat)
 }
 
 ///////////////////////////////////////
-void main() {// worldMat*
+void main() {
     mat4 worldMat = worldMatrix(instancesData.data[gl_InstanceIndex].pos_scale.xyz, instancesData.data[gl_InstanceIndex].pos_scale.w, instancesData.data[gl_InstanceIndex].rotation);
-    gl_Position =(uboB.viewproj * vec4(inPosition + instancesData.data[gl_InstanceIndex].pos_scale.xyz, 1.0));
+    
+    fragPos = (worldMat * vec4(inPosition, 1.0)).xyz;
+    gl_Position =(sceneUBO.viewproj *vec4(fragPos, 1.0)) ;
 
-    fragPos = inPosition;
-    //fragNormal = worldMat * vec4(inNormal, 1.0);
-    fragNormal =  inNormal;
+
+    fragNormal = inNormal ;
     fragTexCoord = inTexCoord;
 
 }

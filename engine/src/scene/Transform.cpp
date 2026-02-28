@@ -9,12 +9,6 @@ inline glm::mat4 composeTRS(
     return glm::translate(glm::mat4(1.0f), t) * glm::toMat4(r) * glm::scale(glm::mat4(1.0f), s);
 }
 
-Transform::Transform()
-    : position{}, rotation{}, scale{1, 1, 1},
-      localDirty(true), worldDirty(true),
-      parent(nullptr)
-{
-}
 
 Transform::Transform(const glm::vec3 &p)
     : Transform()

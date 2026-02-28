@@ -214,7 +214,8 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
                         mesh->positions.emplace_back(pos);
                         mesh->normals.emplace_back(norm);
                         mesh->uvs.emplace_back(uv);
-                        mesh->bndbox.expand(pos);
+                        submesh.subBbox.expand(pos);
+                        //mesh->bndbox.expand(pos);
                     }
                     mesh->indices.emplace_back(uniqueVertices[vertex]);
                 }
@@ -224,6 +225,7 @@ AssetID<Mesh> AssetSystem::loadMeshWithMaterials(const std::string &filename)
                 static_cast<uint32_t>(mesh->indices.size()) - submesh.indexOffset;
             submesh.vertexOffset = static_cast<uint32_t>(mesh->positions.size());
 
+            mesh->bndbox.expand(submesh.subBbox);
             mesh->submeshes.push_back(submesh);
         }
     }

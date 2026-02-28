@@ -133,7 +133,6 @@ void FrameHandler::destroyFrameData(VkDevice device)
         vkDestroyImageView(device, depth, nullptr);
     }
     frameData.cascadePoolArray.destroyImage(device);
-    frameData.mShadowBuffer.destroyBuffer(device);
 };
 
 // Todo: Remove this method

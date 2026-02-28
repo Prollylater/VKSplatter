@@ -52,8 +52,6 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   // Todo: automatically resolve this kind of stuff
   auto vf = VertexFormatRegistry::getStandardFormat();
 
-  PipelineLayoutConfig sceneConfig{{mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0), mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(1)}, pushConstants};
-
   int pipelineEntryIndex = 0;
   int pipelineEntryIndexShadow = 0;
 
@@ -62,22 +60,46 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
   const std::string fragPath = "./ressources/shaders/frag.spv";
 
   auto layout = MaterialLayoutRegistry::Get(MaterialType::PBR);
-  {
-    // resolve materials globally
-    auto &matDescriptors = system.materialDescriptor();
-    int matLayoutIdx = matDescriptors.getOrCreateSetLayout(device, layout.bindings);
-    sceneConfig.descriptorSetLayouts.push_back(matDescriptors.getDescriptorLat(matLayoutIdx));
+  auto &matDescriptors = system.materialDescriptor();
 
+  {
     for (const auto &passes : mPassesHandler.getExecutions())
     {
+      PassBackend pass = mPassesHandler.getBackend(passes);
+      PipelineLayoutConfig config;
+
+      if (pass.activeScopesMask & (1 << static_cast<uint32_t>(DescriptorScope::Global)))
+      {
+        config.descriptorSetLayouts.push_back(mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(0));
+      }
+
+      if (pass.activeScopesMask & (1 << static_cast<uint32_t>(DescriptorScope::Instances)))
+      {
+        config.descriptorSetLayouts.push_back(mFrameHandler.getCurrentFrameData().mDescriptor.getDescriptorLat(1));
+      }
+
+      if (pass.activeScopesMask & (1 << static_cast<uint32_t>(DescriptorScope::Material)))
+      {
+        int matLayoutIdx = matDescriptors.getOrCreateSetLayout(device, layout.bindings);
+        config.descriptorSetLayouts.push_back(matDescriptors.getDescriptorLat(matLayoutIdx));
+      }
+
+      if (pass.activeScopesMask & (1 << static_cast<uint32_t>(DescriptorScope::Passes)))
+      {
+        auto &passesDescriptor = mPassesHandler.getDescriptors();
+        config.descriptorSetLayouts.push_back(passesDescriptor.getDescriptorLat(pass.descriptorSetIndex));
+      }
+
+      // Now request the pipeline with a predictable layout
+      pipelineEntryIndex = requestPipeline(config, vertPath, fragPath, passes);
       if (passes == RenderPassType::Forward)
       {
-        pipelineEntryIndex = requestPipeline(sceneConfig, vertPath, fragPath, passes);
+        pipelineEntryIndex = requestPipeline(config, vertPath, fragPath, passes);
       }
       else
       {
         auto shadowPath = cico::fs::shaders() / "shadow.spv";
-        pipelineEntryIndexShadow = requestPipeline(sceneConfig, shadowPath, "", RenderPassType::Shadow);
+        pipelineEntryIndexShadow = requestPipeline(config, shadowPath, "", passes);
       }
     }
   }
@@ -94,23 +116,14 @@ void Renderer::initRenderingRessources(Scene &scene, const AssetRegistry &regist
     }
   }
 
-  // This can't stay longterm
-  // Get the light packet from the scene dynamically later
-  // Todo: Result of Frames tied light
-  LightPacket lights = scene.getLightPacket();
-  scene.updateShadows();
-  ShadowPacket shadow = scene.getShadowPacket();
-
   for (int i = 0; i < mFrameHandler.getFramesCount(); i++)
   {
-
-    uint8_t *shadowMapping = static_cast<uint8_t *>(mFrameHandler.getCurrentFrameData().mShadowMapping);
 
     int frameIndex = mFrameHandler.getCurrentFrameIndex();
     auto istBufferRef = mGpuRegistry.getBuffer(mRScene.instanceBuffer, frameIndex);
     auto &descriptor = mFrameHandler.getCurrentFrameData().mDescriptor;
 
-    VkDescriptorBufferInfo istSSBO = istBufferRef.buffer->getDescriptor();
+    VkDescriptorBufferInfo istSSBO = istBufferRef.getDescriptor();
 
     std::vector<VkWriteDescriptorSet> writes = {
         vkUtils::Descriptor::makeWriteDescriptor(descriptor.getSet(1), 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &istSSBO),
@@ -226,12 +239,12 @@ void Renderer::setupFramesDescriptor(DescriptorScope scope, std::vector<Resource
   }
 }
 
-void Renderer::updateBuffer(const std::string &name, const void *data, size_t size)
+void Renderer::updateBuffer(const std::string &name, const void *data, size_t size, size_t offset)
 {
   uint32_t currentFrame = mFrameHandler.getCurrentFrameIndex();
 
   auto info = mGpuRegistry.getBuffer(name, currentFrame);
-  info.uploadData(*mContext, data, size);
+  info.uploadData(*mContext, data, size, offset);
 }
 
 void Renderer::updateRenderingScene(const VisibilityFrame &vFrame, const AssetRegistry &registry, MaterialSystem &matSystem)
@@ -396,6 +409,32 @@ void Renderer::endPass(RenderPassType type)
   mPassesHandler.endPass(type, cmd);
 };
 
+void Renderer::execute(RenderPassType type, const DescriptorManager &materialDescriptor)
+{
+  PassBackend &backend = mPassesHandler.getBackend(type);
+  FrameResources &frameRess = mFrameHandler.getCurrentFrameData();
+  VkCommandBuffer cmd = frameRess.mCommandPool.get();
+
+  RenderContext ctx = {
+      cmd,
+      mFrameHandler.getCurrentFrameIndex(),
+      backend,
+      mGpuRegistry,
+      mPipelineM,
+      materialDescriptor,
+      mPassesHandler.getDescriptors(),
+      frameRess};
+
+  if (backend.execute)
+  {
+    backend.execute(ctx);
+  }
+  else
+  {
+    ctx.drawDefaultQueues();
+  }
+}
+
 // Handle non Material object
 void Renderer::drawFrame(RenderPassType type, const SceneData &sceneData, const DescriptorManager &materialDescriptor)
 {
@@ -411,7 +450,7 @@ void Renderer::drawFrame(RenderPassType type, const SceneData &sceneData, const 
 
   // Draw all queues
   auto &pass = mPassesHandler.getBackend(type);
-  auto& currentFrameSets = pass.scopedSets[mFrameHandler.getCurrentFrameIndex()];
+  auto &currentFrameSets = pass.scopedSets[mFrameHandler.getCurrentFrameIndex()];
   for (const PassQueue &queue : pass.frames.queues)
   {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineM.getPipeline(queue.pipelineIndex));
@@ -427,12 +466,15 @@ void Renderer::drawFrame(RenderPassType type, const SceneData &sceneData, const 
       uint32_t count = 0;
 
       // We check the pass's mask to see which slots to fill
-      
-          
-      if (pass.activeScopesMask & (1 << 0)) sets[count++] = frameRess.mDescriptor.getSet(0);
-      if (pass.activeScopesMask & (1 << 1)) sets[count++] = frameRess.mDescriptor.getSet(1);
-      if (pass.activeScopesMask & (1 << 2)) sets[count++] = materialDescriptor.getSet(materialGpu->descriptorIndex);
-      if (pass.activeScopesMask & (1 << 3)) sets[count++] = mPassesHandler.getDescriptors().getSet(pass.descriptorSetIndex);
+
+      if (pass.activeScopesMask & (1 << 0))
+        sets[count++] = frameRess.mDescriptor.getSet(0);
+      if (pass.activeScopesMask & (1 << 1))
+        sets[count++] = frameRess.mDescriptor.getSet(1);
+      if (pass.activeScopesMask & (1 << 2))
+        sets[count++] = materialDescriptor.getSet(materialGpu->descriptorIndex);
+      if (pass.activeScopesMask & (1 << 3))
+        sets[count++] = mPassesHandler.getDescriptors().getSet(pass.descriptorSetIndex);
 
       vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                               mPipelineM.getPipelineLayout(queue.pipelineIndex), 0,
@@ -446,8 +488,8 @@ void Renderer::drawFrame(RenderPassType type, const SceneData &sceneData, const 
 
       vkCmdBindVertexBuffers(cmd, 0, 1, &vtxBuffer, offsets);
       vkCmdBindIndexBuffer(cmd, idxBuffer, 0, VK_INDEX_TYPE_UINT32);
-      vkCmdPushConstants(cmd, mPipelineM.getPipelineLayout(queue.pipelineIndex),
-                         VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &sceneData.viewproj);
+      // vkCmdPushConstants(cmd, mPipelineM.getPipelineLayout(queue.pipelineIndex),
+      //                    VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &sceneData.viewproj);
 
       // Draw
       for (auto &instRange : draw->instanceRanges)

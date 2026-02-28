@@ -248,7 +248,7 @@ void RenderPassHandler::updateDynamicRenderingInfo(
     // Todo:
     // Technically there's probably only one present Attachments ?
     colorInfos.clear();
-    backend.dynamicInfo.depthAttachment = {};
+    depthInfo = {};
 
     const auto &subpass = backend.config.subpasses[0];
 
@@ -283,7 +283,7 @@ void RenderPassHandler::updateDynamicRenderingInfo(
 
         VkImageView view = resolveAttachment(binding.source);
 
-        backend.dynamicInfo.depthAttachment = {
+        depthInfo = {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
             .imageView = view,
             .imageLayout = depthRef.layout,
@@ -320,6 +320,9 @@ void RenderPassHandler::destroyRessources(VkDevice device)
         }
         // Config is preserved
     }
+
+    mDescriptorManager.destroyDescriptorLayout(device);
+    mDescriptorManager.destroyDescriptorPool(device);
 }
 
 VkImageView RenderPassHandler::resolveAttachment(const AttachmentSource &src)
@@ -418,5 +421,76 @@ VkExtent2D RenderPassHandler::resolveAttachmentExtent(const AttachmentSource &sr
     case AttachmentSource::Type::Swapchain:
     default:
         return mContext->getSwapChainManager().getSwapChainExtent();
+    }
+}
+
+///////////////////////////////////////////////////
+
+void RenderContext::bindDescriptorSets(uint32_t pipelineIndex, uint32_t materialIndex) const
+{
+    VkPipelineLayout layout = pipelines.getPipelineLayout(pipelineIndex);
+
+    std::array<VkDescriptorSet, 4> sets;
+    uint32_t count = 0;
+
+    if (backend.activeScopesMask & (1 << 0))
+    {
+        sets[count++] = frameRess.mDescriptor.getSet(0);
+    }
+    if (backend.activeScopesMask & (1 << 1))
+    {
+        sets[count++] = frameRess.mDescriptor.getSet(1);
+    }
+    if (backend.activeScopesMask & (1 << 2))
+    {
+        sets[count++] = materialDescriptors.getSet(materialIndex);
+    }
+    if (backend.activeScopesMask & (1 << 3))
+    {
+        sets[count++] = passDescriptors.getSet(backend.descriptorSetIndex);
+    }
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, count, sets.data(), 0, nullptr);
+}
+
+void RenderContext::bindGeometry(BufferKey vtxHandle, BufferKey idxHandle) const
+{
+    auto vtxGpu = registry.getBuffer(vtxHandle);
+    auto idxGpu = registry.getBuffer(idxHandle);
+
+    VkDeviceSize offsets[] = {0};
+    VkBuffer vBuf = vtxGpu.buffer->getBuffer();
+    vkCmdBindVertexBuffers(cmd, 0, 1, &vBuf, offsets);
+    vkCmdBindIndexBuffer(cmd, idxGpu.buffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+}
+
+void RenderContext::pushConstants(uint32_t pipelineIndex, VkShaderStageFlags stageFlags, const void *data, uint32_t size) const
+{
+    vkCmdPushConstants(cmd, pipelines.getPipelineLayout(pipelineIndex),
+                       stageFlags, 0, size, data);
+}
+
+void RenderContext::drawIndexed(const struct Drawable *draw) const
+{
+    for (auto &instRange : draw->instanceRanges)
+    {
+        vkCmdDrawIndexed(cmd, draw->indexCount, instRange.count, draw->indexOffset, 0, instRange.first);
+    }
+}
+
+void RenderContext::drawDefaultQueues() const
+{
+    for (const auto &queue : backend.frames.queues)
+    {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.getPipeline(queue.pipelineIndex));
+
+        for (auto *draw : queue.drawCalls)
+        {
+            auto *matGpu = registry.getMaterial(draw->materialGPU);
+
+            bindDescriptorSets(queue.pipelineIndex, matGpu->descriptorIndex);
+            bindGeometry(draw->vtxBuffer, draw->idxBuffer);
+            drawIndexed(draw);
+        }
     }
 }

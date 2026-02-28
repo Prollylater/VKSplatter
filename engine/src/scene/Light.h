@@ -10,17 +10,17 @@
 struct alignas(16) DirectionalLight
 {
     // Could be vec3
-    glm::vec4 direction;
-    glm::vec4 color;
-    float intensity;
+    glm::vec4 direction{};
+    glm::vec4 color{};
+    float intensity{};
 };
 
 struct alignas(16) PointLight
 {
-    glm::vec4 position;
-    glm::vec4 color;
-    float intensity;
-    float radius;
+    glm::vec4 position{};
+    glm::vec4 color{};
+    float intensity{};
+    float radius{};
 };
 
 struct alignas(16) AreaLight

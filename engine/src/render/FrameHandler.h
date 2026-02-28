@@ -14,9 +14,6 @@ struct FrameResources
     FrameSyncObjects mSyncObjects;
     DescriptorManager mDescriptor;
 
-    Buffer mShadowBuffer;
-    void *mShadowMapping;
-
     //Notes: Currently always 1024*1024
     Image cascadePoolArray;
     std::vector<VkImageView> depthView;

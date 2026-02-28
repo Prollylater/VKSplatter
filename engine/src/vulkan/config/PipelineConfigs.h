@@ -186,6 +186,7 @@ struct PipelineSetLayoutBuilder
 // But hten Material would need to output it ?
 //  PipelineSetLayoutBuilder materialLayoutInfo;
 //  Introduce information too much tied to the Pipeline here
+
 struct MaterialLayoutRegistry
 {
     static const PipelineSetLayoutBuilder &Get(MaterialType type)
